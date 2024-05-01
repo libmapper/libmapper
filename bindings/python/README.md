@@ -1,9 +1,10 @@
 # libmapper
 
-_libmapper_ is an open-source cross-platform software library for participating in a distributed network of input and output signals which can be dynamically connected ("mapped").
-A "mapping", or "connection" associated with relational properties, represents an Open Sound Control stream between one or more source signals and a destination signal – the 
-sources are translated to the destination's expected format, with some mathematical expression used to condition the transmitted values as desired. This can be used for example to 
-connect a set of sensors to a synthesizer's input parameters. The library is written in C, and bindings exist for C++, C#, Python, Java, SuperCollider, Max, and Pure Data.
+_libmapper_ is an open-source cross-platform software library for participating in a distributed network of input and output signals which can be dynamically connected together ("mapped").
+
+A "mapping" represents a data-streaming association between one or more source signals and a destination signal, in which data is transported using either shared memory or Open Sound Control (OSC) streams over a network. In addition to traffic management, libmapper automatically handles address and datatype translation, and enables the use of arbitrary mathematical expressions for conditioning, combining and transforming the source values as desired. This can be used for example to connect a set of sensors to a synthesizer's input parameters.
+
+This document concerns the Python bindings. The library is written in C, and there are also bindings for C++, C#, Java, SuperCollider, Max, and Pure Data.
 
 ## Installation
 

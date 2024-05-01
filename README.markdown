@@ -112,13 +112,13 @@ work.  We evaluated the use of ZeroConf early on in this work, but we eventually
 decided that sending OSC messages over multicast was just as easy and required
 the integration of fewer dependencies.  With the addition of being able to
 control message routing and to dynamically specify [signal conditioning
-equations](./doc/expression_syntax.md), we feel this work represents a significant enough effort that it is
-worth making available to the general public.
+equations](./doc/expression_syntax.md), we feel this work represents a significant
+enough effort that it is worth making available to the general public.
 
 It can also be seen as an open source alternative to some commercial products
 such as Camille Troillard's [Osculator](http://www.osculator.net/) and STEIM's
-[junXion](http://www.steim.org/steim/junxion_v4.html), albeit certainly more
-"barebones" for the moment.
+(now defunct) [junXion](https://web.archive.org/web/20160304035032/http://steim.org/product/junxion/)
+(archive.org).
 
 In addition to passing signal data through mapping connections, libmapper
 provides the ability to query or stream the state of the inputs on a destination
@@ -128,21 +128,33 @@ machine learning techniques to "learn" mappings automatically.
 A major difference in libmapper's approach to handling devices is the idea that
 each "driver" can be a separate process, on the same or different machines in
 the network.  By creating a C library with a basic interface and by providing
-Python and Java bindings, we hope to enable a very wide variety of programming
-language bindings.
+language bindings for popular programming languages, we hope to support interaction
+between a large number of technologies and collaboration between a large number of
+programmers, artists, and others.
 Another advantage of a C library is portability: we have demonstrated libmapper
-working on a Gumstix device, an ethernet-enabled ARM-based microcomputer running
-Linux that can be easily embedded directly into an instrument.
+working on a variety of embedded devices and single-board computers.
 
-We also provide "external" Max/MSP and [PureData](http://puredata.info) objects,
-to help integrate libmapper support into programs created in these popular
-dataflow languages.
+In addition to bindings for C++, C#, Python, and Java, this repository contains
+examples explaining how to use libmapper with [Blender][./doc/intergration_examples/Blender]
+and [MediaPipe](./doc/intergration_examples/MediaPipe), and separate repositories
+provide bindings or plugins for [Max and PureData](https://github.com/libmapper/libmapper-max),
+[SuperCollider](https://github.com/libmapper/MapperUGen),
+[Ableton Live](https://github.com/libmapper/Mapper4Live),
+[TouchDesigner](https://github.com/libmapper/Mapper4TD), and
+[Godot](https://github.com/libmapper/libmapper-Godot). More plug-ins, modules, and
+bindings are in development, and community contributions are always welcome.
 
-*Convergent* (or *many-to-one*) mapping refers to situations in which multiple
-data sources are routed to a single destination.  In early versions of libmapper
-the updates from each source would simple be interleaved, but starting with
-version 0.4 signal processing can be applied that specifically addresses each
-source stream and allows arbitrary combining functions.
+
+## Brief list of features
+
+- *Convergent (or "many-to-one") mapping* -- for combining several data sources to
+control a destination
+- *Signal instancing* -- for representing phenomena that are multiplex, ephemeral, or both.
+- *UDP or TCP transport* -- signal transport can be configured at runtime
+- *Distributed, collaborative session management* using the web-based
+[WebMapper](https://github.com/libmapper/webmapper), CLI
+[umapper](https://github.com/libmapper/umapper), or Python module
+[mappersession](https://github.com/libmapper/mappersession)
 
 Known limitations
 -----------------
@@ -153,7 +165,8 @@ homogeneous vectors numbers (integer, float, or double) rather than allowing
 more complex structured data, since we believe that configurability and
 complatibility are best served when *models* are not embedded in the protocol.
 Using libmapper, complex data structures should be represented as collections
-of well-labeled signals.
+of well-labeled signals. Updates to these structures can be easily coordinated
+using the libmapper API.
 
 If libmapper is to be used for visual art, transmission of matrixes or even
 image formats might be interesting but is not currently supported since there is
@@ -222,15 +235,18 @@ or from the libmapper page on the IDMIL website,
 Building and using libmapper
 ----------------------------
 
-Please see the separate [documentation for building libmapper](./doc/how_to_compile_and_run.md), [tutorials](./doc/tutorials) on using
-its API in C, C++, Python, Java, MaxMSP and Pure Data, and doxygen-generated [API
-documentation](./doc/html/index.html), in the "doc" directory.
+Please see the separate [documentation for building libmapper](./doc/how_to_compile_and_run.md),
+[tutorials](./doc/tutorials) on using its API in C, C++, C#, Python, Java, Max and Pure Data;
+and doxygen-generated [API documentation](./doc/html/index.html), in the "doc" directory.
 
 License
 -------
 
-This software was written in the Input Devices and Music Interaction Laboratory
-at McGill University in Montreal, and is copyright those found in the AUTHORS
+This software was primarily written in the
+[Input Devices and Music Interaction Laboratory (IDMIL)](https://www.idmil.org/)
+at McGill University in Montreal and the
+[Graphics and Experiential Media (GEM) Lab](https://gem.cs.dal.ca/) at
+Dalhousie University in Halifax, and is copyright those found in the AUTHORS
 file.  It is licensed under the GNU Lesser Public General License version 2.1 or
 later.  Please see COPYING for details.
 
@@ -243,11 +259,16 @@ Dependencies of libmapper are:
 
 * [liblo](http://liblo.sourceforge.net), LGPL
 
-Optional dependencies for the Python bindings:
+Optional dependencies for building bindings:
 
-* [Python](http://www.python.org), Python license, LGPL-compatible
+* Python bindings: [Python](http://www.python.org), Python license, LGPL-compatible
+* Java bindings: [openjdk](https://openjdk.org/), GPL license
+* C# bindings: [Mono](https://www.mono-project.com/), MIT license
 
 Used only in the examples:
 
-* [RtAudio](http://www.music.mcgill.ca/~gary/rtaudio), MIT license,
-  LGPL-compatible
+* [RtAudio](http://www.music.mcgill.ca/~gary/rtaudio), MIT license, LGPL-compatible
+* [pyo](https://github.com/belangeo/pyo), LGPL-3.0 license
+* [Qt for Python](https://wiki.qt.io/Qt_for_Python), LGPLv3/GPLv2 license
+* [MediaPipe](https://github.com/google/mediapipe), Apache-2.0 license
+* [Blender](https://www.blender.org/), GPL license

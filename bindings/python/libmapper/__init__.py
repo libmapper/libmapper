@@ -8,7 +8,7 @@ be dynamically created between them.
 A "mapping" represents a data-streaming association between one or more source signals and a
 destination signal, in which data is transported using either shared memory or Open Sound Control
 (OSC) streams over a network. In addition to traffic management, libmapper automatically handles
-address and datatype translation, and enables the use of arbitrary mathematical expression for
+address and datatype translation, and enables the use of arbitrary mathematical expressions for
 conditioning, combining and transforming the source values as desired. This can be used for example
 to connect a set of sensors to a synthesizer's input parameters.
 
