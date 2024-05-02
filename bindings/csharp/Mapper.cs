@@ -1035,7 +1035,11 @@ namespace Mapper
             int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
             long time = 0;
             void *val = mpr_sig_get_value(this._obj, instanceId, ref time);
-            return (BuildValue(len, type, val, 0), new Time(*(long*)time));
+            if (time == 0) { // signal not written to yet, so time is a null pointer
+                return (BuildValue(len, type, val, 0), new Time());
+            } else {
+                return (BuildValue(len, type, val, 0), new Time(*(long*)time));
+            }
         }
         // unsafe public dynamic GetValue(UInt64 instanceId = 0)
         // {
