@@ -251,6 +251,8 @@ namespace Mapper
         {
             if (0 == len)
                 return null;
+            if (value == null)
+                return null;
             switch (type)
             {
                 case (int)Type.Int32:
