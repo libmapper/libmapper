@@ -50,7 +50,7 @@ namespace Mapper
         // internal long _time;
 
         [StructLayout(LayoutKind.Explicit)]
-        public struct MprTimeStruct
+        internal struct timeStruct
         {
             [FieldOffset(0)]
             internal long ntp;
@@ -59,7 +59,7 @@ namespace Mapper
             [FieldOffset(4)]
             internal UInt32 frac;
         }
-        internal MprTimeStruct data;
+        internal timeStruct data;
 
         public Time(long ntp)
             { data.ntp = ntp; }
@@ -1030,14 +1030,14 @@ namespace Mapper
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        unsafe private static extern void* mpr_sig_get_value(IntPtr sig, UInt64 id, ref Time.MprTimeStruct time);
+        unsafe private static extern void* mpr_sig_get_value(IntPtr sig, UInt64 id, ref long time);
         unsafe public (dynamic, Time) GetValue(UInt64 instanceId = 0)
         {
             int len = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Length, null);
             int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
-            var time = new Time.MprTimeStruct();
+            long time = 0;
             void *val = mpr_sig_get_value(this._obj, instanceId, ref time);
-            return (BuildValue(len, type, val, 0), new Time(time.ntp));
+            return (BuildValue(len, type, val, 0), new Time(time));
         }
         // unsafe public dynamic GetValue(UInt64 instanceId = 0)
         // {
