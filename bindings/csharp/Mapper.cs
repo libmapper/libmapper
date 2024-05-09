@@ -1020,10 +1020,10 @@ namespace Mapper
             }
         }
 
-        public Signal SetValue<T>(T value)
+        public Signal SetValue<T>(T value, UInt64 instanceId = 0)
         {
             dynamic temp = value;
-            _SetValue(temp, 0);
+            _SetValue(temp, instanceId);
             return this;
         }
 
