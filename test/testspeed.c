@@ -36,6 +36,7 @@ int use_inst = 1;
 int iterations = 10000;
 int counter = 0;
 int received = 0;
+int matched = 0;
 int done = 0;
 
 double times[100];
@@ -107,26 +108,30 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
+        float fvalue = *(float*)value;
         if (inst < 0 || inst > NUM_INST - 1)
             printf("error: inst out of bounds!\n");
-        else if (*(float*)value != expected[inst])
+        else if (fvalue != expected[inst])
             printf("error: value[%d] %g != %g\n", (int)inst, *(float*)value, expected[inst]);
+        else
+            ++matched;
         if (++received >= iterations)
             switch_modes();
         if (use_inst) {
-            counter = (counter+1)%10;
-            ++expected[counter];
-            mpr_sig_set_value(sendsig, counter, length, type, value);
+            counter = (counter + 1) % 10;
+            fvalue = ++expected[counter];
+            mpr_sig_set_value(sendsig, counter, length, type, &fvalue);
         }
         else {
-            ++expected[0];
-            mpr_sig_set_value(sendsig, 0, length, type, value);
+            fvalue = ++expected[0];
+            mpr_sig_set_value(sendsig, 0, length, type, &fvalue);
         }
         mpr_dev_update_maps(mpr_sig_get_dev(sig));
     }
     else {
         const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
         eprintf("--> destination %s instance %ld got NULL\n", name, (long)inst);
+        mpr_sig_release_inst(sig, inst);
     }
 }
 
@@ -181,11 +186,9 @@ void wait_local_devs()
 void map_sigs()
 {
     mpr_map map;
-    const char *expr = "y=y{-1}+1";
 
     eprintf("Creating maps... ");
     map = mpr_map_new(1, &sendsig, 1, &recvsig);
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push((mpr_obj)map);
 
     /* wait until mapping has been established */
@@ -215,7 +218,7 @@ void switch_modes()
     if (++trial >= numTrials) {
         eprintf("SWITCHING MODES...\n");
         trial = 0;
-        mode++;
+        ++mode;
     }
     if (mode >= numModes) {
         done = 1;
@@ -229,7 +232,7 @@ void switch_modes()
             break;
         case 1:
             use_inst = 0;
-            for (i=1; i<10; i++) {
+            for (i = 1; i < 10; i++) {
                 mpr_sig_release_inst(sendsig, i);
             }
             break;
@@ -240,22 +243,27 @@ void switch_modes()
 
 void print_results()
 {
-    int i, j;
+    int i, j, sent = iterations * numModes * numTrials;
     double total_elapsed_time = 0;
 
     for (i = 0; i < numModes; i++) {
         for (j = 0; j < numTrials; j++)
             total_elapsed_time += times[i * numTrials + j];
     }
-    printf(" (%i messages in %f seconds).\n", iterations * numModes * numTrials,
-           total_elapsed_time);
+    printf(" (%i messages in %f seconds).\n", sent, total_elapsed_time);
     if (!verbose)
         return;
+
+    if (matched != sent) {
+        eprintf("Mismatch between sent and matched messages.\n");
+        eprintf("Updated value %d time%s, but matched %d of them.\n",
+                sent, sent == 1 ? "" : "s", matched);
+    }
 
     eprintf("\n*****************************************************\n");
     eprintf("\nRESULTS OF SPEED TEST:\n");
     for (i = 0; i < numModes; i++) {
-        float bestTime = times[i*numTrials];
+        float bestTime = times[i * numTrials];
         eprintf("MODE %i\n", i);
         for (j = 0; j < numTrials; j++) {
             eprintf("trial %i: %i messages processed in %f seconds\n", j,
@@ -271,7 +279,6 @@ void print_results()
 int main(int argc, char **argv)
 {
     int i, j, result = 0;
-    float value = (float)rand();
     char *iface = 0;
     mpr_graph g;
 
@@ -296,8 +303,8 @@ int main(int argc, char **argv)
                         verbose = 0;
                         break;
                     case '-':
-                        if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
-                            i++;
+                        if (strcmp(argv[i], "--iface") == 0 && argc > i + 1) {
+                            ++i;
                             iface = argv[i];
                             j = len;
                         }
@@ -331,17 +338,22 @@ int main(int argc, char **argv)
     map_sigs();
 
     expected[0] = 2;
-    for (i = 1; i < NUM_INST; i++)
-        expected[i] = 1;
+    for (i = 0; i < NUM_INST; i++)
+        expected[i] = (float)rand();
 
     /* start things off */
     eprintf("STARTING TEST...\n");
     times[0] = mpr_get_current_time();
-    mpr_sig_set_value(sendsig, counter, 1, MPR_FLT, &value);
+    mpr_sig_set_value(sendsig, counter, 1, MPR_FLT, &(expected[counter]));
     while (!done) {
         mpr_dev_poll(src, 0);
         mpr_dev_poll(dst, 0);
     }
+
+    if (matched != iterations * numModes * numTrials) {
+        result = 1;
+    }
+
     goto done;
 
   done:
@@ -350,9 +362,6 @@ int main(int argc, char **argv)
     if (g) mpr_graph_free(g);
     printf("\r..................................................Test %s\x1B[0m.",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
-    if (!result)
-        print_results();
-    else
-        printf(".\n");
+    print_results();
     return result;
 }
