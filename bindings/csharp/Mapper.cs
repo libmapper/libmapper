@@ -251,6 +251,8 @@ namespace Mapper
         {
             if (0 == len)
                 return null;
+            if (value == null)
+                return null;
             switch (type)
             {
                 case (int)Type.Int32:
@@ -1035,7 +1037,7 @@ namespace Mapper
             int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
             long time = 0;
             void *val = mpr_sig_get_value(this._obj, instanceId, ref time);
-            return (BuildValue(len, type, val, 0), new Time(*(long*)time));
+            return (BuildValue(len, type, val, 0), new Time(time));
         }
         // unsafe public dynamic GetValue(UInt64 instanceId = 0)
         // {
