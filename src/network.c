@@ -103,7 +103,7 @@ MPR_INLINE static void inform_device_subscribers(mpr_net net, mpr_local_dev dev)
     if (mpr_local_dev_has_subscribers(dev)) {
         trace_dev(dev, "informing subscribers (DEVICE)\n")
         mpr_net_use_subscribers(net, dev, MPR_DEV);
-        mpr_dev_send_state((mpr_dev)dev, MPR_DEV);
+        mpr_dev_send_state((mpr_dev)dev, MSG_DEV);
     }
 }
 
@@ -791,7 +791,7 @@ void mpr_net_maybe_send_ping(mpr_net net, int force)
             /* remove related data structures */
             mpr_graph_remove_link(gph, link, mapped ? MPR_OBJ_EXP : MPR_OBJ_REM);
             mpr_net_use_subscribers(net, (mpr_local_dev)local_dev, MPR_DEV);
-            mpr_dev_send_state(local_dev, MPR_DEV);
+            mpr_dev_send_state(local_dev, MSG_DEV);
         }
     }
 }
