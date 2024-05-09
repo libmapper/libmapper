@@ -1772,6 +1772,7 @@ int main(int argc, char **argv)
                         if (++j < len && strcmp(argv[i]+j, "num_iterations")==0)
                             if (++i < argc)
                                 iterations = atoi(argv[i]);
+                        j = len;
                         break;
                     default:
                         break;
