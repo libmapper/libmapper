@@ -1535,6 +1535,7 @@ int run_tests()
 
     /* 115) Arpeggiator */
     /* TODO: add timing */
+    /* optimisation possibility here: miditohz() could be precomputed on vector p */
     set_expr_str("i{-1}=0;p=[60,61,62,63,64];y=miditohz(p[i]);i=i+1;");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = ((iterations - 1) % 5) + 60.f - 69.f;
@@ -1720,7 +1721,22 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 133) IDEA: map instance reduce to instanced destination */
+    /* 133) Setting vector to uniform; ensure is not precomputed. */
+    set_expr_str("y=1+2+uniform(2);");
+    setup_test(MPR_FLT, 1, MPR_FLT, 4);
+    if (parse_and_eval(EXPECT_SUCCESS, 5, 0, iterations))
+        return 1;
+    for (i = 1; i < 4; i++) {
+        int j;
+        for (j = i - 1; j >= 0; j--) {
+            if (dst_flt[i] == dst_flt[j]) {
+                eprintf("... error: duplicate element values at index %d and %d.\n", j, i);
+                return 1;
+            }
+        }
+    }
+
+    /* 134) IDEA: map instance reduce to instanced destination */
     // dst instance should be released when there are zero sources
     // e.g. y = x.instance.mean()
 

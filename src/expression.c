@@ -2104,7 +2104,7 @@ static int substack_len(mpr_token_t *stk, int sp)
 static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp,
                                      mpr_var_t *vars)
 {
-    int i = sp, j, optimize = 1, expr_len = 0;
+    int i = sp, j, optimize = 1, expr_len = 0, vec_len = 0;
     int8_t var = stk[sp].var.idx;
 
     while (i >= 0 && (stk[i].toktype & TOK_ASSIGN) && (stk[i].var.idx == var)) {
@@ -2125,7 +2125,16 @@ static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, 
         trace("Malformed expression (1)\n");
         return -1;
     }
-    promote_token(stk, i, stk[sp].gen.datatype, 0, vars);
+
+    /* if the subexpr contains uniform(), should pass assignment vec_len rather than 0 */
+    for (--j; j > sp - expr_len; j--) {
+        if (TOK_FN == stk[j].toktype && FN_UNIFORM == stk[j].fn.idx) {
+            vec_len = stk[sp].gen.vec_len;
+            break;
+        }
+    }
+
+    promote_token(stk, i, stk[sp].gen.datatype, vec_len, vars);
     if (check_type(eval_stk, stk, i, vars, optimize) == -1)
         return -1;
     promote_token(stk, i, stk[sp].gen.datatype, 0, vars);
@@ -2296,7 +2305,7 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
             ++op[op_idx].fn.arity;                                  \
             break;                                                  \
         case TOK_LITERAL:                                           \
-            if (vectorizing && _squash_to_vector(out, out_idx)) {   \
+            if (vectorizing && op[op_idx].fn.arity && _squash_to_vector(out, out_idx)) {   \
                 POP_OUTPUT();                                       \
                 break;                                              \
             }                                                       \
@@ -3332,11 +3341,9 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 {FAIL_IF(op_idx < 0, "Unmatched parentheses, brackets, or misplaced comma. (1)");}
 
                 if (TOK_VECTORIZE == op[op_idx].toktype) {
-                    if (op[op_idx].gen.vec_len) {
-                        op[op_idx].gen.flags |= VEC_LEN_LOCKED;
-                        ADD_TO_VECTOR();
-                        lock_vec_len(out, out_idx);
-                    }
+                    op[op_idx].gen.flags |= VEC_LEN_LOCKED;
+                    ADD_TO_VECTOR();
+                    lock_vec_len(out, out_idx);
                     if (op[op_idx].fn.arity > 1)
                         { POP_OPERATOR_TO_OUTPUT(); }
                     else {
