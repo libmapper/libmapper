@@ -177,10 +177,7 @@ jobs:
           mkdir testpython
           && cd testpython
           && cp ../bindings/python/test*.py .
-          && for i in test testcallbacks testconvergent testgetvalue testinstance testmapfromstr \
-             testnumpy testreverse testvector; \
-             do echo running ${i}; \
-             if ! python3 ${i}.py; then exit 1; fi; done;
+          && for i in test testcallbacks testconvergent testgetvalue testinstance testmapfromstr testnumpy testreverse testvector; do echo running ${i}; if ! python3 ${i}.py; then exit 1; fi; done;
 
   MacOS-check-wheel:
     runs-on: macOS-13
@@ -209,10 +206,7 @@ jobs:
           mkdir testpython
           && cd testpython
           && cp ../bindings/python/test*.py .
-          && for i in test testcallbacks testconvergent testgetvalue testinstance testmapfromstr \
-             testnumpy testreverse testvector; \
-             do echo running ${i}; \
-             if ! python3 ${i}.py; then exit 1; fi; done;
+          && for i in test testcallbacks testconvergent testgetvalue testinstance testmapfromstr testnumpy testreverse testvector; do echo running ${i}; if ! python3 ${i}.py; then exit 1; fi; done;
 
   Windows-Latest-check-wheel:
     runs-on: windows-latest
