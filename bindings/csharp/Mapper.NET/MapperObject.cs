@@ -117,11 +117,11 @@ public abstract class MapperObject
                 }
                 case (int)Type.String:
                     if (1 == len)
-                        return new String(Marshal.PtrToStringAnsi((IntPtr)value));
+                        return new string(Marshal.PtrToStringAnsi((IntPtr)value));
                 {
-                    String[] arr = new String[len];
+                    string[] arr = new string[len];
                     for (int i = 0; i < len; i++)
-                        arr[i] = new String(Marshal.PtrToStringAnsi((IntPtr)((char**)value)[i]));
+                        arr[i] = new string(Marshal.PtrToStringAnsi((IntPtr)((char**)value)[i]));
                     return arr;
                 }
                 case (int)Type.Device:
@@ -162,7 +162,7 @@ public abstract class MapperObject
                                                                   ref int len, ref int type,
                                                                   ref void *value, ref int publish);
 
-        public unsafe (String, dynamic) GetProperty(int index)
+        public unsafe (string, dynamic) GetProperty(int index)
         {
             char *key = null;
             int len = 0;
@@ -172,7 +172,7 @@ public abstract class MapperObject
             int idx = mpr_obj_get_prop_by_idx(_obj, index, ref key, ref len,
                                               ref type, ref val, ref pub);
             if (0 == idx || 0 == len)
-                return (new String("unknown"), null);
+                return (new string("unknown"), null);
             return (new string(Marshal.PtrToStringAnsi((IntPtr)key)), BuildValue(len, type, val, idx));
         }
 
@@ -215,7 +215,7 @@ public abstract class MapperObject
         internal static extern unsafe
         int mpr_obj_set_prop(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string key,
                              int len, int type, void* value, int publish);
-        public unsafe Object SetProperty<P, T>(P property, T value, bool publish)
+        public unsafe object SetProperty<P, T>(P property, T value, bool publish)
         {
             int _prop = 0, _pub = Convert.ToInt32(publish);
             string _key = null;
@@ -276,7 +276,7 @@ public abstract class MapperObject
             }
             return this;
         }
-        public Object SetProperty<P, T>(P property, T value)
+        public object SetProperty<P, T>(P property, T value)
         {
             return SetProperty(property, value, true);
         }
@@ -302,7 +302,7 @@ public abstract class MapperObject
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_obj_push(IntPtr obj);
-        public Object Push()
+        public object Push()
         {
             mpr_obj_push(_obj);
             return this;

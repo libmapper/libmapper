@@ -38,13 +38,13 @@ public class Time
             return this;
         }
 
-        public Time SetDouble(Double seconds)
+        public Time SetDouble(double seconds)
         {
             if (seconds > 0.0)
             {
-                data.sec = (UInt32)Math.Floor(seconds);
+                data.sec = (uint)Math.Floor(seconds);
                 seconds -= data.sec;
-                data.frac = (UInt32) (seconds * 4294967296.0);
+                data.frac = (uint) (seconds * 4294967296.0);
             }
             else
                 data.ntp = 0;
@@ -84,9 +84,9 @@ public class Time
             if (multiplicand > 0.0)
             {
                 multiplicand *= as_dbl(this);
-                data.sec = (UInt32) Math.Floor(multiplicand);
+                data.sec = (uint) Math.Floor(multiplicand);
                 multiplicand -= data.sec;
-                data.frac = (UInt32) (multiplicand * 4294967296.0);
+                data.frac = (uint) (multiplicand * 4294967296.0);
             }
             else
                 data.ntp = 0;

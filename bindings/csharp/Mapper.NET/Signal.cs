@@ -6,7 +6,7 @@ public class Signal : MapperObject
     {
         public Signal() {}
 
-        private delegate void HandlerDelegate(IntPtr sig, int evt, UInt64 instanceId, int length,
+        private delegate void HandlerDelegate(IntPtr sig, int evt, ulong instanceId, int length,
                                               int type, IntPtr value, long time);
 
         public enum Direction
@@ -113,20 +113,20 @@ public class Signal : MapperObject
         
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        private static extern unsafe void mpr_sig_set_value(IntPtr sig, UInt64 id, int len, int type, void* val);
-        private unsafe void _SetValue(int value, UInt64 instanceId)
+        private static extern unsafe void mpr_sig_set_value(IntPtr sig, ulong id, int len, int type, void* val);
+        private unsafe void _SetValue(int value, ulong instanceId)
         {
             mpr_sig_set_value(_obj, instanceId, 1, (int)Type.Int32, &value);
         }
-        private unsafe void _SetValue(float value, UInt64 instanceId)
+        private unsafe void _SetValue(float value, ulong instanceId)
         {
             mpr_sig_set_value(_obj, instanceId, 1, (int)Type.Float, &value);
         }
-        private unsafe void _SetValue(double value, UInt64 instanceId)
+        private unsafe void _SetValue(double value, ulong instanceId)
         {
             mpr_sig_set_value(_obj, instanceId, 1, (int)Type.Double, &value);
         }
-        private unsafe void _SetValue(int[] value, UInt64 instanceId)
+        private unsafe void _SetValue(int[] value, ulong instanceId)
         {
             fixed(int* temp = &value[0])
             {
@@ -134,7 +134,7 @@ public class Signal : MapperObject
                 mpr_sig_set_value(_obj, instanceId, value.Length, (int)Type.Int32, (void*)intPtr);
             }
         }
-        private unsafe void _SetValue(float[] value, UInt64 instanceId)
+        private unsafe void _SetValue(float[] value, ulong instanceId)
         {
             fixed(float* temp = &value[0])
             {
@@ -142,7 +142,7 @@ public class Signal : MapperObject
                 mpr_sig_set_value(_obj, instanceId, value.Length, (int)Type.Float, (void*)intPtr);
             }
         }
-        private unsafe void _SetValue(double[] value, UInt64 instanceId)
+        private unsafe void _SetValue(double[] value, ulong instanceId)
         {
             fixed(double* temp = &value[0])
             {
@@ -151,7 +151,7 @@ public class Signal : MapperObject
             }
         }
 
-        public Signal SetValue<T>(T value, UInt64 instanceId = 0)
+        public Signal SetValue<T>(T value, ulong instanceId = 0)
         {
             dynamic temp = value;
             _SetValue(temp, instanceId);
@@ -159,8 +159,8 @@ public class Signal : MapperObject
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        private static extern unsafe void* mpr_sig_get_value(IntPtr sig, UInt64 id, ref long time);
-        public unsafe (dynamic, Time) GetValue(UInt64 instanceId = 0)
+        private static extern unsafe void* mpr_sig_get_value(IntPtr sig, ulong id, ref long time);
+        public unsafe (dynamic, Time) GetValue(ulong instanceId = 0)
         {
             int len = mpr_obj_get_prop_as_int32(_obj, (int)Property.Length, null);
             int type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);
@@ -190,8 +190,8 @@ public class Signal : MapperObject
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        private static extern int mpr_sig_remove_inst(IntPtr sig, UInt64 id);
-        public Signal RemoveInstance(UInt64 instanceId)
+        private static extern int mpr_sig_remove_inst(IntPtr sig, ulong id);
+        public Signal RemoveInstance(ulong instanceId)
         {
             mpr_sig_remove_inst(_obj, instanceId);
             return this;
@@ -199,7 +199,7 @@ public class Signal : MapperObject
 
         public class Instance : Signal
         {
-            internal Instance(IntPtr sig, UInt64 inst) : base(sig)
+            internal Instance(IntPtr sig, ulong inst) : base(sig)
             {
                 id = inst;
             }
@@ -217,22 +217,22 @@ public class Signal : MapperObject
             }
 
             [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-            private static extern void mpr_sig_release_inst(IntPtr sig, UInt64 id);
+            private static extern void mpr_sig_release_inst(IntPtr sig, ulong id);
             public void Release()
             {
                 mpr_sig_release_inst(_obj, id);
             }
 
-            public readonly UInt64 id;
+            public readonly ulong id;
         }
 
-        public Instance GetInstance(UInt64 id)
+        public Instance GetInstance(ulong id)
         {
             return new Instance(_obj, id);
         }
         public Instance GetInstance(int id)
         {
-            return new Instance(_obj, (UInt64)id);
+            return new Instance(_obj, (ulong)id);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -249,7 +249,7 @@ public class Signal : MapperObject
             return new Instance(_obj, mpr_sig_get_newest_inst_id(_obj));
         }
 
-        private void _handler(IntPtr sig, int evt, UInt64 inst, int length,
+        private void _handler(IntPtr sig, int evt, ulong inst, int length,
                               int type, IntPtr value, long time)
         {
             Event e = (Event)evt;
@@ -367,10 +367,7 @@ public class Signal : MapperObject
             }
         }
 
-        ~Signal()
-            {}
-
-        private Boolean _SetCallback(Action<Signal, Event, int, Time> h, int type)
+        private bool _SetCallback(Action<Signal, Event, int, Time> h, int type)
         {
             if (type != (int)Type.Int32)
                 return false;
@@ -379,7 +376,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Signal, Event, int[], Time> h, int type)
+        private bool _SetCallback(Action<Signal, Event, int[], Time> h, int type)
         {
             if (type != (int)Type.Int32)
                 return false;
@@ -388,7 +385,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Signal, Event, float, Time> h, int type)
+        private bool _SetCallback(Action<Signal, Event, float, Time> h, int type)
         {
             if (type != (int)Type.Float)
                 return false;
@@ -397,7 +394,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Signal, Event, float[], Time> h, int type)
+        private bool _SetCallback(Action<Signal, Event, float[], Time> h, int type)
         {
             if (type != (int)Type.Float)
                 return false;
@@ -406,7 +403,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Signal, Event, double, Time> h, int type)
+        private bool _SetCallback(Action<Signal, Event, double, Time> h, int type)
         {
             if (type != (int)Type.Double)
                 return false;
@@ -415,7 +412,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Signal, Event, double[], Time> h, int type)
+        private bool _SetCallback(Action<Signal, Event, double[], Time> h, int type)
         {
             if (type != (int)Type.Double)
                 return false;
@@ -424,7 +421,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Instance, Event, int, Time> h, int type)
+        private bool _SetCallback(Action<Instance, Event, int, Time> h, int type)
         {
             if (type != (int)Type.Int32)
                 return false;
@@ -433,7 +430,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Instance, Event, int[], Time> h, int type)
+        private bool _SetCallback(Action<Instance, Event, int[], Time> h, int type)
         {
             if (type != (int)Type.Int32)
                 return false;
@@ -442,7 +439,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Instance, Event, float, Time> h, int type)
+        private bool _SetCallback(Action<Instance, Event, float, Time> h, int type)
         {
             if (type != (int)Type.Float)
                 return false;
@@ -451,7 +448,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Instance, Event, float[], Time> h, int type)
+        private bool _SetCallback(Action<Instance, Event, float[], Time> h, int type)
         {
             if (type != (int)Type.Float)
                 return false;
@@ -460,7 +457,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Instance, Event, double, Time> h, int type)
+        private bool _SetCallback(Action<Instance, Event, double, Time> h, int type)
         {
             if (type != (int)Type.Double)
                 return false;
@@ -469,7 +466,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        private Boolean _SetCallback(Action<Instance, Event, double[], Time> h, int type)
+        private bool _SetCallback(Action<Instance, Event, double[], Time> h, int type)
         {
             if (type != (int)Type.Double)
                 return false;

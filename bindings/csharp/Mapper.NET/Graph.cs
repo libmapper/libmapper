@@ -111,7 +111,7 @@ public class Graph : MapperObject
         {
             Type type = (Type) mpr_obj_get_type(obj);
             // Event event = (Event) evt;
-            Object o;
+            object o;
             Event e = (Event)evt;
             switch (type)
             {
@@ -136,10 +136,10 @@ public class Graph : MapperObject
 
         protected class Handler
         {
-            public Action<Object, Event> _callback;
+            public Action<object, Event> _callback;
             public Type _types;
 
-            public Handler(Action<Object, Event> callback, Type types)
+            public Handler(Action<object, Event> callback, Type types)
             {
                 _callback = callback;
                 _types = types;
@@ -149,7 +149,7 @@ public class Graph : MapperObject
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_add_cb(IntPtr graph, IntPtr handler, int events, IntPtr data);
-        public Graph AddCallback(Action<Object, Event> callback, Type types = Type.Object)
+        public Graph AddCallback(Action<object, Event> callback, Type types = Type.Object)
         {
             // TODO: check if handler is already registered
             if (handlers.Count == 0)
@@ -165,7 +165,7 @@ public class Graph : MapperObject
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_remove_cb(IntPtr graph, IntPtr cb, IntPtr data);
-        public Graph RemoveCallback(Action<Object, Event> callback)
+        public Graph RemoveCallback(Action<object, Event> callback)
         {
             int i = -1, found = -1;
             handlers.ForEach(delegate(Handler h)
