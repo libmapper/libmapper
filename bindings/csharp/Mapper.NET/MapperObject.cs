@@ -48,7 +48,7 @@ public abstract class MapperObject
                 case (int)Type.Int32:
                     if (1 == len)
                     {
-                        int i = *(int*)value;
+                        var i = *(int*)value;
                         switch (property)
                         {
                             case (int)Property.Direction:
@@ -69,7 +69,7 @@ public abstract class MapperObject
                     }
 
                 {
-                    int[] arr = new int[len];
+                    var arr = new int[len];
                     Marshal.Copy((IntPtr)value, arr, 0, len);
                     return arr;
                 }
@@ -77,7 +77,7 @@ public abstract class MapperObject
                     if (1 == len)
                         return *(float*)value;
                 {
-                    float[] arr = new float[len];
+                    var arr = new float[len];
                     Marshal.Copy((IntPtr)value, arr, 0, len);
                     return arr;
                 }
@@ -85,7 +85,7 @@ public abstract class MapperObject
                     if (1 == len)
                         return *(double*)value;
                 {
-                    double[] arr = new double[len];
+                    var arr = new double[len];
                     Marshal.Copy((IntPtr)value, arr, 0, len);
                     return arr;
                 }
@@ -93,8 +93,8 @@ public abstract class MapperObject
                     if (1 == len)
                         return *(int*)value != 0;
                 {
-                    bool[] arr = new bool[len];
-                    for (int i = 0; i < len; i++)
+                    var arr = new bool[len];
+                    for (var i = 0; i < len; i++)
                         arr[i] = ((int*)value)[i] != 0;
                     return arr;
                 }
@@ -102,7 +102,7 @@ public abstract class MapperObject
                     if (1 == len)
                         return *(long*)value;
                 {
-                    long[] arr = new long[len];
+                    var arr = new long[len];
                     Marshal.Copy((IntPtr)value, arr, 0, len);
                     return arr;
                 }
@@ -111,7 +111,7 @@ public abstract class MapperObject
                         return new Time(*(long*)value);
                 {
                     Time[] arr = new Time[len];
-                    for (int i = 0; i < len; i++)
+                    for (var i = 0; i < len; i++)
                         arr[0] = new Time(((long*)value)[i]);
                     return arr;
                 }
@@ -120,7 +120,7 @@ public abstract class MapperObject
                         return new string(Marshal.PtrToStringAnsi((IntPtr)value));
                 {
                     string[] arr = new string[len];
-                    for (int i = 0; i < len; i++)
+                    for (var i = 0; i < len; i++)
                         arr[i] = new string(Marshal.PtrToStringAnsi((IntPtr)((char**)value)[i]));
                     return arr;
                 }
@@ -165,11 +165,11 @@ public abstract class MapperObject
         public unsafe (string, dynamic?) GetProperty(int index)
         {
             char *key = null;
-            int len = 0;
-            int type = 0;
+            var len = 0;
+            var type = 0;
             void *val = null;
-            int pub = 0;
-            int idx = mpr_obj_get_prop_by_idx(_obj, index, ref key, ref len,
+            var pub = 0;
+            var idx = mpr_obj_get_prop_by_idx(_obj, index, ref key, ref len,
                                               ref type, ref val, ref pub);
             if (0 == idx || 0 == len)
                 return (new string("unknown"), null);
@@ -179,11 +179,11 @@ public abstract class MapperObject
         public unsafe dynamic? GetProperty(Property property)
         {
             char *key = null;
-            int len = 0;
-            int type = 0;
+            var len = 0;
+            var type = 0;
             void *val = null;
-            int pub = 0;
-            int idx = mpr_obj_get_prop_by_idx(_obj, (int)property, ref key, ref len,
+            var pub = 0;
+            var idx = mpr_obj_get_prop_by_idx(_obj, (int)property, ref key, ref len,
                                               ref type, ref val, ref pub);
             if (0 == idx || 0 == len)
                 return null;
@@ -197,10 +197,10 @@ public abstract class MapperObject
                                                                   ref void *value, ref int publish);
         public unsafe dynamic? GetProperty(string key)
         {
-            int len = 0;
-            int type = 0;
+            var len = 0;
+            var type = 0;
             void *val = null;
-            int pub = 0;
+            var pub = 0;
             int idx;
             idx = mpr_obj_get_prop_by_key(_obj, key, ref len, ref type, ref val, ref pub);
             if (0 == idx || 0 == len)
@@ -242,7 +242,7 @@ public abstract class MapperObject
                     break;
                 case bool b:
                     {
-                        int i = Convert.ToInt32(b);
+                        var i = Convert.ToInt32(b);
                         mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Boolean, &i, _pub);
                     }
                     break;
@@ -252,21 +252,21 @@ public abstract class MapperObject
                 case int[] i:
                     fixed(int *temp = &i[0])
                     {
-                        IntPtr intPtr = new IntPtr(temp);
+                        var intPtr = new IntPtr(temp);
                         mpr_obj_set_prop(_obj, _prop, _key, i.Length, (int)Type.Int32, (void*)intPtr, _pub);
                     }
                     break;
                 case float[] f:
                     fixed(float *temp = &f[0])
                     {
-                        IntPtr intPtr = new IntPtr(temp);
+                        var intPtr = new IntPtr(temp);
                         mpr_obj_set_prop(_obj, _prop, _key, f.Length, (int)Type.Float, (void*)intPtr, _pub);
                     }
                     break;
                 case double[] d:
                     fixed(double *temp = &d[0])
                     {
-                        IntPtr intPtr = new IntPtr(temp);
+                        var intPtr = new IntPtr(temp);
                         mpr_obj_set_prop(_obj, _prop, _key, d.Length, (int)Type.Double, (void*)intPtr, _pub);
                     }
                     break;
@@ -286,7 +286,7 @@ public abstract class MapperObject
                                                       [MarshalAs(UnmanagedType.LPStr)] string? key);
         public bool RemoveProperty<P>(P property)
         {
-            int _prop = 0;
+            var _prop = 0;
             string? _key = null;
 
             switch (property)

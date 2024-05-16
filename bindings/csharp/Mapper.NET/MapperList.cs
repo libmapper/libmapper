@@ -123,7 +123,7 @@ namespace Mapper.NET;
 
         public T this[int index]
         {
-            get { T t = new T(); t._obj = GetIdx(index); return t; }
+            get { var t = new T(); t._obj = GetIdx(index); return t; }
         }
 
         /* Overload some arithmetic operators */
@@ -161,7 +161,7 @@ namespace Mapper.NET;
         {
             get
             {
-                T t = new T();
+                var t = new T();
                 t._obj = Deref();
                 return t;
             }

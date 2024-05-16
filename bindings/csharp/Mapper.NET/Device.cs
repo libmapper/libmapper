@@ -63,7 +63,7 @@ namespace Mapper.NET;
         public Signal AddSignal(Signal.Direction direction, string name, int length, Type type,
                                 string? unit = null, int numInstances = -1)
         {
-            IntPtr instPtr = IntPtr.Zero;
+            var instPtr = IntPtr.Zero;
             if (numInstances != -1)
             {
                 unsafe
@@ -71,7 +71,7 @@ namespace Mapper.NET;
                     instPtr = new IntPtr(&numInstances);
                 }
             }
-            IntPtr sigptr = mpr_sig_new(_obj, (int) direction, name, length, (int) type, unit,
+            var sigptr = mpr_sig_new(_obj, (int) direction, name, length, (int) type, unit,
                                         IntPtr.Zero, IntPtr.Zero, instPtr, IntPtr.Zero, 0);
             return new Signal(sigptr);
         }

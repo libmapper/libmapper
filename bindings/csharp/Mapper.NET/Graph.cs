@@ -54,7 +54,7 @@ public class Graph : MapperObject
         private static extern IntPtr mpr_graph_get_interface(IntPtr graph);
         public string? GetInterface()
         {
-            IntPtr iface = mpr_graph_get_interface(_obj);
+            var iface = mpr_graph_get_interface(_obj);
             return Marshal.PtrToStringAnsi(iface);
         }
 
@@ -72,7 +72,7 @@ public class Graph : MapperObject
         private static extern IntPtr mpr_graph_get_address(IntPtr graph);
         public string? GetAddress()
         {
-            IntPtr addr = mpr_graph_get_address(_obj);
+            var addr = mpr_graph_get_address(_obj);
             return Marshal.PtrToStringAnsi(addr);
         }
 
@@ -109,10 +109,10 @@ public class Graph : MapperObject
 
         private void _handler(IntPtr graph, IntPtr obj, int evt, IntPtr data)
         {
-            Type type = (Type) mpr_obj_get_type(obj);
+            var type = (Type) mpr_obj_get_type(obj);
             // Event event = (Event) evt;
             object o;
-            Event e = (Event)evt;
+            var e = (Event)evt;
             switch (type)
             {
                 case Type.Device:

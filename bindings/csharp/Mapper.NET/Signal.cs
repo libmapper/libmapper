@@ -130,7 +130,7 @@ public class Signal : MapperObject
         {
             fixed(int* temp = &value[0])
             {
-                IntPtr intPtr = new IntPtr(temp);
+                var intPtr = new IntPtr(temp);
                 mpr_sig_set_value(_obj, instanceId, value.Length, (int)Type.Int32, (void*)intPtr);
             }
         }
@@ -138,7 +138,7 @@ public class Signal : MapperObject
         {
             fixed(float* temp = &value[0])
             {
-                IntPtr intPtr = new IntPtr(temp);
+                var intPtr = new IntPtr(temp);
                 mpr_sig_set_value(_obj, instanceId, value.Length, (int)Type.Float, (void*)intPtr);
             }
         }
@@ -146,7 +146,7 @@ public class Signal : MapperObject
         {
             fixed(double* temp = &value[0])
             {
-                IntPtr intPtr = new IntPtr(temp);
+                var intPtr = new IntPtr(temp);
                 mpr_sig_set_value(_obj, instanceId, value.Length, (int)Type.Double, (void*)intPtr);
             }
         }
@@ -162,10 +162,10 @@ public class Signal : MapperObject
         private static extern unsafe void* mpr_sig_get_value(IntPtr sig, ulong id, ref long time);
         public unsafe (dynamic?, Time) GetValue(ulong instanceId = 0)
         {
-            int len = mpr_obj_get_prop_as_int32(_obj, (int)Property.Length, null);
-            int type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);
+            var len = mpr_obj_get_prop_as_int32(_obj, (int)Property.Length, null);
+            var type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);
             long time = 0;
-            void *val = mpr_sig_get_value(_obj, instanceId, ref time);
+            var val = mpr_sig_get_value(_obj, instanceId, ref time);
             return (BuildValue(len, type, val, 0), new Time(time));
         }
         // unsafe public dynamic GetValue(UInt64 instanceId = 0)
@@ -252,14 +252,14 @@ public class Signal : MapperObject
         private void _handler(IntPtr sig, int evt, ulong inst, int length,
                               int type, IntPtr value, long time)
         {
-            Event e = (Event)evt;
-            Time t = new Time(time);
+            var e = (Event)evt;
+            var t = new Time(time);
             switch (handlerType)
             {
                 case HandlerType.SingletonInt:
                     unsafe
                     {
-                        int ivalue = 0;
+                        var ivalue = 0;
                         if (value != IntPtr.Zero)
                             ivalue = *(int*)value;
                         handlers.singletonInt(new Signal(sig), e, ivalue, t);
@@ -287,7 +287,7 @@ public class Signal : MapperObject
                     if (value == IntPtr.Zero)
                         handlers.singletonIntVector(new Signal(sig), e, new int[0], t);
                 {
-                    int[] arr = new int[length];
+                    var arr = new int[length];
                     Marshal.Copy(value, arr, 0, length);
                     handlers.singletonIntVector(new Signal(sig), e, arr, t);
                 }
@@ -296,7 +296,7 @@ public class Signal : MapperObject
                     if (value == IntPtr.Zero)
                         handlers.singletonFloatVector(new Signal(sig), e, new float[0], t);
                 {
-                    float[] arr = new float[length];
+                    var arr = new float[length];
                     Marshal.Copy(value, arr, 0, length);
                     handlers.singletonFloatVector(new Signal(sig), e, arr, t);
                 }
@@ -305,7 +305,7 @@ public class Signal : MapperObject
                     if (value == IntPtr.Zero)
                         handlers.singletonDoubleVector(new Signal(sig), e, new double[0], t);
                 {
-                    double[] arr = new double[length];
+                    var arr = new double[length];
                     Marshal.Copy(value, arr, 0, length);
                     handlers.singletonDoubleVector(new Signal(sig), e, arr, t);
                 }
@@ -313,7 +313,7 @@ public class Signal : MapperObject
                 case HandlerType.InstancedInt:
                     unsafe
                     {
-                        int ivalue = 0;
+                        var ivalue = 0;
                         if (value != IntPtr.Zero)
                             ivalue = *(int*)value;
                         handlers.instancedInt(new Instance(sig, inst), e, ivalue, t);
@@ -341,7 +341,7 @@ public class Signal : MapperObject
                     if (value == IntPtr.Zero)
                         handlers.instancedIntVector(new Instance(sig, inst), e, new int[0], t);
                 {
-                    int[] arr = new int[length];
+                    var arr = new int[length];
                     Marshal.Copy(value, arr, 0, length);
                     handlers.instancedIntVector(new Instance(sig, inst), e, arr, t);
                 }
@@ -350,7 +350,7 @@ public class Signal : MapperObject
                     if (value == IntPtr.Zero)
                         handlers.instancedFloatVector(new Instance(sig, inst), e, new float[0], t);
                 {
-                    float[] arr = new float[length];
+                    var arr = new float[length];
                     Marshal.Copy(value, arr, 0, length);
                     handlers.instancedFloatVector(new Instance(sig, inst), e, arr, t);
                 }
@@ -359,7 +359,7 @@ public class Signal : MapperObject
                     if (value == IntPtr.Zero)
                         handlers.instancedDoubleVector(new Instance(sig, inst), e, new double[0], t);
                 {
-                    double[] arr = new double[length];
+                    var arr = new double[length];
                     Marshal.Copy(value, arr, 0, length);
                     handlers.instancedDoubleVector(new Instance(sig, inst), e, arr, t);
                 }
@@ -478,7 +478,7 @@ public class Signal : MapperObject
         public Signal SetCallback<T>(T handler, Event events = Event.All) where T: notnull
         {
             dynamic temp = handler;
-            int type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);
+            var type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);
             if (!_SetCallback(temp, type))
             {
                 Console.WriteLine("error: wrong data type in signal handler.");

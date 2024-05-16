@@ -43,8 +43,8 @@ public class Map : MapperObject
                                                           IntPtr sig9, IntPtr sig10);
         public Map(string expression, params Signal[] signals)
         {
-            IntPtr[] a = new IntPtr[10];
-            for (int i = 0; i < 10; i++)
+            var a = new IntPtr[10];
+            for (var i = 0; i < 10; i++)
             {
                 if (i < signals.Length)
                     a[i] = signals[i]._obj;
