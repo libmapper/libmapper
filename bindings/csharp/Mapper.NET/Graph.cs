@@ -27,7 +27,7 @@ public class Graph : MapperObject
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_free(IntPtr graph);
         ~Graph()
-            { if (_owned) mpr_graph_free(this._obj); }
+            { if (_owned) mpr_graph_free(_obj); }
 
         public new Graph SetProperty<P, T>(P property, T value, bool publish)
         {
@@ -46,7 +46,7 @@ public class Graph : MapperObject
                                                            [MarshalAs(UnmanagedType.LPStr)] string iface);
         public Graph SetInterface(string iface)
         {
-            mpr_graph_set_interface(this._obj, iface);
+            mpr_graph_set_interface(_obj, iface);
             return this;
         }
 
@@ -54,7 +54,7 @@ public class Graph : MapperObject
         private static extern IntPtr mpr_graph_get_interface(IntPtr graph);
         public string GetInterface()
         {
-            IntPtr iface = mpr_graph_get_interface(this._obj);
+            IntPtr iface = mpr_graph_get_interface(_obj);
             return Marshal.PtrToStringAnsi(iface);
         }
 
@@ -64,7 +64,7 @@ public class Graph : MapperObject
                                                          int port);
         public Graph SetAddress(string group, int port)
         {
-            mpr_graph_set_address(this._obj, group, port);
+            mpr_graph_set_address(_obj, group, port);
             return this;
         }
 
@@ -72,25 +72,25 @@ public class Graph : MapperObject
         private static extern IntPtr mpr_graph_get_address(IntPtr graph);
         public string GetAddress()
         {
-            IntPtr addr = mpr_graph_get_address(this._obj);
+            IntPtr addr = mpr_graph_get_address(_obj);
             return Marshal.PtrToStringAnsi(addr);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_graph_poll(IntPtr graph, int block_ms);
         public int Poll(int block_ms = 0)
-            { return mpr_graph_poll(this._obj, block_ms); }
+            { return mpr_graph_poll(_obj, block_ms); }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_subscribe(IntPtr graph, IntPtr dev, int types, int timeout);
         public Graph Subscribe(Device device, Type types, int timeout = -1)
         {
-            mpr_graph_subscribe(this._obj, device._obj, (int)types, timeout);
+            mpr_graph_subscribe(_obj, device._obj, (int)types, timeout);
             return this;
         }
         public Graph Subscribe(Type types, int timeout = -1)
         {
-            mpr_graph_subscribe(this._obj, IntPtr.Zero, (int)types, timeout);
+            mpr_graph_subscribe(_obj, IntPtr.Zero, (int)types, timeout);
             return this;
         }
 
@@ -98,12 +98,12 @@ public class Graph : MapperObject
         private static extern void mpr_graph_unsubscribe(IntPtr graph, IntPtr dev);
         public Graph Unsubscribe(Device device)
         {
-            mpr_graph_unsubscribe(this._obj, device._obj);
+            mpr_graph_unsubscribe(_obj, device._obj);
             return this;
         }
         public Graph Unsubscribe()
         {
-            mpr_graph_unsubscribe(this._obj, IntPtr.Zero);
+            mpr_graph_unsubscribe(_obj, IntPtr.Zero);
             return this;
         }
 
@@ -136,25 +136,25 @@ public class Graph : MapperObject
 
         protected class Handler
         {
-            public Action<Object, Graph.Event> _callback;
+            public Action<Object, Event> _callback;
             public Type _types;
 
-            public Handler(Action<Object, Graph.Event> callback, Type types)
+            public Handler(Action<Object, Event> callback, Type types)
             {
                 _callback = callback;
                 _types = types;
             }
         }
-        private System.Collections.Generic.List<Handler> handlers = new System.Collections.Generic.List<Handler>();
+        private List<Handler> handlers = new List<Handler>();
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_add_cb(IntPtr graph, IntPtr handler, int events, IntPtr data);
-        public Graph AddCallback(Action<Object, Graph.Event> callback, Type types = Type.Object)
+        public Graph AddCallback(Action<Object, Event> callback, Type types = Type.Object)
         {
             // TODO: check if handler is already registered
             if (handlers.Count == 0)
             {
-                mpr_graph_add_cb(this._obj,
+                mpr_graph_add_cb(_obj,
                                  Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
                                  (int)Type.Object,
                                  IntPtr.Zero);
@@ -165,7 +165,7 @@ public class Graph : MapperObject
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_remove_cb(IntPtr graph, IntPtr cb, IntPtr data);
-        public Graph RemoveCallback(Action<Object, Graph.Event> callback)
+        public Graph RemoveCallback(Action<Object, Event> callback)
         {
             int i = -1, found = -1;
             handlers.ForEach(delegate(Handler h)
@@ -179,7 +179,7 @@ public class Graph : MapperObject
                 handlers.RemoveAt(found);
                 if (handlers.Count == 0)
                 {
-                    mpr_graph_remove_cb(this._obj,
+                    mpr_graph_remove_cb(_obj,
                                         Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
                                         IntPtr.Zero);
                 }
@@ -191,16 +191,16 @@ public class Graph : MapperObject
         private static extern IntPtr mpr_graph_get_list(IntPtr graph, int type);
         public MapperList<Device> GetDevices()
         {
-            return new MapperList<Device>(mpr_graph_get_list(this._obj, (int)Type.Device), Type.Device);
+            return new MapperList<Device>(mpr_graph_get_list(_obj, (int)Type.Device), Type.Device);
         }
 
         public MapperList<Signal> GetSignals()
         {
-            return new MapperList<Signal>(mpr_graph_get_list(this._obj, (int)Type.Signal), Type.Signal);
+            return new MapperList<Signal>(mpr_graph_get_list(_obj, (int)Type.Signal), Type.Signal);
         }
 
         public MapperList<Map> GetMaps()
         {
-            return new MapperList<Map>(mpr_graph_get_list(this._obj, (int)Type.Map), Type.Map);
+            return new MapperList<Map>(mpr_graph_get_list(_obj, (int)Type.Map), Type.Map);
         }
     }

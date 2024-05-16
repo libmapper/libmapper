@@ -25,10 +25,10 @@ public class Time
         public Time()
             { data.sec = 0; data.frac = 1; }
         public Time(double seconds)
-            { this.SetDouble(seconds); }
+            { SetDouble(seconds); }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        private static extern unsafe int mpr_time_set(IntPtr l, long r);
+        private static extern int mpr_time_set(IntPtr l, long r);
         public unsafe Time Set(Time time)
         {
             fixed (void* t = &data)
@@ -44,7 +44,7 @@ public class Time
             {
                 data.sec = (UInt32)Math.Floor(seconds);
                 seconds -= data.sec;
-                data.frac = (UInt32) (((double)seconds) * 4294967296.0);
+                data.frac = (UInt32) (seconds * 4294967296.0);
             }
             else
                 data.ntp = 0;
@@ -53,7 +53,7 @@ public class Time
 
         private static double as_dbl(Time time)
         {
-            return (double)time.data.sec + (double)time.data.frac * 0.00000000023283064365;
+            return time.data.sec + time.data.frac * 0.00000000023283064365;
         }
 
         public Time Add(Time addend)
@@ -83,7 +83,7 @@ public class Time
         {
             if (multiplicand > 0.0)
             {
-                multiplicand *= Time.as_dbl(this);
+                multiplicand *= as_dbl(this);
                 data.sec = (UInt32) Math.Floor(multiplicand);
                 multiplicand -= data.sec;
                 data.frac = (UInt32) (multiplicand * 4294967296.0);
@@ -94,7 +94,7 @@ public class Time
         }
 
         /* casting between Time and double */
-        public static implicit operator double(Time t) => Time.as_dbl(t);
+        public static implicit operator double(Time t) => as_dbl(t);
         public static explicit operator Time(double d) => new Time(d);
 
         /* Overload some arithmetic operators */
@@ -124,5 +124,5 @@ public class Time
             return (int)(data.sec ^ data.frac);
         }
 
-        public override string ToString() => $"Mapper.Time:{this.data.sec}:{this.data.frac}";
+        public override string ToString() => $"Mapper.Time:{data.sec}:{data.frac}";
     }

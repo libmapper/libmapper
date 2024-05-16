@@ -17,7 +17,7 @@ public class Map : MapperObject
         }
 
         public Map()
-            : base() {}
+        {}
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern unsafe IntPtr mpr_map_new(int num_srcs, void* srcs, int num_dsts, void* dsts);
@@ -27,7 +27,7 @@ public class Map : MapperObject
             {
                 fixed (void* d = &destination._obj)
                 {
-                    this._obj = mpr_map_new(1, s, 1, d);
+                    _obj = mpr_map_new(1, s, 1, d);
                 }
             }
         }
@@ -51,7 +51,7 @@ public class Map : MapperObject
                 else
                     a[i] = default(IntPtr);
             }
-            this._obj = mpr_map_new_from_str(expression, a[0], a[1], a[2], a[3], a[4], a[5],
+            _obj = mpr_map_new_from_str(expression, a[0], a[1], a[2], a[3], a[4], a[5],
                                              a[6], a[7], a[8], a[9], default(IntPtr));
         }
 
@@ -59,7 +59,7 @@ public class Map : MapperObject
         private static extern int mpr_map_get_is_ready(IntPtr map);
         public int GetIsReady()
         {
-            return mpr_map_get_is_ready(this._obj);
+            return mpr_map_get_is_ready(_obj);
         }
 
         public new Map SetProperty<P, T>(P property, T value, bool publish)
@@ -84,7 +84,7 @@ public class Map : MapperObject
         private static extern void mpr_map_refresh(IntPtr map);
         public Map Refresh()
         {
-            mpr_map_refresh(this._obj);
+            mpr_map_refresh(_obj);
             return this;
         }
 
@@ -92,21 +92,21 @@ public class Map : MapperObject
         private static extern void mpr_map_release(IntPtr map);
         public void Release()
         {
-            mpr_map_release(this._obj);
-            this._obj = IntPtr.Zero;
+            mpr_map_release(_obj);
+            _obj = IntPtr.Zero;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_map_get_sigs(IntPtr map, int loc);
         public MapperList<Signal> GetSignals(Location location = Location.Any)
         {
-            return new MapperList<Signal>(mpr_map_get_sigs(this._obj, (int)location), Type.Signal);
+            return new MapperList<Signal>(mpr_map_get_sigs(_obj, (int)location), Type.Signal);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_map_get_sig_idx(IntPtr map, IntPtr sig);
         public int GetSignalIndex(Signal signal)
         {
-            return mpr_map_get_sig_idx(this._obj, signal._obj);
+            return mpr_map_get_sig_idx(_obj, signal._obj);
         }
     }

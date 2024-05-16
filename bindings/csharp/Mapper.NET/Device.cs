@@ -5,13 +5,13 @@ namespace Mapper.NET;
    public class Device : MapperObject
     {
         public Device()
-            : base() {}
+        {}
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_dev_new([MarshalAs(UnmanagedType.LPStr)] string devname, IntPtr graph);
         public Device(string name)
-            : base(mpr_dev_new(name, IntPtr.Zero)) { this._owned = true; }
+            : base(mpr_dev_new(name, IntPtr.Zero)) { _owned = true; }
         public Device(string name, Graph graph)
-            : base(mpr_dev_new(name, graph._obj)) { this._owned = true; }
+            : base(mpr_dev_new(name, graph._obj)) { _owned = true; }
 
         // construct from mpr_dev pointer
         internal Device(IntPtr dev) : base(dev) {}
@@ -20,36 +20,36 @@ namespace Mapper.NET;
         private static extern void mpr_dev_free(IntPtr dev);
         ~Device()
         {
-            if (this._owned)
-                mpr_dev_free(this._obj);
+            if (_owned)
+                mpr_dev_free(_obj);
         }
 
-        public override string ToString() => $"Mapper.Device:{this.GetProperty(Property.Name)}";
+        public override string ToString() => $"Mapper.Device:{GetProperty(Property.Name)}";
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_dev_get_is_ready(IntPtr dev);
         public int GetIsReady()
         {
-            return mpr_dev_get_is_ready(this._obj);
+            return mpr_dev_get_is_ready(_obj);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_dev_poll(IntPtr dev, int block_ms);
         public int Poll(int block_ms)
         {
-            return mpr_dev_poll(this._obj, block_ms);
+            return mpr_dev_poll(_obj, block_ms);
         }
 
         public int Poll()
         {
-            return mpr_dev_poll(this._obj, 0);
+            return mpr_dev_poll(_obj, 0);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_dev_update_maps(IntPtr dev);
         public Device UpdateMaps()
         {
-            mpr_dev_update_maps(this._obj);
+            mpr_dev_update_maps(_obj);
             return this;
         }
 
@@ -71,7 +71,7 @@ namespace Mapper.NET;
                     instPtr = new IntPtr(&numInstances);
                 }
             }
-            IntPtr sigptr = mpr_sig_new(this._obj, (int) direction, name, length, (int) type, unit,
+            IntPtr sigptr = mpr_sig_new(_obj, (int) direction, name, length, (int) type, unit,
                                         IntPtr.Zero, IntPtr.Zero, instPtr, IntPtr.Zero, 0);
             return new Signal(sigptr);
         }
@@ -107,28 +107,28 @@ namespace Mapper.NET;
         private static extern IntPtr mpr_dev_get_sigs(IntPtr dev, int dir);
         public MapperList<Signal> GetSignals(Signal.Direction direction = Signal.Direction.Any)
         {
-            return new MapperList<Signal>(mpr_dev_get_sigs(this._obj, (int) direction), Type.Signal);
+            return new MapperList<Signal>(mpr_dev_get_sigs(_obj, (int) direction), Type.Signal);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_dev_get_maps(IntPtr dev, int dir);
         public MapperList<Map> GetMaps(Signal.Direction direction = Signal.Direction.Any)
         {
-            return new MapperList<Map>(mpr_dev_get_maps(this._obj, (int) direction), Type.Map);
+            return new MapperList<Map>(mpr_dev_get_maps(_obj, (int) direction), Type.Map);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern long mpr_dev_get_time(IntPtr dev);
         public Time GetTime()
         {
-            return new Time(mpr_dev_get_time(this._obj));
+            return new Time(mpr_dev_get_time(_obj));
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern long mpr_dev_set_time(IntPtr dev, long time);
         public Device SetTime(Time time)
         {
-            mpr_dev_set_time(this._obj, time.data.ntp);
+            mpr_dev_set_time(_obj, time.data.ntp);
             return this;
         }
     }

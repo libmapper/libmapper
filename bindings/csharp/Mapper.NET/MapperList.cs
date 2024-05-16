@@ -123,7 +123,7 @@ namespace Mapper.NET;
 
         public T this[int index]
         {
-            get { T t = new T(); t._obj = this.GetIdx(index); return t; }
+            get { T t = new T(); t._obj = GetIdx(index); return t; }
         }
 
         /* Overload some arithmetic operators */
@@ -139,7 +139,7 @@ namespace Mapper.NET;
         /* Methods for enumeration */
         public IEnumerator GetEnumerator()
         {
-            return (IEnumerator)this;
+            return this;
         }
 
         public void Reset()
@@ -149,12 +149,12 @@ namespace Mapper.NET;
 
         public bool MoveNext()
         {
-            return this.GetNext();
+            return GetNext();
         }
 
         void IDisposable.Dispose()
         {
-            this.Free();
+            Free();
         }
 
         public T Current
@@ -162,7 +162,7 @@ namespace Mapper.NET;
             get
             {
                 T t = new T();
-                t._obj = this.Deref();
+                t._obj = Deref();
                 return t;
             }
         }
