@@ -151,7 +151,7 @@ public class Signal : MapperObject
             }
         }
 
-        public Signal SetValue<T>(T value, ulong instanceId = 0)
+        public Signal SetValue<T>(T value, ulong instanceId = 0) where T: notnull
         {
             dynamic temp = value;
             _SetValue(temp, instanceId);
@@ -160,7 +160,7 @@ public class Signal : MapperObject
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern unsafe void* mpr_sig_get_value(IntPtr sig, ulong id, ref long time);
-        public unsafe (dynamic, Time) GetValue(ulong instanceId = 0)
+        public unsafe (dynamic?, Time) GetValue(ulong instanceId = 0)
         {
             int len = mpr_obj_get_prop_as_int32(_obj, (int)Property.Length, null);
             int type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);
@@ -204,12 +204,12 @@ public class Signal : MapperObject
                 id = inst;
             }
 
-            public (dynamic, Time) GetValue()
+            public (dynamic?, Time) GetValue()
             {
                 return GetValue(id);
             }
 
-            public Instance SetValue<T>(T value)
+            public Instance SetValue<T>(T value) where T: notnull
             {
                 dynamic temp = value;
                 _SetValue(temp, id);
@@ -475,7 +475,7 @@ public class Signal : MapperObject
             return true;
         }
 
-        public Signal SetCallback<T>(T handler, Event events = Event.All)
+        public Signal SetCallback<T>(T handler, Event events = Event.All) where T: notnull
         {
             dynamic temp = handler;
             int type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);

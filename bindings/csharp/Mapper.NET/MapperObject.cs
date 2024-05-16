@@ -37,7 +37,7 @@ public abstract class MapperObject
         public int GetNumProperties()
             { return mpr_obj_get_num_props(_obj); }
 
-        internal unsafe dynamic BuildValue(int len, int type, void *value, int property)
+        internal unsafe dynamic? BuildValue(int len, int type, void *value, int property)
         {
             if (0 == len)
                 return null;
@@ -162,7 +162,7 @@ public abstract class MapperObject
                                                                   ref int len, ref int type,
                                                                   ref void *value, ref int publish);
 
-        public unsafe (string, dynamic) GetProperty(int index)
+        public unsafe (string, dynamic?) GetProperty(int index)
         {
             char *key = null;
             int len = 0;
@@ -176,7 +176,7 @@ public abstract class MapperObject
             return (new string(Marshal.PtrToStringAnsi((IntPtr)key)), BuildValue(len, type, val, idx));
         }
 
-        public unsafe dynamic GetProperty(Property property)
+        public unsafe dynamic? GetProperty(Property property)
         {
             char *key = null;
             int len = 0;
@@ -195,7 +195,7 @@ public abstract class MapperObject
                                                                   [MarshalAs(UnmanagedType.LPStr)] string key,
                                                                   ref int len, ref int type,
                                                                   ref void *value, ref int publish);
-        public unsafe dynamic GetProperty(string key)
+        public unsafe dynamic? GetProperty(string key)
         {
             int len = 0;
             int type = 0;
@@ -209,16 +209,16 @@ public abstract class MapperObject
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        internal static extern int mpr_obj_get_prop_as_int32(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string key);
+        internal static extern int mpr_obj_get_prop_as_int32(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string? key);
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         internal static extern unsafe
-        int mpr_obj_set_prop(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string key,
+        int mpr_obj_set_prop(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string? key,
                              int len, int type, void* value, int publish);
         public unsafe object SetProperty<P, T>(P property, T value, bool publish)
         {
             int _prop = 0, _pub = Convert.ToInt32(publish);
-            string _key = null;
+            string? _key = null;
 
             switch (property)
             {
@@ -283,11 +283,11 @@ public abstract class MapperObject
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_obj_remove_prop(IntPtr obj, int prop,
-                                                      [MarshalAs(UnmanagedType.LPStr)] string key);
+                                                      [MarshalAs(UnmanagedType.LPStr)] string? key);
         public bool RemoveProperty<P>(P property)
         {
             int _prop = 0;
-            string _key = null;
+            string? _key = null;
 
             switch (property)
             {

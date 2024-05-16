@@ -111,12 +111,12 @@ public class Time
         public static bool operator >=(Time a, Time b) => a.data.ntp >= b.data.ntp;
         public static bool operator <=(Time a, Time b) => a.data.ntp <= b.data.ntp;
 
-        public override bool Equals(object o)
+        public override bool Equals(object? o)
         {
             if (o == null)
                 return false;
             var second = o as Time;
-            return second != null && data.ntp == second.data.ntp;
+            return data.ntp == second!.data.ntp;
         }
 
         public override int GetHashCode()

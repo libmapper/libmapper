@@ -52,7 +52,7 @@ public class Graph : MapperObject
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_graph_get_interface(IntPtr graph);
-        public string GetInterface()
+        public string? GetInterface()
         {
             IntPtr iface = mpr_graph_get_interface(_obj);
             return Marshal.PtrToStringAnsi(iface);
@@ -70,7 +70,7 @@ public class Graph : MapperObject
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_graph_get_address(IntPtr graph);
-        public string GetAddress()
+        public string? GetAddress()
         {
             IntPtr addr = mpr_graph_get_address(_obj);
             return Marshal.PtrToStringAnsi(addr);

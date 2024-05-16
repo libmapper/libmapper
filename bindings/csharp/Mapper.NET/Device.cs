@@ -57,11 +57,11 @@ namespace Mapper.NET;
         private static extern IntPtr mpr_sig_new(IntPtr dev, int direction,
                                                  [MarshalAs(UnmanagedType.LPStr)] string name,
                                                  int length, int type,
-                                                 [MarshalAs(UnmanagedType.LPStr)] string unit,
+                                                 [MarshalAs(UnmanagedType.LPStr)] string? unit,
                                                  IntPtr min, IntPtr max, IntPtr num_inst,
                                                  IntPtr handler, int events);
         public Signal AddSignal(Signal.Direction direction, string name, int length, Type type,
-                                string unit = null, int numInstances = -1)
+                                string? unit = null, int numInstances = -1)
         {
             IntPtr instPtr = IntPtr.Zero;
             if (numInstances != -1)
