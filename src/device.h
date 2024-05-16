@@ -69,8 +69,6 @@ mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir);
  *  \return             Information about the signal, or zero if not found. */
 mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name);
 
-mpr_id mpr_dev_get_unused_sig_id(mpr_local_dev dev);
-
 int mpr_dev_add_link(mpr_dev dev1, mpr_dev dev2);
 
 void mpr_dev_remove_link(mpr_dev dev1, mpr_dev dev2);

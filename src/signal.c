@@ -587,7 +587,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
         return (mpr_sig)lsig;
 
     lsig = (mpr_local_sig)mpr_graph_add_list_item(g, MPR_SIG, sizeof(mpr_local_sig_t));
-    lsig->obj.id = mpr_dev_get_unused_sig_id((mpr_local_dev)dev);
+    lsig->obj.id = mpr_dev_generate_unique_id(dev);
     lsig->period = -1;
     lsig->handler = (void*)h;
     lsig->event_flags = events;

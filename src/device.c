@@ -353,27 +353,6 @@ int mpr_dev_get_is_registered(mpr_dev dev)
     return !dev->obj.is_local || ((mpr_local_dev)dev)->registered;
 }
 
-mpr_id mpr_dev_get_unused_sig_id(mpr_local_dev dev)
-{
-    int done = 0;
-    mpr_id id;
-    while (!done) {
-        mpr_list l = mpr_dev_get_sigs((mpr_dev)dev, MPR_DIR_ANY);
-        id = mpr_dev_generate_unique_id((mpr_dev)dev);
-        /* check if input signal exists with this id */
-        done = 1;
-        while (l) {
-            if ((*l)->id == id) {
-                done = 0;
-                mpr_list_free(l);
-                break;
-            }
-            l = mpr_list_get_next(l);
-        }
-    }
-    return id;
-}
-
 void mpr_local_dev_add_server_method(mpr_local_dev dev, const char *path,
                                      lo_method_handler h, void *data)
 {
