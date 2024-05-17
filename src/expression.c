@@ -1454,9 +1454,9 @@ static void printtoken(mpr_token_t *t, mpr_var_t *vars, int show_locks)
         else
             printf("   ");
         if (t->gen.flags & VEC_LEN_LOCKED)
-            printf(" vec_lock");
+            printf(" vlock");
         if (t->gen.flags & TYPE_LOCKED)
-            printf(" type_lock");
+            printf(" tlock");
         if (TOK_ASSIGN & t->toktype && t->gen.flags & CLEAR_STACK)
             printf(" clear");
     }
@@ -2182,7 +2182,15 @@ static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, 
         /* This expression statement needs to be moved. */
         mpr_token_t *temp = alloca(expr_len * TOKEN_SIZE);
         memcpy(temp, stk + sp - expr_len + 1, expr_len * TOKEN_SIZE);
-        memcpy(stk + expr_len, stk, (sp - expr_len + 1) * TOKEN_SIZE);
+        sp = sp - expr_len + 1;
+        for (; sp >= 0; sp = sp - expr_len) {
+            /* batch copy tokens in blocks of expr_len to avoid memcpy overlap */
+            int len = expr_len;
+            if (sp < len) {
+                len = sp;
+            }
+            memcpy(stk + sp - len + expr_len, stk + sp - len, len * TOKEN_SIZE);
+        }
         memcpy(stk, temp, expr_len * TOKEN_SIZE);
     }
 
@@ -4938,13 +4946,13 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                         if (x && inst_idx >= x->num_inst)
                             goto error;
                         if (tok->con.cache_offset > 0) {
-                            memcpy(stk + sp - tok->con.cache_offset * vlen,
-                                   stk + sp - (tok->con.cache_offset - 1) * vlen,
-                                   sizeof(mpr_expr_val_t) * vlen * tok->con.cache_offset);
-                            memcpy(dims + dp - tok->con.cache_offset, dims + dp - tok->con.cache_offset + 1,
-                                   sizeof(uint8_t) * tok->con.cache_offset);
-                            memcpy(types + dp - tok->con.cache_offset, types + dp - tok->con.cache_offset + 1,
-                                   sizeof(mpr_type) * tok->con.cache_offset);
+                            int dp_temp = dp - tok->con.cache_offset;
+                            for (dp_temp = dp - tok->con.cache_offset; dp_temp < dp; dp_temp++) {
+                                int sp_temp = dp_temp * vlen;
+                                memcpy(stk + sp_temp, stk + sp_temp + vlen, sizeof(mpr_expr_val_t) * vlen);
+                                dims[dp_temp] = dims[dp_temp + 1];
+                                types[dp_temp] = types[dp_temp + 1];
+                            }
                             sp -= vlen;
                             --dp;
                             assert(dp >= 0);

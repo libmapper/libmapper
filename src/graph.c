@@ -505,9 +505,11 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg, int force)
     if (!force && !g->autosub) {
         if (dev) {
             mpr_subscription s = get_subscription(g, dev);
-            if (!mpr_dev_get_links(dev, MPR_DIR_UNDEFINED) && (!s || !s->flags)) {
+            mpr_list l = mpr_dev_get_links(dev, MPR_DIR_UNDEFINED);
+            if (l)
+                mpr_list_free(l);
+            else if (!s || !s->flags)
                 return dev;
-            }
         }
         else
             return 0;
