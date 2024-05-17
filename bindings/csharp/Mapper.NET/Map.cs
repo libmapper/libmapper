@@ -11,9 +11,18 @@ public class Map : MapperObject
             Any         = 0x03  //!< Either source or destination signals.
         }
 
+        /// <summary>
+        /// How map updates are sent.
+        /// </summary>
         public enum Protocol {
-            UDP,              //!< Map updates are sent using UDP.
-            TCP               //!< Map updates are sent using TCP.
+            /// <summary>
+            /// Updates sent via UDP
+            /// </summary>
+            Udp,
+            /// <summary>
+            /// Updates sent via TCP
+            /// </summary>
+            Tcp               
         }
 
         public Map()
