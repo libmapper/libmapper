@@ -153,14 +153,26 @@ public class Signal : MapperObject
 
         public Signal SetValue<T>(T value, ulong instanceId = 0) where T: notnull
         {
-            dynamic temp = value;
-            _SetValue(temp, instanceId);
+            if (value is int i)
+                _SetValue(i, instanceId);
+            else if (value is float f)
+                _SetValue(f, instanceId);
+            else if (value is double d)
+                _SetValue(d, instanceId);
+            else if (value is int[] ia)
+                _SetValue(ia, instanceId);
+            else if (value is float[] fa)
+                _SetValue(fa, instanceId);
+            else if (value is double[] da)
+                _SetValue(da, instanceId);
+            else
+                throw new ArgumentException("Unsupported type passed to SetValue");
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern unsafe void* mpr_sig_get_value(IntPtr sig, ulong id, ref long time);
-        public unsafe (dynamic?, Time) GetValue(ulong instanceId = 0)
+        public unsafe (object?, Time) GetValue(ulong instanceId = 0)
         {
             var len = mpr_obj_get_prop_as_int32(_obj, (int)Property.Length, null);
             var type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);
@@ -204,15 +216,14 @@ public class Signal : MapperObject
                 id = inst;
             }
 
-            public (dynamic?, Time) GetValue()
+            public (object?, Time) GetValue()
             {
                 return GetValue(id);
             }
 
             public Instance SetValue<T>(T value) where T: notnull
             {
-                dynamic temp = value;
-                _SetValue(temp, id);
+                SetValue(value, id);
                 return this;
             }
 

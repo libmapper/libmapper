@@ -37,7 +37,7 @@ public abstract class MapperObject
         public int GetNumProperties()
             { return mpr_obj_get_num_props(_obj); }
 
-        internal unsafe dynamic? BuildValue(int len, int type, void *value, int property)
+        internal unsafe object? BuildValue(int len, int type, void *value, int property)
         {
             if (0 == len)
                 return null;
@@ -162,7 +162,7 @@ public abstract class MapperObject
                                                                   ref int len, ref int type,
                                                                   ref void *value, ref int publish);
 
-        public unsafe (string, dynamic?) GetProperty(int index)
+        public unsafe (string, object?) GetProperty(int index)
         {
             char *key = null;
             var len = 0;
@@ -176,7 +176,7 @@ public abstract class MapperObject
             return (new string(Marshal.PtrToStringAnsi((IntPtr)key)), BuildValue(len, type, val, idx));
         }
 
-        public unsafe dynamic? GetProperty(Property property)
+        public unsafe object? GetProperty(Property property)
         {
             char *key = null;
             var len = 0;
@@ -195,7 +195,7 @@ public abstract class MapperObject
                                                                   [MarshalAs(UnmanagedType.LPStr)] string key,
                                                                   ref int len, ref int type,
                                                                   ref void *value, ref int publish);
-        public unsafe dynamic? GetProperty(string key)
+        public unsafe object? GetProperty(string key)
         {
             var len = 0;
             var type = 0;
