@@ -57,11 +57,12 @@ public class Map : MapperObject
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_map_get_is_ready(IntPtr map);
-        public int GetIsReady()
-        {
-            return mpr_map_get_is_ready(_obj);
-        }
 
+        /// <summary>
+        /// If this map has been completely initialized.
+        /// </summary>
+        public bool IsReady => mpr_map_get_is_ready(_obj) != 0;
+        
         public new Map SetProperty<P, T>(P property, T value, bool publish)
         {
             base.SetProperty(property, value, publish);

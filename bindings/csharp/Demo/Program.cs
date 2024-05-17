@@ -10,7 +10,7 @@ class Program
         var dev = new Device("CSharpDemo");
         while (true)
         {
-            if (dev.GetIsReady() == 1) break;
+            if (dev.Ready) break;
             dev.Poll(100);
         }
         
@@ -19,7 +19,7 @@ class Program
         
         var map = new Map(sigA, sigB);
         map.Push();
-        while (map.GetIsReady() == 0)
+        while (!dev.Ready)
         {
             dev.Poll(100);
         }

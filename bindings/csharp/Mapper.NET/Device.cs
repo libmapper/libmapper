@@ -28,10 +28,11 @@ namespace Mapper.NET;
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_dev_get_is_ready(IntPtr dev);
-        public int GetIsReady()
-        {
-            return mpr_dev_get_is_ready(_obj);
-        }
+        
+        /// <summary>
+        /// If the device is ready to send and receive signals.
+        /// </summary>
+        public bool Ready => mpr_dev_get_is_ready(_obj) != 0;
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_dev_poll(IntPtr dev, int block_ms);
