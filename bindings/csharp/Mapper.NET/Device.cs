@@ -119,16 +119,22 @@ namespace Mapper.NET;
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern long mpr_dev_get_time(IntPtr dev);
-        public Time GetTime()
-        {
-            return new Time(mpr_dev_get_time(_obj));
-        }
-
+        
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern long mpr_dev_set_time(IntPtr dev, long time);
-        public Device SetTime(Time time)
+
+        /// <summary>
+        /// The current time according to the backing device.
+        /// </summary>
+        public Time Time
         {
-            mpr_dev_set_time(_obj, time.data.ntp);
-            return this;
+            get
+            {
+                return new Time(mpr_dev_get_time(_obj));
+            }
+            set
+            {
+                mpr_dev_set_time(_obj, value.data.ntp);
+            }
         }
     }
