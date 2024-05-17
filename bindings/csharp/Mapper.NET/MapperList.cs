@@ -41,10 +41,7 @@ namespace Mapper.NET;
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_list_get_size(IntPtr list);
-        public int Count()
-        {
-            return mpr_list_get_size(_list);
-        }
+        public int Count => mpr_list_get_size(_list);
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_list_get_idx(IntPtr list, int index);
