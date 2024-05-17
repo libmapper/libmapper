@@ -501,13 +501,13 @@ public class Signal : MapperObject
             return this;
         }
 
-        public new Signal SetProperty<P, T>(P property, T value, bool publish)
+        public new Signal SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
         {
             base.SetProperty(property, value, publish);
             return this;
         }
 
-        public new Signal SetProperty<P, T>(P property, T value)
+        public new Signal SetProperty<TProperty, TValue>(TProperty property, TValue value)
         {
             base.SetProperty(property, value, true);
             return this;

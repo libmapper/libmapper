@@ -215,7 +215,7 @@ public abstract class MapperObject
         internal static extern unsafe
         int mpr_obj_set_prop(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string? key,
                              int len, int type, void* value, int publish);
-        public unsafe object SetProperty<P, T>(P property, T value, bool publish)
+        public unsafe object SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
         {
             int _prop = 0, _pub = Convert.ToInt32(publish);
             string? _key = null;
@@ -276,7 +276,7 @@ public abstract class MapperObject
             }
             return this;
         }
-        public object SetProperty<P, T>(P property, T value)
+        public object SetProperty<TProperty, TValue>(TProperty property, TValue value)
         {
             return SetProperty(property, value, true);
         }
@@ -284,7 +284,7 @@ public abstract class MapperObject
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_obj_remove_prop(IntPtr obj, int prop,
                                                       [MarshalAs(UnmanagedType.LPStr)] string? key);
-        public bool RemoveProperty<P>(P property)
+        public bool RemoveProperty<TProperty>(TProperty property)
         {
             var _prop = 0;
             string? _key = null;

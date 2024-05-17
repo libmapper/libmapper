@@ -63,13 +63,13 @@ public class Map : MapperObject
         /// </summary>
         public bool IsReady => mpr_map_get_is_ready(_obj) != 0;
         
-        public new Map SetProperty<P, T>(P property, T value, bool publish)
+        public new Map SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
         {
             base.SetProperty(property, value, publish);
             return this;
         }
 
-        public new Map SetProperty<P, T>(P property, T value)
+        public new Map SetProperty<TProperty, TValue>(TProperty property, TValue value)
         {
             base.SetProperty(property, value, true);
             return this;

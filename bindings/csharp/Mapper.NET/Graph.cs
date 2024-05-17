@@ -29,13 +29,13 @@ public class Graph : MapperObject
         ~Graph()
             { if (_owned) mpr_graph_free(_obj); }
 
-        public new Graph SetProperty<P, T>(P property, T value, bool publish)
+        public new Graph SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
         {
             base.SetProperty(property, value, publish);
             return this;
         }
 
-        public new Graph SetProperty<P, T>(P property, T value)
+        public new Graph SetProperty<TProperty, TValue>(TProperty property, TValue value)
         {
             base.SetProperty(property, value, true);
             return this;

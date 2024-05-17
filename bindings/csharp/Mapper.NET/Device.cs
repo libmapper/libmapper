@@ -86,13 +86,13 @@ namespace Mapper.NET;
             return this;
         }
 
-        public new Device SetProperty<P, T>(P property, T value, bool publish)
+        public new Device SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
         {
             base.SetProperty(property, value, publish);
             return this;
         }
 
-        public new Device SetProperty<P, T>(P property, T value)
+        public new Device SetProperty<TProperty, TValue>(TProperty property, TValue value)
         {
             base.SetProperty(property, value, true);
             return this;
