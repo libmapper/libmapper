@@ -113,7 +113,18 @@ namespace Mapper.NET;
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_dev_get_maps(IntPtr dev, int dir);
-        public MapperList<Map> GetMaps(Signal.Direction direction = Signal.Direction.Any)
+
+        /// <summary>
+        /// Return the list of all maps for this device. Use <see cref="GetMaps"/> if you want to filter by direction.
+        /// </summary>
+        public MapperList<Map> Maps => GetMaps(Signal.Direction.Any);
+        
+        /// <summary>
+        /// Return the list of maps for this device, filtered by direction.
+        /// </summary>
+        /// <param name="direction">Only return maps matching this direction</param>
+        /// <returns></returns>
+        public MapperList<Map> GetMaps(Signal.Direction direction)
         {
             return new MapperList<Map>(mpr_dev_get_maps(_obj, (int) direction), Type.Map);
         }
