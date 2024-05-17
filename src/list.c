@@ -123,18 +123,27 @@ static void* mpr_list_get_next_internal(void *mem)
     return mpr_list_header_by_data(mem)->next;
 }
 
-/*! Prepend an item to the beginning of a list. */
-static void *mpr_list_prepend_item(void *item, void **list)
+/*! Append an item to the end of a list. */
+static void *mpr_list_append_item(void *item, void **list)
 {
-    mpr_list_set_next(item, *list);
-    *list = item;
+    if (*list) {
+        void *last_item, *node = *list;
+        while (node) {
+            last_item = node;
+            node = mpr_list_get_next_internal(node);
+        }
+        mpr_list_set_next(last_item, item);
+    }
+    else {
+        *list = item;
+    }
     return item;
 }
 
 void *mpr_list_add_item(void **list, size_t size)
 {
     mpr_list_header_t* lh = mpr_list_new_item(size);
-    mpr_list_prepend_item(lh, list);
+    mpr_list_append_item(lh, list);
     return lh;
 }
 
