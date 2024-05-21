@@ -63,8 +63,8 @@ public class Map : MapperObject
     {
     }
     
-    [DllImport("varargs_wapper.dylib")]
-    private static extern unsafe IntPtr varargs_wapper(IntPtr func, 
+    [DllImport("varargs_wrapper.dylib")]
+    private static extern unsafe IntPtr varargs_wrapper(IntPtr func, 
         [MarshalAs(UnmanagedType.LPStr)] string format, int count, 
         [MarshalAs(UnmanagedType.LPArray)] IntPtr[] args);
     
@@ -97,7 +97,7 @@ public class Map : MapperObject
             var args = signals.Select(sig => sig._obj).ToArray();
             unsafe
             {
-                _obj = varargs_wapper(func, expression, args.Length, args);
+                _obj = varargs_wrapper(func, expression, args.Length, args);
             }
         }
         else
