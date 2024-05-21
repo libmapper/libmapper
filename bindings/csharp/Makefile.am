@@ -12,6 +12,7 @@ Mapper.NET.dll: Mapper.NET/*.cs
 	
 varargs_wrapper.dylib: varargs_wrapper.s
 	gcc -shared -o varargs_wrapper.dylib varargs_wrapper.s
-
+	
+MOSTLYCLEANFILES = *.dll *.exe *.dylib
 
 EXTRA_DIST = Mapper.NET.dll varargs_wrapper.dylib
