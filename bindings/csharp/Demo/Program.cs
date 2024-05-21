@@ -3,9 +3,9 @@ using Type = Mapper.NET.Type;
 
 namespace Demo;
 
-class Program
+internal static class Program
 {
-    static void Main(string[] args)
+    private static void Main(string[] args)
     {
         var dev = new Device("CSharpDemo");
         while (true)
