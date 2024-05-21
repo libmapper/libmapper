@@ -62,6 +62,17 @@ public class Map : MapperObject
     internal Map(IntPtr map) : base(map)
     {
     }
+    
+    [DllImport("varargs_wapper.dylib")]
+    private static extern unsafe IntPtr varargs_wapper(IntPtr func, 
+        [MarshalAs(UnmanagedType.LPStr)] string format, int count, 
+        [MarshalAs(UnmanagedType.LPArray)] IntPtr[] args);
+    
+    [DllImport("libdl.dylib")]
+    private static extern unsafe IntPtr dlopen(string filename, int flag);
+    
+    [DllImport("libdl.dylib")]
+    private static extern unsafe IntPtr dlsym(IntPtr handle, string symbol);
 
     /// <summary>
     ///     Creates a map from a string expression. `%y` is used as the target signal and %x is used for a source.
@@ -77,14 +88,29 @@ public class Map : MapperObject
     /// <param name="signals"></param>
     public Map(string expression, params Signal[] signals)
     {
-        var a = new IntPtr[10];
-        for (var i = 0; i < 10; i++)
-            if (i < signals.Length)
-                a[i] = signals[i]._obj;
-            else
-                a[i] = default;
-        _obj = mpr_map_new_from_str(expression, a[0], a[1], a[2], a[3], a[4], a[5],
-            a[6], a[7], a[8], a[9], default);
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) &&
+            RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+        {
+            // apple silicon varargs wrapper (see varargs_wapper.s)
+            var handle = dlopen("libmapper.dylib", 1);
+            var func = dlsym(handle, "mpr_map_new_from_str");
+            var args = signals.Select(sig => sig._obj).ToArray();
+            unsafe
+            {
+                _obj = varargs_wapper(func, expression, args.Length, args);
+            }
+        }
+        else
+        {
+            var a = new IntPtr[10];
+            for (var i = 0; i < 10; i++)
+                if (i < signals.Length)
+                    a[i] = signals[i]._obj;
+                else
+                    a[i] = default;
+            _obj = mpr_map_new_from_str(expression, a[0], a[1], a[2], a[3], a[4], a[5],
+                a[6], a[7], a[8], a[9], default);
+        }
     }
 
     /// <summary>

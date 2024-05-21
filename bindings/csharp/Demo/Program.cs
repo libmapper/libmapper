@@ -17,7 +17,7 @@ class Program
         var sigA = dev.AddSignal(Signal.Direction.Outgoing, "Sine", 1, Type.Double);
         var sigB = dev.AddSignal(Signal.Direction.Incoming, "Debug_Log", 1, Type.Double);
         
-        var map = new Map(sigA, sigB);
+        var map = new Map("%y=2.0*%x", sigB, sigA);
         map.Push();
         while (!dev.Ready)
         {
