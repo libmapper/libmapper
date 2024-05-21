@@ -165,7 +165,7 @@ public class MapperList<T> : _MapperList, IEnumerator, IEnumerable, IDisposable
 
     public void Reset()
     {
-        // TODO: throw NotSupportedException;
+        throw new NotSupportedException();
     }
 
     public bool MoveNext()
