@@ -67,16 +67,16 @@ public class Device : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern int mpr_dev_poll(IntPtr dev, int block_ms);
 
-    public int Poll(int block_ms)
+    /// <summary>
+    /// Poll the device for new data.
+    /// </summary>
+    /// <param name="blockMs">Optionally block for this many milliseconds. Useful in a loop where you'd call <see cref="Thread.Sleep(int)"/> anyways.</param>
+    /// <returns></returns>
+    public int Poll(int blockMs = 0)
     {
-        return mpr_dev_poll(_obj, block_ms);
+        return mpr_dev_poll(_obj, blockMs);
     }
-
-    public int Poll()
-    {
-        return mpr_dev_poll(_obj, 0);
-    }
-
+    
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern int mpr_dev_update_maps(IntPtr dev);
 
