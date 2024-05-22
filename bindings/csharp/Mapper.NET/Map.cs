@@ -81,7 +81,7 @@ public class Map : MapperObject
             RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
         {
             // apple silicon varargs wrapper (see varargs_wapper.s)
-            var handle = dlopen("libmapper.dylib", 1);
+            var handle = dlopen(null, 1);
             var func = dlsym(handle, "mpr_map_new_from_str");
             var args = signals.Select(sig => sig._obj).ToArray();
             _obj = varargs_wrapper(func, expression, args.Length, args);
@@ -110,7 +110,7 @@ public class Map : MapperObject
         [MarshalAs(UnmanagedType.LPArray)] IntPtr[] args);
 
     [DllImport("libdl.dylib")]
-    private static extern IntPtr dlopen(string filename, int flag);
+    private static extern IntPtr dlopen(string? filename, int flag);
 
     [DllImport("libdl.dylib")]
     private static extern IntPtr dlsym(IntPtr handle, string symbol);
