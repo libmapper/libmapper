@@ -13,6 +13,8 @@
 #include "table.h"
 #include <mapper/mapper.h>
 
+#define MPR_TBL_MAX_RECORDS 128
+
 /*! Used to hold look-up table records. */
 typedef struct _mpr_tbl_record {
     const char *key;
@@ -106,6 +108,7 @@ static mpr_tbl_record add_record_internal(mpr_tbl t, mpr_prop prop, const char *
                                           int len, mpr_type type, void *val, int flags)
 {
     mpr_tbl_record rec;
+    RETURN_ARG_UNLESS(t->count < MPR_TBL_MAX_RECORDS, NULL);
     t->count += 1;
     if (t->count > t->alloced) {
         while (t->count > t->alloced)
@@ -382,7 +385,8 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
     }
     else {
         /* Need to add a new entry. */
-        rec = add_record_internal(t, prop, key, 0, type, 0, flags | PROP_OWNED);
+        if (!(rec = add_record_internal(t, prop, key, 0, type, 0, flags | PROP_OWNED)))
+            return 0;
         if (val)
             update_elements(rec, len, type, val);
         else
@@ -491,7 +495,8 @@ int mpr_tbl_add_record_from_msg_atom(mpr_tbl t, mpr_msg_atom atom, int flags)
     else {
         /* Need to add a new entry. */
         const mpr_type *types = mpr_msg_atom_get_types(atom);
-        rec = add_record_internal(t, prop, key, 0, types[0], 0, flags | PROP_OWNED);
+        if (!(rec = add_record_internal(t, prop, key, 0, types[0], 0, flags | PROP_OWNED)))
+            return 0;
         rec->val = 0;
         update_elements_osc(rec, len, types, mpr_msg_atom_get_values(atom));
         qsort(t->rec, t->count, sizeof(mpr_tbl_record_t), compare_rec);
