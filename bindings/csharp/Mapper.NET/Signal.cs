@@ -110,7 +110,7 @@ public class Signal : MapperObject
 
     public override string ToString()
     {
-        return $"Mapper.Signal:{GetDevice().GetProperty(Property.Name)}:{GetProperty(Property.Name)}";
+        return $"Mapper.Signal:{Device.GetProperty(Property.Name)}:{GetProperty(Property.Name)}";
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
