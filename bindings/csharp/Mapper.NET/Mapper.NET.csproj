@@ -11,6 +11,7 @@
         <PackageIcon>libmapper_logo_black_512px.png</PackageIcon>
         <RepositoryUrl>https://github.com/libmapper/libmapper</RepositoryUrl>
         <NeutralLanguage>en</NeutralLanguage>
+        <Version>2.4.6</Version>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -24,7 +25,7 @@
     <ItemGroup>
       <None Update="Assets\libmapper_logo_black_512px.png">
         <Pack>True</Pack>
-        <PackagePath></PackagePath>
+        <PackagePath>libmapper_logo_black_512px.png</PackagePath>
       </None>
     </ItemGroup>
 
