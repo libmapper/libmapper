@@ -288,6 +288,7 @@ void mpr_msg_free(mpr_msg msg)
 mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, int prop)
 {
     int i;
+    RETURN_ARG_UNLESS(msg, 0);
     for (i = 0; i < msg->num_atoms; i++) {
         if (msg->atoms[i].prop == prop) {
             RETURN_ARG_UNLESS(msg->atoms[i].len && msg->atoms[i].types, 0);

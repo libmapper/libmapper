@@ -242,7 +242,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
     *locked = 1;
     for (i = 0; i < sig->num_maps_out; i++) {
         mpr_local_slot src_slot;
-        int in_scope, all;
+        int all;
 
         src_slot = sig->slots_out[i];
 
@@ -250,9 +250,8 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
         if (mpr_map_get_status((mpr_map)map) < MPR_STATUS_ACTIVE)
             continue;
 
-        in_scope = mpr_local_map_get_has_scope(map, id_map->GID);
         /* TODO: should we continue for out-of-scope local destination updates? */
-        if (mpr_map_get_use_inst((mpr_map)map) && !in_scope)
+        if (mpr_map_get_use_inst((mpr_map)map) && !(mpr_local_map_get_has_scope(map, id_map->GID)))
             continue;
 
         /* If this signal is non-instanced but the map has other instanced

@@ -78,9 +78,9 @@ typedef struct _mpr_local_map {
     int num_old_vars;               /*!< Number of user variables. */
     int num_inst;                   /*!< Number of local instances. */
 
-    uint8_t locality;
-    uint8_t one_src;
-    uint8_t updated;
+    uint8_t locality;               /* requires 3 bits -----XXX */
+    uint8_t one_src;                // requires 1 bit
+    uint8_t updated;                // requires 1 bit
 } mpr_local_map_t;
 
 size_t mpr_map_get_struct_size(int is_local)
