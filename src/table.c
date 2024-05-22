@@ -675,6 +675,12 @@ int mpr_tbl_get_prop_is_set(mpr_tbl tbl, mpr_prop prop)
     return rec && (rec->flags & PROP_SET);
 }
 
+void mpr_tbl_set_prop_is_set(mpr_tbl tbl, mpr_prop prop)
+{
+    mpr_tbl_record rec = mpr_tbl_get_record(tbl, prop, NULL);
+    rec->flags |= PROP_SET;
+}
+
 #ifdef DEBUG
 static const char *type_name(mpr_type type)
 {

@@ -128,4 +128,6 @@ void mpr_tbl_set_is_dirty(mpr_tbl tbl, int is_dirty);
 
 int mpr_tbl_get_prop_is_set(mpr_tbl tbl, mpr_prop prop);
 
+void mpr_tbl_set_prop_is_set(mpr_tbl tbl, mpr_prop prop);
+
 #endif /* __MPR_TABLE_H__ */

@@ -1450,10 +1450,13 @@ int mpr_local_map_update_status(mpr_local_map map)
         if (!mpr_tbl_get_prop_is_set(tbl, MPR_PROP_USE_INST)) {
             /* default to using instanced maps if any of the contributing signals are instanced */
             map->use_inst = use_inst;
+            mpr_tbl_set_prop_is_set(tbl, MPR_PROP_USE_INST);
         }
 
-        if (MPR_LOC_BOTH != map->locality && !mpr_tbl_get_prop_is_set(tbl, MPR_PROP_PROTOCOL))
+        if (MPR_LOC_BOTH != map->locality && !mpr_tbl_get_prop_is_set(tbl, MPR_PROP_PROTOCOL)) {
             map->protocol = use_inst ? MPR_PROTO_TCP : MPR_PROTO_UDP;
+            mpr_tbl_set_prop_is_set(tbl, MPR_PROP_PROTOCOL);
+        }
     }
     return map->status;
 }
