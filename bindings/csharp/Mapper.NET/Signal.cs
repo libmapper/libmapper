@@ -3,9 +3,12 @@ using System.Runtime.InteropServices;
 namespace Mapper.NET;
 
 /// <summary>
-/// Signals define inputs or outputs for devices. A signal consists of a scalar or vector value of some integer or floating-point type.
-/// A signal must be associated with a parent device. It can optionally be provided with some metadata such as range, unit, or other properties.
-/// Signals can be dynamically connected together in a dataflow graph by creating Maps using the libmapper API or an external session manager.
+///     Signals define inputs or outputs for devices. A signal consists of a scalar or vector value of some integer or
+///     floating-point type.
+///     A signal must be associated with a parent device. It can optionally be provided with some metadata such as range,
+///     unit, or other properties.
+///     Signals can be dynamically connected together in a dataflow graph by creating Maps using the libmapper API or an
+///     external session manager.
 /// </summary>
 public class Signal : MapperObject
 {
@@ -100,13 +103,24 @@ public class Signal : MapperObject
     {
     }
 
-    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern IntPtr mpr_sig_get_dev(IntPtr sig);
+    /// <summary>
+    ///     The device that this signal belongs to
+    /// </summary>
+    public Device Device => new(mpr_sig_get_dev(_obj));
+
 
     /// <summary>
-    /// The device that this signal belongs to
+    ///     Get a handle to the oldest active instance of this signal.
     /// </summary>
-    public Device Device =>  new(mpr_sig_get_dev(_obj));
+    public Instance OldestInstance => new(_obj, mpr_sig_get_oldest_inst_id(_obj));
+
+    /// <summary>
+    ///     Get a handle to the newest active instance of this signal.
+    /// </summary>
+    public Instance GetNewestInstance => new(_obj, mpr_sig_get_newest_inst_id(_obj));
+
+    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+    private static extern IntPtr mpr_sig_get_dev(IntPtr sig);
 
     public override string ToString()
     {
@@ -163,13 +177,13 @@ public class Signal : MapperObject
     }
 
     /// <summary>
-    /// Sets the value of the signal. The value can be an int, float, double, int[], float[], or double[].
+    ///     Sets the value of the signal. The value can be an int, float, double, int[], float[], or double[].
     /// </summary>
     /// <param name="value">Value to push to the distributed graph</param>
     /// <param name="instanceId">Optional parameter indicating which instance to write the value to</param>
     /// <returns>The same signal for chaining</returns>
     /// <exception cref="ArgumentException">
-    ///     If the passed value is not a <see cref="float"/>, <see cref="double"/>, <see cref="int"/>, or an array of those.
+    ///     If the passed value is not a <see cref="float" />, <see cref="double" />, <see cref="int" />, or an array of those.
     /// </exception>
     public Signal SetValue<T>(T value, ulong instanceId = 0) where T : notnull
     {
@@ -194,7 +208,7 @@ public class Signal : MapperObject
     private static extern unsafe void* mpr_sig_get_value(IntPtr sig, ulong id, ref long time);
 
     /// <summary>
-    /// Gets the current value of the signal, set either by the user or by the network.
+    ///     Gets the current value of the signal, set either by the user or by the network.
     /// </summary>
     /// <param name="instanceId">An optional parameter indicating which instance of this signal should be read from.</param>
     /// <returns>A tuple of the value and what time it was last updated at. The value might be null.</returns>
@@ -218,7 +232,7 @@ public class Signal : MapperObject
     private static extern int mpr_sig_reserve_inst(IntPtr sig, int num, IntPtr ids, IntPtr data);
 
     /// <summary>
-    /// Preallocates space to store `number` instances of this signal.
+    ///     Preallocates space to store `number` instances of this signal.
     /// </summary>
     /// <param name="number">Number of instances to preallocate memory for</param>
     /// <returns>This signal for chaining</returns>
@@ -232,7 +246,7 @@ public class Signal : MapperObject
     private static extern int mpr_sig_remove_inst(IntPtr sig, ulong id);
 
     /// <summary>
-    /// Remove an instance from the signal.
+    ///     Remove an instance from the signal.
     /// </summary>
     /// <param name="instanceId">Instance to be released</param>
     /// <returns>The same signal for chaining</returns>
@@ -243,7 +257,7 @@ public class Signal : MapperObject
     }
 
     /// <summary>
-    /// Get a reference to an instance of this signal.
+    ///     Get a reference to an instance of this signal.
     /// </summary>
     /// <param name="id">The instance id</param>
     public Instance GetInstance(ulong id)
@@ -254,19 +268,8 @@ public class Signal : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern ulong mpr_sig_get_oldest_inst_id(IntPtr sig);
 
-    
-    /// <summary>
-    /// Get a handle to the oldest active instance of this signal.
-    /// </summary>
-    public Instance OldestInstance => new Instance(_obj, mpr_sig_get_oldest_inst_id(_obj));
-
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern ulong mpr_sig_get_newest_inst_id(IntPtr sig);
-
-    /// <summary>
-    /// Get a handle to the newest active instance of this signal.
-    /// </summary>
-    public Instance GetNewestInstance => new Instance(_obj, mpr_sig_get_newest_inst_id(_obj));
 
     private void _handler(IntPtr sig, int evt, ulong inst, int length,
         int type, IntPtr value, long time)
@@ -530,7 +533,7 @@ public class Signal : MapperObject
     }
 
     /// <summary>
-    /// Push this signal out to the distributed graph, allowing it to become active
+    ///     Push this signal out to the distributed graph, allowing it to become active
     /// </summary>
     public new Signal Push()
     {
@@ -567,7 +570,7 @@ public class Signal : MapperObject
     }
 
     /// <summary>
-    /// A variant of Signal that is bound to a specific instance ID.
+    ///     A variant of Signal that is bound to a specific instance ID.
     /// </summary>
     public class Instance : Signal
     {
@@ -593,7 +596,7 @@ public class Signal : MapperObject
         private static extern void mpr_sig_release_inst(IntPtr sig, ulong id);
 
         /// <summary>
-        /// Release this instance, keeping the allocated memory allowing a new instance to take it's place.
+        ///     Release this instance, keeping the allocated memory allowing a new instance to take it's place.
         /// </summary>
         public void Release()
         {
@@ -601,6 +604,7 @@ public class Signal : MapperObject
         }
     }
 
+    // TODO: This is HORRIFYING
     [StructLayout(LayoutKind.Explicit)]
     private struct Handlers
     {

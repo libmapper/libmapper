@@ -62,17 +62,6 @@ public class Map : MapperObject
     internal Map(IntPtr map) : base(map)
     {
     }
-    
-    [DllImport("varargs_wrapper.dylib")]
-    private static extern unsafe IntPtr varargs_wrapper(IntPtr func, 
-        [MarshalAs(UnmanagedType.LPStr)] string format, int count, 
-        [MarshalAs(UnmanagedType.LPArray)] IntPtr[] args);
-    
-    [DllImport("libdl.dylib")]
-    private static extern unsafe IntPtr dlopen(string filename, int flag);
-    
-    [DllImport("libdl.dylib")]
-    private static extern unsafe IntPtr dlsym(IntPtr handle, string symbol);
 
     /// <summary>
     ///     Creates a map from a string expression. `%y` is used as the target signal and %x is used for a source.
@@ -95,10 +84,7 @@ public class Map : MapperObject
             var handle = dlopen("libmapper.dylib", 1);
             var func = dlsym(handle, "mpr_map_new_from_str");
             var args = signals.Select(sig => sig._obj).ToArray();
-            unsafe
-            {
-                _obj = varargs_wrapper(func, expression, args.Length, args);
-            }
+            _obj = varargs_wrapper(func, expression, args.Length, args);
         }
         else
         {
@@ -117,6 +103,17 @@ public class Map : MapperObject
     ///     If this map has been completely initialized.
     /// </summary>
     public bool IsReady => mpr_map_get_is_ready(_obj) != 0;
+
+    [DllImport("varargs_wrapper.dylib")]
+    private static extern IntPtr varargs_wrapper(IntPtr func,
+        [MarshalAs(UnmanagedType.LPStr)] string format, int count,
+        [MarshalAs(UnmanagedType.LPArray)] IntPtr[] args);
+
+    [DllImport("libdl.dylib")]
+    private static extern IntPtr dlopen(string filename, int flag);
+
+    [DllImport("libdl.dylib")]
+    private static extern IntPtr dlsym(IntPtr handle, string symbol);
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern unsafe IntPtr mpr_map_new(int num_srcs, void* srcs, int num_dsts, void* dsts);
