@@ -4,6 +4,13 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <Title>Mapper.NET</Title>
+        <Authors>Joseph Malloch, Libmapper Contributors, Kyle Smith</Authors>
+        <Description>A library for connecting things.</Description>
+        <PackageProjectUrl>https://libmapper.github.io</PackageProjectUrl>
+        <PackageIcon>libmapper_logo_black_512px.png</PackageIcon>
+        <RepositoryUrl>https://github.com/libmapper/libmapper</RepositoryUrl>
+        <NeutralLanguage>en</NeutralLanguage>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -13,5 +20,12 @@
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
+
+    <ItemGroup>
+      <None Update="Assets\libmapper_logo_black_512px.png">
+        <Pack>True</Pack>
+        <PackagePath></PackagePath>
+      </None>
+    </ItemGroup>
 
 </Project>
