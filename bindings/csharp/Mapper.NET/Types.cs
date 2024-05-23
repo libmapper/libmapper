@@ -1,7 +1,7 @@
 namespace Mapper.NET;
 
 [Flags]
-public enum Type
+public enum MapperType
 {
     Device = 0x01, //!< Devices only.
     SignalIn = 0x02, //!< Input signals.

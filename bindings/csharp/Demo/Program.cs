@@ -1,5 +1,4 @@
 ﻿using Mapper.NET;
-using Type = Mapper.NET.Type;
 
 namespace Demo;
 
@@ -14,8 +13,8 @@ internal static class Program
             dev.Poll(100);
         }
         
-        var sigA = dev.AddSignal(Signal.Direction.Outgoing, "Sine", 1, Type.Double);
-        var sigB = dev.AddSignal(Signal.Direction.Incoming, "Debug_Log", 1, Type.Double);
+        var sigA = dev.AddSignal(Signal.Direction.Outgoing, "Sine", 1, MapperType.Double);
+        var sigB = dev.AddSignal(Signal.Direction.Incoming, "Debug_Log", 1, MapperType.Double);
         sigB.ValueChanged += OnEvent;
         
         var map = new Map("%y=2.0*%x", sigB, sigA);
@@ -39,7 +38,7 @@ internal static class Program
 
     }
     
-    private static void OnEvent(object? sender, (ulong instanceId, object? value, Type objectType, Time changed) data)
+    private static void OnEvent(object? sender, (ulong instanceId, object? value, MapperType objectType, Time changed) data)
     {
         Console.WriteLine($"Received: {data.value}");
     }

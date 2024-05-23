@@ -33,9 +33,9 @@ public abstract class MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     protected static extern int mpr_obj_get_type(IntPtr obj);
 
-    public new Type GetType()
+    public new MapperType GetType()
     {
-        return (Type)mpr_obj_get_type(_obj);
+        return (MapperType)mpr_obj_get_type(_obj);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -54,7 +54,7 @@ public abstract class MapperObject
             return null;
         switch (type)
         {
-            case (int)Type.Int32:
+            case (int)MapperType.Int32:
                 if (1 == len)
                 {
                     var i = *(int*)value;
@@ -71,7 +71,7 @@ public abstract class MapperObject
                         case (int)Property.Stealing:
                             return (Signal.Stealing)i;
                         case (int)Property.Type:
-                            return (Type)i;
+                            return (MapperType)i;
                         default:
                             return i;
                     }
@@ -82,7 +82,7 @@ public abstract class MapperObject
                 Marshal.Copy((IntPtr)value, arr, 0, len);
                 return arr;
             }
-            case (int)Type.Float:
+            case (int)MapperType.Float:
                 if (1 == len)
                     return *(float*)value;
             {
@@ -90,7 +90,7 @@ public abstract class MapperObject
                 Marshal.Copy((IntPtr)value, arr, 0, len);
                 return arr;
             }
-            case (int)Type.Double:
+            case (int)MapperType.Double:
                 if (1 == len)
                     return *(double*)value;
             {
@@ -98,7 +98,7 @@ public abstract class MapperObject
                 Marshal.Copy((IntPtr)value, arr, 0, len);
                 return arr;
             }
-            case (int)Type.Boolean:
+            case (int)MapperType.Boolean:
                 if (1 == len)
                     return *(int*)value != 0;
             {
@@ -107,7 +107,7 @@ public abstract class MapperObject
                     arr[i] = ((int*)value)[i] != 0;
                 return arr;
             }
-            case (int)Type.Int64:
+            case (int)MapperType.Int64:
                 if (1 == len)
                     return *(long*)value;
             {
@@ -115,7 +115,7 @@ public abstract class MapperObject
                 Marshal.Copy((IntPtr)value, arr, 0, len);
                 return arr;
             }
-            case (int)Type.Time:
+            case (int)MapperType.Time:
                 if (1 == len)
                     return new Time(*(long*)value);
             {
@@ -124,7 +124,7 @@ public abstract class MapperObject
                     arr[0] = new Time(((long*)value)[i]);
                 return arr;
             }
-            case (int)Type.String:
+            case (int)MapperType.String:
                 if (1 == len)
                     return new string(Marshal.PtrToStringAnsi((IntPtr)value));
             {
@@ -133,22 +133,22 @@ public abstract class MapperObject
                     arr[i] = new string(Marshal.PtrToStringAnsi((IntPtr)((char**)value)[i]));
                 return arr;
             }
-            case (int)Type.Device:
+            case (int)MapperType.Device:
                 return new Device((IntPtr)value);
-            case (int)Type.Map:
+            case (int)MapperType.Map:
                 return new Map((IntPtr)value);
-            case (int)Type.Signal:
+            case (int)MapperType.Signal:
                 return new Signal((IntPtr)value);
-            case (int)Type.List:
+            case (int)MapperType.List:
                 if (1 == len)
                     switch (property)
                     {
                         case (int)Property.Device:
                         case (int)Property.Linked:
                         case (int)Property.Scope:
-                            return new MapperList<Device>((IntPtr)value, Type.Device);
+                            return new MapperList<Device>((IntPtr)value, MapperType.Device);
                         case (int)Property.Signal:
-                            return new MapperList<Signal>((IntPtr)value, Type.Signal);
+                            return new MapperList<Signal>((IntPtr)value, MapperType.Signal);
                         default:
                             Console.WriteLine("error: missing List type.");
                             return null;
@@ -246,28 +246,28 @@ public abstract class MapperObject
         switch (value)
         {
             case int i:
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Int32, &i, _pub);
+                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.Int32, &i, _pub);
                 break;
             case float f:
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Float, &f, _pub);
+                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.Float, &f, _pub);
                 break;
             case double d:
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Double, &d, _pub);
+                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.Double, &d, _pub);
                 break;
             case bool b:
             {
                 var i = Convert.ToInt32(b);
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Boolean, &i, _pub);
+                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.Boolean, &i, _pub);
             }
                 break;
             case string s:
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.String, (void*)Marshal.StringToHGlobalAnsi(s), _pub);
+                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.String, (void*)Marshal.StringToHGlobalAnsi(s), _pub);
                 break;
             case int[] i:
                 fixed (int* temp = &i[0])
                 {
                     var intPtr = new IntPtr(temp);
-                    mpr_obj_set_prop(_obj, _prop, _key, i.Length, (int)Type.Int32, (void*)intPtr, _pub);
+                    mpr_obj_set_prop(_obj, _prop, _key, i.Length, (int)MapperType.Int32, (void*)intPtr, _pub);
                 }
 
                 break;
@@ -275,7 +275,7 @@ public abstract class MapperObject
                 fixed (float* temp = &f[0])
                 {
                     var intPtr = new IntPtr(temp);
-                    mpr_obj_set_prop(_obj, _prop, _key, f.Length, (int)Type.Float, (void*)intPtr, _pub);
+                    mpr_obj_set_prop(_obj, _prop, _key, f.Length, (int)MapperType.Float, (void*)intPtr, _pub);
                 }
 
                 break;
@@ -283,7 +283,7 @@ public abstract class MapperObject
                 fixed (double* temp = &d[0])
                 {
                     var intPtr = new IntPtr(temp);
-                    mpr_obj_set_prop(_obj, _prop, _key, d.Length, (int)Type.Double, (void*)intPtr, _pub);
+                    mpr_obj_set_prop(_obj, _prop, _key, d.Length, (int)MapperType.Double, (void*)intPtr, _pub);
                 }
 
                 break;

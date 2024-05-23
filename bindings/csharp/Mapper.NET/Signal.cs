@@ -94,7 +94,7 @@ public class Signal : MapperObject
     /// <summary>
     ///     Event handler for when a signal's value changes.
     /// </summary>
-    public event EventHandler<(ulong instanceId, object? value, Type objectType, Time changed)> ValueChanged; 
+    public event EventHandler<(ulong instanceId, object? value, MapperType objectType, Time changed)> ValueChanged; 
     
 
     public Signal()
@@ -115,7 +115,7 @@ public class Signal : MapperObject
                 // Create a GCHandle to keep the delegate alive
                 var handlePtr = GCHandle.Alloc(handler, GCHandleType.Normal);
                 var val = GCHandle.ToIntPtr(handlePtr).ToInt64(); 
-                mpr_obj_set_prop(sig, 0, "cb_ptr", 1, (int) Type.Int64, &val, 0);
+                mpr_obj_set_prop(sig, 0, "cb_ptr", 1, (int) MapperType.Int64, &val, 0);
             }
             
         }
@@ -154,17 +154,17 @@ public class Signal : MapperObject
 
     private unsafe void _SetValue(int value, ulong instanceId)
     {
-        mpr_sig_set_value(_obj, instanceId, 1, (int)Type.Int32, &value);
+        mpr_sig_set_value(_obj, instanceId, 1, (int)MapperType.Int32, &value);
     }
 
     private unsafe void _SetValue(float value, ulong instanceId)
     {
-        mpr_sig_set_value(_obj, instanceId, 1, (int)Type.Float, &value);
+        mpr_sig_set_value(_obj, instanceId, 1, (int)MapperType.Float, &value);
     }
 
     private unsafe void _SetValue(double value, ulong instanceId)
     {
-        mpr_sig_set_value(_obj, instanceId, 1, (int)Type.Double, &value);
+        mpr_sig_set_value(_obj, instanceId, 1, (int)MapperType.Double, &value);
     }
 
     private unsafe void _SetValue(int[] value, ulong instanceId)
@@ -172,7 +172,7 @@ public class Signal : MapperObject
         fixed (int* temp = &value[0])
         {
             var intPtr = new IntPtr(temp);
-            mpr_sig_set_value(_obj, instanceId, value.Length, (int)Type.Int32, (void*)intPtr);
+            mpr_sig_set_value(_obj, instanceId, value.Length, (int)MapperType.Int32, (void*)intPtr);
         }
     }
 
@@ -181,7 +181,7 @@ public class Signal : MapperObject
         fixed (float* temp = &value[0])
         {
             var intPtr = new IntPtr(temp);
-            mpr_sig_set_value(_obj, instanceId, value.Length, (int)Type.Float, (void*)intPtr);
+            mpr_sig_set_value(_obj, instanceId, value.Length, (int)MapperType.Float, (void*)intPtr);
         }
     }
 
@@ -190,7 +190,7 @@ public class Signal : MapperObject
         fixed (double* temp = &value[0])
         {
             var intPtr = new IntPtr(temp);
-            mpr_sig_set_value(_obj, instanceId, value.Length, (int)Type.Double, (void*)intPtr);
+            mpr_sig_set_value(_obj, instanceId, value.Length, (int)MapperType.Double, (void*)intPtr);
         }
     }
 
@@ -295,7 +295,7 @@ public class Signal : MapperObject
         var e = (Event)evt;
         var t = new Time(time);
         object? val = BuildValue(length, type, value.ToPointer(), 0);
-        ValueChanged?.Invoke(this, (inst, val, (Type)type, t));
+        ValueChanged?.Invoke(this, (inst, val, (MapperType)type, t));
     }
     
     public new Signal SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
@@ -324,7 +324,7 @@ public class Signal : MapperObject
 
     public MapperList<Map> GetMaps(Direction direction = Direction.Any)
     {
-        return new MapperList<Map>(mpr_sig_get_maps(_obj, (int)direction), Type.Map);
+        return new MapperList<Map>(mpr_sig_get_maps(_obj, (int)direction), MapperType.Map);
     }
 
     private delegate void HandlerDelegate(IntPtr sig, int evt, ulong instanceId, int length,

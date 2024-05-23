@@ -18,12 +18,12 @@ public class Graph : MapperObject
     {
     }
 
-    public Graph(Type flags) : base(mpr_graph_new((int)flags))
+    public Graph(MapperType flags) : base(mpr_graph_new((int)flags))
     {
         _owned = true;
     }
 
-    public Graph() : base(mpr_graph_new((int)Type.Object))
+    public Graph() : base(mpr_graph_new((int)MapperType.Object))
     {
         _owned = true;
     }
@@ -102,15 +102,15 @@ public class Graph : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern void mpr_graph_subscribe(IntPtr graph, IntPtr dev, int types, int timeout);
 
-    public Graph Subscribe(Device device, Type types, int timeout = -1)
+    public Graph Subscribe(Device device, MapperType mapperTypes, int timeout = -1)
     {
-        mpr_graph_subscribe(_obj, device._obj, (int)types, timeout);
+        mpr_graph_subscribe(_obj, device._obj, (int)mapperTypes, timeout);
         return this;
     }
 
-    public Graph Subscribe(Type types, int timeout = -1)
+    public Graph Subscribe(MapperType mapperTypes, int timeout = -1)
     {
-        mpr_graph_subscribe(_obj, IntPtr.Zero, (int)types, timeout);
+        mpr_graph_subscribe(_obj, IntPtr.Zero, (int)mapperTypes, timeout);
         return this;
     }
 
@@ -131,19 +131,19 @@ public class Graph : MapperObject
 
     private void _handler(IntPtr graph, IntPtr obj, int evt, IntPtr data)
     {
-        var type = (Type)mpr_obj_get_type(obj);
+        var type = (MapperType)mpr_obj_get_type(obj);
         // Event event = (Event) evt;
         object o;
         var e = (Event)evt;
         switch (type)
         {
-            case Type.Device:
+            case MapperType.Device:
                 o = new Device(obj);
                 break;
-            case Type.Signal:
+            case MapperType.Signal:
                 o = new Signal(obj);
                 break;
-            case Type.Map:
+            case MapperType.Map:
                 o = new Map(obj);
                 break;
             default:
@@ -152,7 +152,7 @@ public class Graph : MapperObject
 
         handlers.ForEach(delegate(Handler h)
         {
-            if ((h._types & type) != 0)
+            if ((h.MapperTypes & type) != 0)
                 h._callback(o, e);
         });
     }
@@ -160,15 +160,15 @@ public class Graph : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern void mpr_graph_add_cb(IntPtr graph, IntPtr handler, int events, IntPtr data);
 
-    public Graph AddCallback(Action<object, Event> callback, Type types = Type.Object)
+    public Graph AddCallback(Action<object, Event> callback, MapperType mapperTypes = MapperType.Object)
     {
         // TODO: check if handler is already registered
         if (handlers.Count == 0)
             mpr_graph_add_cb(_obj,
                 Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
-                (int)Type.Object,
+                (int)MapperType.Object,
                 IntPtr.Zero);
-        handlers.Add(new Handler(callback, types));
+        handlers.Add(new Handler(callback, mapperTypes));
         return this;
     }
 
@@ -201,17 +201,17 @@ public class Graph : MapperObject
 
     public MapperList<Device> GetDevices()
     {
-        return new MapperList<Device>(mpr_graph_get_list(_obj, (int)Type.Device), Type.Device);
+        return new MapperList<Device>(mpr_graph_get_list(_obj, (int)MapperType.Device), MapperType.Device);
     }
 
     public MapperList<Signal> GetSignals()
     {
-        return new MapperList<Signal>(mpr_graph_get_list(_obj, (int)Type.Signal), Type.Signal);
+        return new MapperList<Signal>(mpr_graph_get_list(_obj, (int)MapperType.Signal), MapperType.Signal);
     }
 
     public MapperList<Map> GetMaps()
     {
-        return new MapperList<Map>(mpr_graph_get_list(_obj, (int)Type.Map), Type.Map);
+        return new MapperList<Map>(mpr_graph_get_list(_obj, (int)MapperType.Map), MapperType.Map);
     }
 
     private delegate void HandlerDelegate(IntPtr graph, IntPtr obj, int evt, IntPtr data);
@@ -219,12 +219,12 @@ public class Graph : MapperObject
     protected class Handler
     {
         public Action<object, Event> _callback;
-        public Type _types;
+        public MapperType MapperTypes;
 
-        public Handler(Action<object, Event> callback, Type types)
+        public Handler(Action<object, Event> callback, MapperType mapperTypes)
         {
             _callback = callback;
-            _types = types;
+            MapperTypes = mapperTypes;
         }
     }
 }

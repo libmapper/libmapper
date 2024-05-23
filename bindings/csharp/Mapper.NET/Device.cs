@@ -97,7 +97,7 @@ public class Device : MapperObject
         IntPtr min, IntPtr max, IntPtr num_inst,
         IntPtr handler, int events);
 
-    public Signal AddSignal(Signal.Direction direction, string name, int length, Type type,
+    public Signal AddSignal(Signal.Direction direction, string name, int length, MapperType mapperType,
         string? unit = null, int numInstances = -1)
     {
         var instPtr = IntPtr.Zero;
@@ -107,7 +107,7 @@ public class Device : MapperObject
                 instPtr = new IntPtr(&numInstances);
             }
 
-        var sigptr = mpr_sig_new(_obj, (int)direction, name, length, (int)type, unit,
+        var sigptr = mpr_sig_new(_obj, (int)direction, name, length, (int)mapperType, unit,
             IntPtr.Zero, IntPtr.Zero, instPtr, IntPtr.Zero, 0);
         return new Signal(sigptr);
     }
@@ -145,7 +145,7 @@ public class Device : MapperObject
 
     public MapperList<Signal> GetSignals(Signal.Direction direction = Signal.Direction.Any)
     {
-        return new MapperList<Signal>(mpr_dev_get_sigs(_obj, (int)direction), Type.Signal);
+        return new MapperList<Signal>(mpr_dev_get_sigs(_obj, (int)direction), MapperType.Signal);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -158,7 +158,7 @@ public class Device : MapperObject
     /// <returns></returns>
     public MapperList<Map> GetMaps(Signal.Direction direction)
     {
-        return new MapperList<Map>(mpr_dev_get_maps(_obj, (int)direction), Type.Map);
+        return new MapperList<Map>(mpr_dev_get_maps(_obj, (int)direction), MapperType.Map);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]

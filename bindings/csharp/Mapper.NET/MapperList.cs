@@ -7,18 +7,18 @@ public abstract class _MapperList
 {
     private IntPtr _list;
     private bool _started;
-    protected Type _type;
+    protected MapperType MapperType;
 
     public _MapperList()
     {
-        _type = Type.Null;
+        MapperType = MapperType.Null;
         _list = IntPtr.Zero;
         _started = false;
     }
 
-    public _MapperList(IntPtr list, Type type)
+    public _MapperList(IntPtr list, MapperType mapperType)
     {
-        _type = type;
+        MapperType = mapperType;
         _list = list;
         _started = false;
     }
@@ -27,7 +27,7 @@ public abstract class _MapperList
     public _MapperList(_MapperList original)
     {
         _list = mpr_list_get_cpy(original._list);
-        _type = original._type;
+        MapperType = original.MapperType;
         _started = false;
     }
 
@@ -121,14 +121,14 @@ public abstract class _MapperList
 
     public override string ToString()
     {
-        return $"Mapper.List<{_type}>";
+        return $"Mapper.List<{MapperType}>";
     }
 }
 
 public class MapperList<T> : _MapperList, IEnumerator, IEnumerable, IDisposable
     where T : MapperObject, new()
 {
-    internal MapperList(IntPtr list, Type type) : base(list, type)
+    internal MapperList(IntPtr list, MapperType mapperType) : base(list, mapperType)
     {
     }
 
@@ -178,16 +178,16 @@ public class MapperList<T> : _MapperList, IEnumerator, IEnumerable, IDisposable
     /* Overload some arithmetic operators */
     public static MapperList<T> operator +(MapperList<T> a, MapperList<T> b)
     {
-        return new MapperList<T>(Union(a, b), a._type);
+        return new MapperList<T>(Union(a, b), a.MapperType);
     }
 
     public static MapperList<T> operator *(MapperList<T> a, MapperList<T> b)
     {
-        return new MapperList<T>(Intersection(a, b), a._type);
+        return new MapperList<T>(Intersection(a, b), a.MapperType);
     }
 
     public static MapperList<T> operator -(MapperList<T> a, MapperList<T> b)
     {
-        return new MapperList<T>(Difference(a, b), a._type);
+        return new MapperList<T>(Difference(a, b), a.MapperType);
     }
 }

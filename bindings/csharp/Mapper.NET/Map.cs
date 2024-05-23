@@ -185,7 +185,7 @@ public class Map : MapperObject
     /// <returns>A possibly filtered list of signals connected by this map</returns>
     public MapperList<Signal> GetSignals(Location location = Location.Any)
     {
-        return new MapperList<Signal>(mpr_map_get_sigs(_obj, (int)location), Type.Signal);
+        return new MapperList<Signal>(mpr_map_get_sigs(_obj, (int)location), MapperType.Signal);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
