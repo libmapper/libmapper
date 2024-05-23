@@ -94,7 +94,7 @@ public class Signal : MapperObject
     /// <summary>
     ///     Event handler for when a signal's value changes.
     /// </summary>
-    public event EventHandler<(ulong instanceId, object? value, MapperType objectType, Time changed)> ValueChanged; 
+    public event EventHandler<(ulong instanceId, object? value, MapperType objectType, Time changed)>? ValueChanged; 
     
 
     public Signal()
