@@ -104,6 +104,19 @@ public class Signal : MapperObject
     // construct from mpr_sig pointer
     internal Signal(IntPtr sig) : base(sig)
     {
+        unsafe
+        { 
+            var exists = mpr_obj_get_prop_by_key(sig, "cb_ptr", null, null, null, null) != 0;
+            if (!exists)
+            {
+                var handler = new HandlerDelegate(_handler);
+                var handlePtr = GCHandle.Alloc(handler, GCHandleType.Normal);
+                mpr_sig_set_cb(sig, Marshal.GetFunctionPointerForDelegate(handler), (int)Event.All);
+                var val = GCHandle.ToIntPtr(handlePtr).ToInt64();
+                mpr_obj_set_prop(sig, 0, "cb_ptr", 1, (int) Type.Int64, &val, 0);
+            }
+            
+        }
     }
 
     /// <summary>
