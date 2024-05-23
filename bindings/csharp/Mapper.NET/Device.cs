@@ -53,7 +53,22 @@ public class Device : MapperObject
     ~Device()
     {
         if (_owned)
+        {
+            foreach (var obj in GetSignals())
+            {
+                var signal = (Signal)obj;
+                var ptr = signal.GetProperty("cb_ptr");
+                if (ptr == null) continue;
+                var gcHandle = GCHandle.FromIntPtr(new IntPtr((long)ptr));
+                if (gcHandle.IsAllocated)
+                {
+                    gcHandle.Free();
+                }
+            }
+            
             mpr_dev_free(_obj);
+        }
+            
     }
 
     public override string ToString()
