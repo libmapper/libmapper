@@ -110,9 +110,11 @@ public class Signal : MapperObject
             if (!exists)
             {
                 var handler = new HandlerDelegate(_handler);
+                mpr_sig_set_cb(sig, Marshal.GetFunctionPointerForDelegate(handler), (int) Event.All);
+                
+                // Create a GCHandle to keep the delegate alive
                 var handlePtr = GCHandle.Alloc(handler, GCHandleType.Normal);
-                mpr_sig_set_cb(sig, Marshal.GetFunctionPointerForDelegate(handler), (int)Event.All);
-                var val = GCHandle.ToIntPtr(handlePtr).ToInt64();
+                var val = GCHandle.ToIntPtr(handlePtr).ToInt64(); 
                 mpr_obj_set_prop(sig, 0, "cb_ptr", 1, (int) Type.Int64, &val, 0);
             }
             
