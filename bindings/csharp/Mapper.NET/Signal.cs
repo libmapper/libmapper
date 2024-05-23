@@ -90,9 +90,12 @@ public class Signal : MapperObject
         /// </summary>
         Newest
     }
-
-    private Handlers handlers;
-    private HandlerType handlerType = HandlerType.None;
+    
+    /// <summary>
+    ///     Event handler for when a signal's value changes.
+    /// </summary>
+    public event EventHandler<(ulong instanceId, object? value, Type objectType, Time changed)> ValueChanged; 
+    
 
     public Signal()
     {
@@ -271,128 +274,13 @@ public class Signal : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern ulong mpr_sig_get_newest_inst_id(IntPtr sig);
 
-    private void _handler(IntPtr sig, int evt, ulong inst, int length,
+    private unsafe void _handler(IntPtr sig, int evt, ulong inst, int length,
         int type, IntPtr value, long time)
     {
         var e = (Event)evt;
         var t = new Time(time);
-        switch (handlerType)
-        {
-            case HandlerType.SingletonInt:
-                unsafe
-                {
-                    var ivalue = 0;
-                    if (value != IntPtr.Zero)
-                        ivalue = *(int*)value;
-                    handlers.singletonInt(new Signal(sig), e, ivalue, t);
-                }
-
-                break;
-            case HandlerType.SingletonFloat:
-                unsafe
-                {
-                    float fvalue = 0;
-                    if (value != IntPtr.Zero)
-                        fvalue = *(float*)value;
-                    handlers.singletonFloat(new Signal(sig), e, fvalue, t);
-                }
-
-                break;
-            case HandlerType.SingletonDouble:
-                unsafe
-                {
-                    double dvalue = 0;
-                    if (value != IntPtr.Zero)
-                        dvalue = *(double*)value;
-                    handlers.singletonDouble(new Signal(sig), e, dvalue, t);
-                }
-
-                break;
-            case HandlerType.SingletonIntVector:
-                if (value == IntPtr.Zero)
-                    handlers.singletonIntVector(new Signal(sig), e, new int[0], t);
-            {
-                var arr = new int[length];
-                Marshal.Copy(value, arr, 0, length);
-                handlers.singletonIntVector(new Signal(sig), e, arr, t);
-            }
-                break;
-            case HandlerType.SingletonFloatVector:
-                if (value == IntPtr.Zero)
-                    handlers.singletonFloatVector(new Signal(sig), e, new float[0], t);
-            {
-                var arr = new float[length];
-                Marshal.Copy(value, arr, 0, length);
-                handlers.singletonFloatVector(new Signal(sig), e, arr, t);
-            }
-                break;
-            case HandlerType.SingletonDoubleVector:
-                if (value == IntPtr.Zero)
-                    handlers.singletonDoubleVector(new Signal(sig), e, new double[0], t);
-            {
-                var arr = new double[length];
-                Marshal.Copy(value, arr, 0, length);
-                handlers.singletonDoubleVector(new Signal(sig), e, arr, t);
-            }
-                break;
-            case HandlerType.InstancedInt:
-                unsafe
-                {
-                    var ivalue = 0;
-                    if (value != IntPtr.Zero)
-                        ivalue = *(int*)value;
-                    handlers.instancedInt(new Instance(sig, inst), e, ivalue, t);
-                }
-
-                break;
-            case HandlerType.InstancedFloat:
-                unsafe
-                {
-                    float fvalue = 0;
-                    if (value != IntPtr.Zero)
-                        fvalue = *(float*)value;
-                    handlers.instancedFloat(new Instance(sig, inst), e, fvalue, t);
-                }
-
-                break;
-            case HandlerType.InstancedDouble:
-                unsafe
-                {
-                    double dvalue = 0;
-                    if (value != IntPtr.Zero)
-                        dvalue = *(double*)value;
-                    handlers.instancedDouble(new Instance(sig, inst), e, dvalue, t);
-                }
-
-                break;
-            case HandlerType.InstancedIntVector:
-                if (value == IntPtr.Zero)
-                    handlers.instancedIntVector(new Instance(sig, inst), e, new int[0], t);
-            {
-                var arr = new int[length];
-                Marshal.Copy(value, arr, 0, length);
-                handlers.instancedIntVector(new Instance(sig, inst), e, arr, t);
-            }
-                break;
-            case HandlerType.InstancedFloatVector:
-                if (value == IntPtr.Zero)
-                    handlers.instancedFloatVector(new Instance(sig, inst), e, new float[0], t);
-            {
-                var arr = new float[length];
-                Marshal.Copy(value, arr, 0, length);
-                handlers.instancedFloatVector(new Instance(sig, inst), e, arr, t);
-            }
-                break;
-            case HandlerType.InstancedDoubleVector:
-                if (value == IntPtr.Zero)
-                    handlers.instancedDoubleVector(new Instance(sig, inst), e, new double[0], t);
-            {
-                var arr = new double[length];
-                Marshal.Copy(value, arr, 0, length);
-                handlers.instancedDoubleVector(new Instance(sig, inst), e, arr, t);
-            }
-                break;
-        }
+        object? val = BuildValue(length, type, value.ToPointer(), 0);
+        ValueChanged?.Invoke(this, (inst, val, (Type)type, t));
     }
 
     private bool _SetCallback(Action<Signal, Event, int, Time> h, int type)
