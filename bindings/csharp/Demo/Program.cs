@@ -32,8 +32,6 @@ internal static class Program
             sigA.SetValue(value);
             Console.WriteLine($"Sent: {value}");
             dev.Poll(500);
-            var received = sigB.GetValue();
-            GC.KeepAlive(sigB);
         }
 
     }
