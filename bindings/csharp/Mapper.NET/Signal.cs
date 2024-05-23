@@ -282,132 +282,7 @@ public class Signal : MapperObject
         object? val = BuildValue(length, type, value.ToPointer(), 0);
         ValueChanged?.Invoke(this, (inst, val, (Type)type, t));
     }
-
-    private bool _SetCallback(Action<Signal, Event, int, Time> h, int type)
-    {
-        if (type != (int)Type.Int32)
-            return false;
-        handlerType = HandlerType.SingletonInt;
-        handlers.singletonInt = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Signal, Event, int[], Time> h, int type)
-    {
-        if (type != (int)Type.Int32)
-            return false;
-        handlerType = HandlerType.SingletonIntVector;
-        handlers.singletonIntVector = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Signal, Event, float, Time> h, int type)
-    {
-        if (type != (int)Type.Float)
-            return false;
-        handlerType = HandlerType.SingletonFloat;
-        handlers.singletonFloat = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Signal, Event, float[], Time> h, int type)
-    {
-        if (type != (int)Type.Float)
-            return false;
-        handlerType = HandlerType.SingletonFloatVector;
-        handlers.singletonFloatVector = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Signal, Event, double, Time> h, int type)
-    {
-        if (type != (int)Type.Double)
-            return false;
-        handlerType = HandlerType.SingletonDouble;
-        handlers.singletonDouble = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Signal, Event, double[], Time> h, int type)
-    {
-        if (type != (int)Type.Double)
-            return false;
-        handlerType = HandlerType.SingletonDoubleVector;
-        handlers.singletonDoubleVector = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Instance, Event, int, Time> h, int type)
-    {
-        if (type != (int)Type.Int32)
-            return false;
-        handlerType = HandlerType.InstancedInt;
-        handlers.instancedInt = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Instance, Event, int[], Time> h, int type)
-    {
-        if (type != (int)Type.Int32)
-            return false;
-        handlerType = HandlerType.InstancedIntVector;
-        handlers.instancedIntVector = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Instance, Event, float, Time> h, int type)
-    {
-        if (type != (int)Type.Float)
-            return false;
-        handlerType = HandlerType.InstancedFloat;
-        handlers.instancedFloat = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Instance, Event, float[], Time> h, int type)
-    {
-        if (type != (int)Type.Float)
-            return false;
-        handlerType = HandlerType.InstancedFloatVector;
-        handlers.instancedFloatVector = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Instance, Event, double, Time> h, int type)
-    {
-        if (type != (int)Type.Double)
-            return false;
-        handlerType = HandlerType.InstancedDouble;
-        handlers.instancedDouble = h;
-        return true;
-    }
-
-    private bool _SetCallback(Action<Instance, Event, double[], Time> h, int type)
-    {
-        if (type != (int)Type.Double)
-            return false;
-        handlerType = HandlerType.InstancedDoubleVector;
-        handlers.instancedDoubleVector = h;
-        return true;
-    }
-
-    public Signal SetCallback<T>(T handler, Event events = Event.All) where T : notnull
-    {
-        // TODO: smite with fire
-        dynamic temp = handler;
-        var type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);
-        if (!_SetCallback(temp, type))
-        {
-            Console.WriteLine("error: wrong data type in signal handler.");
-            return this;
-        }
-
-        mpr_sig_set_cb(_obj,
-            Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
-            (int)events);
-        return this;
-    }
-
+    
     public new Signal SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
     {
         base.SetProperty(property, value, publish);
@@ -439,23 +314,6 @@ public class Signal : MapperObject
 
     private delegate void HandlerDelegate(IntPtr sig, int evt, ulong instanceId, int length,
         int type, IntPtr value, long time);
-
-    private enum HandlerType
-    {
-        None,
-        SingletonInt,
-        SingletonFloat,
-        SingletonDouble,
-        SingletonIntVector,
-        SingletonFloatVector,
-        SingletonDoubleVector,
-        InstancedInt,
-        InstancedFloat,
-        InstancedDouble,
-        InstancedIntVector,
-        InstancedFloatVector,
-        InstancedDoubleVector
-    }
 
     /// <summary>
     ///     A variant of Signal that is bound to a specific instance ID.
@@ -491,22 +349,5 @@ public class Signal : MapperObject
             mpr_sig_release_inst(_obj, id);
         }
     }
-
-    // TODO: This is HORRIFYING
-    [StructLayout(LayoutKind.Explicit)]
-    private struct Handlers
-    {
-        [FieldOffset(0)] internal Action<Signal, Event, int, Time> singletonInt;
-        [FieldOffset(0)] internal Action<Signal, Event, float, Time> singletonFloat;
-        [FieldOffset(0)] internal Action<Signal, Event, double, Time> singletonDouble;
-        [FieldOffset(0)] internal Action<Signal, Event, int[], Time> singletonIntVector;
-        [FieldOffset(0)] internal Action<Signal, Event, float[], Time> singletonFloatVector;
-        [FieldOffset(0)] internal Action<Signal, Event, double[], Time> singletonDoubleVector;
-        [FieldOffset(0)] internal Action<Instance, Event, int, Time> instancedInt;
-        [FieldOffset(0)] internal Action<Instance, Event, float, Time> instancedFloat;
-        [FieldOffset(0)] internal Action<Instance, Event, double, Time> instancedDouble;
-        [FieldOffset(0)] internal Action<Instance, Event, int[], Time> instancedIntVector;
-        [FieldOffset(0)] internal Action<Instance, Event, float[], Time> instancedFloatVector;
-        [FieldOffset(0)] internal Action<Instance, Event, double[], Time> instancedDoubleVector;
-    }
+    
 }
