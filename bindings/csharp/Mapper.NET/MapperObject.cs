@@ -200,8 +200,8 @@ public abstract class MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     internal static extern unsafe int mpr_obj_get_prop_by_key(IntPtr obj,
         [MarshalAs(UnmanagedType.LPStr)] string key,
-        ref int len, ref int type,
-        ref void* value, ref int publish);
+        int* len, int* type,
+        void** value, int* publish);
 
     public unsafe object? GetProperty(string key)
     {
@@ -210,7 +210,7 @@ public abstract class MapperObject
         void* val = null;
         var pub = 0;
         int idx;
-        idx = mpr_obj_get_prop_by_key(_obj, key, ref len, ref type, ref val, ref pub);
+        idx = mpr_obj_get_prop_by_key(_obj, key, &len, &type, &val, &pub);
         if (0 == idx || 0 == len)
             return null;
         return BuildValue(len, type, val, idx);

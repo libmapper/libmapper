@@ -16,6 +16,7 @@ internal static class Program
         
         var sigA = dev.AddSignal(Signal.Direction.Outgoing, "Sine", 1, Type.Double);
         var sigB = dev.AddSignal(Signal.Direction.Incoming, "Debug_Log", 1, Type.Double);
+        sigB.ValueChanged += OnEvent;
         
         var map = new Map("%y=2.0*%x", sigB, sigA);
         map.Push();
@@ -33,7 +34,13 @@ internal static class Program
             Console.WriteLine($"Sent: {value}");
             dev.Poll(500);
             var received = sigB.GetValue();
-            Console.WriteLine($"Received: {received}");
+            GC.KeepAlive(sigB);
         }
+
+    }
+    
+    private static void OnEvent(object? sender, (ulong instanceId, object? value, Type objectType, Time changed) data)
+    {
+        Console.WriteLine($"Received: {data.value}");
     }
 }
