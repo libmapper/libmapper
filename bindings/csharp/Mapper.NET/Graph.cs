@@ -65,11 +65,10 @@ public class Graph : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern IntPtr mpr_graph_get_interface(IntPtr graph);
 
-    public string? GetInterface()
-    {
-        var iface = mpr_graph_get_interface(_obj);
-        return Marshal.PtrToStringAnsi(iface);
-    }
+    /// <summary>
+    ///     Network interface the graph is attached to.
+    /// </summary>
+    public string? Interface => Marshal.PtrToStringAnsi(mpr_graph_get_interface(_obj));
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern void mpr_graph_set_address(IntPtr graph,
@@ -84,12 +83,8 @@ public class Graph : MapperObject
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern IntPtr mpr_graph_get_address(IntPtr graph);
-
-    public string? GetAddress()
-    {
-        var addr = mpr_graph_get_address(_obj);
-        return Marshal.PtrToStringAnsi(addr);
-    }
+    
+    public string? Address => Marshal.PtrToStringAnsi(mpr_graph_get_address(_obj));
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern int mpr_graph_poll(IntPtr graph, int block_ms);
@@ -199,21 +194,10 @@ public class Graph : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern IntPtr mpr_graph_get_list(IntPtr graph, int type);
 
-    public MapperList<Device> GetDevices()
-    {
-        return new MapperList<Device>(mpr_graph_get_list(_obj, (int)MapperType.Device), MapperType.Device);
-    }
-
-    public MapperList<Signal> GetSignals()
-    {
-        return new MapperList<Signal>(mpr_graph_get_list(_obj, (int)MapperType.Signal), MapperType.Signal);
-    }
-
-    public MapperList<Map> GetMaps()
-    {
-        return new MapperList<Map>(mpr_graph_get_list(_obj, (int)MapperType.Map), MapperType.Map);
-    }
-
+    public MapperList<Device> Devices => new(mpr_graph_get_list(_obj, (int)MapperType.Device), MapperType.Device);
+    public MapperList<Signal> Signals => new(mpr_graph_get_list(_obj, (int)MapperType.Signal), MapperType.Signal);
+    public MapperList<Map> Maps => new(mpr_graph_get_list(_obj, (int)MapperType.Map), MapperType.Map);
+    
     private delegate void HandlerDelegate(IntPtr graph, IntPtr obj, int evt, IntPtr data);
 
     protected class Handler
