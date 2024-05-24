@@ -1743,7 +1743,7 @@ void mpr_sig_copy_props(mpr_sig to, mpr_sig from)
         mpr_obj_set_id((mpr_obj)dev, mpr_obj_get_id((mpr_obj)from->dev));
 }
 
-void mpr_local_sig_set_inst_value(mpr_local_sig sig, mpr_value val, int inst_idx, mpr_id_map id_map,
+void mpr_local_sig_set_inst_value(mpr_local_sig sig, void *value, int inst_idx, mpr_id_map id_map,
                                   int status, int map_manages_inst, mpr_time time)
 {
     mpr_sig_inst si;
@@ -1769,7 +1769,6 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, mpr_value val, int inst_idx
     }
 
     if (status & EXPR_UPDATE) {
-        void *value = mpr_value_get_samp(val, inst_idx);
         /* TODO: create new map->id_map */
 /*
          if (map_manages_inst) {

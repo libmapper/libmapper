@@ -76,6 +76,7 @@ typedef struct _test_config {
 } test_config;
 
 #define EXPR1 "alive=n>=5;y=x;n=(n+1)%10;"
+#define EXPR2 "y=x.instance.mean()"
 
 /* TODO: test received values */
 /* TODO: these should work with count_epsilon=0.0 */
@@ -160,6 +161,15 @@ test_config test_configs[] = {
     /* singleton ==> instanced; in-map instance management */
     { 33, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, EXPR1, 0.5,  0.5,  0.0,   0 },
     { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, EXPR1, 0.5,  0.5,  0.0,   0 },
+
+    /* instanced ––> instanced; instance reduce expression */
+    /* result of expression should update all active destination instances */
+    { 35, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, EXPR2, 3.0,  3.0,  0.0,   1 },
+    { 36, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, EXPR2, 3.0,  3.0,  0.0,   1 },
+
+    /* instanced ==> instanced; instance reduce expression */
+    { 37, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, EXPR2, 1.0,  1.0,  0.0,   1 },
+    { 38, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, EXPR2, 4.0,  1.0,  0.0,   1 },
 
     /* work in progress:
      * instanced ––> instanced; in-map instance management (late start, early release, ad hoc)

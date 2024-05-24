@@ -807,6 +807,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     }
     types = alloca(mpr_sig_get_len((mpr_sig)dst_sig) * sizeof(char));
     for (i = 0; i < m->num_inst; i++) {
+        void *value;
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         status = mpr_expr_eval(mpr_graph_get_expr_stack(m->obj.graph), m->expr, src_vals,
@@ -814,10 +815,18 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         if (!status)
             continue;
 
-        mpr_local_sig_set_inst_value(dst_sig, dst_val, i, id_map, status, map_manages_inst, time);
+        value = mpr_value_get_samp(dst_val, i);
+        mpr_local_sig_set_inst_value(dst_sig, value, i, id_map, status, map_manages_inst, time);
 
-        if ((status & EXPR_EVAL_DONE) && !m->use_inst)
+        if ((status & EXPR_EVAL_DONE) && !m->use_inst) {
+            /* Don't need to re-evaluate, but need to apply update to remaining active instances */
+            for (++i; i < m->num_inst; i++) {
+                if (!mpr_bitflags_get(m->updated_inst, i))
+                    continue;
+                mpr_local_sig_set_inst_value(dst_sig, value, i, id_map, status, map_manages_inst, time);
+            }
             break;
+        }
     }
     mpr_bitflags_clear(m->updated_inst, m->num_inst);
     m->updated = 0;
