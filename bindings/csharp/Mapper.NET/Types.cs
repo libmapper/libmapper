@@ -1,4 +1,4 @@
-namespace Mapper.NET;
+namespace Mapper;
 
 [Flags]
 public enum MapperType

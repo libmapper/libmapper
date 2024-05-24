@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Mapper.NET;
+namespace Mapper;
 
 public class Graph : MapperObject
 {

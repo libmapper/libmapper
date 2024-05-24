@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Mapper.NET;
+namespace Mapper;
 
 /// <summary>
 ///     Signals define inputs or outputs for devices. A signal consists of a scalar or vector value of some integer or

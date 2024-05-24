@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Mapper.NET;
+namespace Mapper;
 
 /// <summary>
 ///     Maps define dataflow connections between sets of signals.

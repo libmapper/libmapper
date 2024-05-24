@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Runtime.InteropServices;
 
-namespace Mapper.NET;
+namespace Mapper;
 
 public abstract class _MapperList
 {

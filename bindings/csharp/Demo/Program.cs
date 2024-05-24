@@ -1,4 +1,4 @@
-﻿using Mapper.NET;
+﻿using Mapper;
 
 namespace Demo;
 
