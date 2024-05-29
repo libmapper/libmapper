@@ -56,19 +56,24 @@ public class Graph : MapperObject
     private static extern void mpr_graph_set_interface(IntPtr graph,
         [MarshalAs(UnmanagedType.LPStr)] string iface);
 
-    public Graph SetInterface(string iface)
-    {
-        mpr_graph_set_interface(_obj, iface);
-        return this;
-    }
-
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern IntPtr mpr_graph_get_interface(IntPtr graph);
 
     /// <summary>
     ///     Network interface the graph is attached to.
     /// </summary>
-    public string? Interface => Marshal.PtrToStringAnsi(mpr_graph_get_interface(_obj));
+    public string? Interface
+    {
+        get => Marshal.PtrToStringAnsi(mpr_graph_get_interface(_obj));
+        set
+        {
+            if (value == null)
+            {
+                throw new ArgumentException("Cannot set interface to null.");
+            }
+            mpr_graph_set_interface(_obj, value);
+        }
+    }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern void mpr_graph_set_address(IntPtr graph,
