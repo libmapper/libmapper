@@ -353,7 +353,7 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
 }
 
 /*! A helper function to seed the random number generator. */
-static void seed_srand()
+static void seed_srand(void)
 {
     unsigned int s;
     double d;
@@ -625,7 +625,7 @@ const char *mpr_net_get_address(mpr_net net)
     return net->addr.url;
 }
 
-const char *mpr_get_version()
+const char *mpr_get_version(void)
 {
     return PACKAGE_VERSION;
 }

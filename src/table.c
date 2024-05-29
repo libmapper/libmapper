@@ -55,7 +55,7 @@ static int compare_rec(const void *l, const void *r)
     return idx_l - idx_r;
 }
 
-mpr_tbl mpr_tbl_new()
+mpr_tbl mpr_tbl_new(void)
 {
     mpr_tbl t = (mpr_tbl)calloc(1, sizeof(mpr_tbl_t));
     RETURN_ARG_UNLESS(t, 0);

@@ -108,7 +108,7 @@ static int check_registration(mpr_local_dev dev);
 
 mpr_time ts = {0,1};
 
-size_t mpr_dev_get_struct_size()
+size_t mpr_dev_get_struct_size(void)
 {
     return sizeof(mpr_dev_t);
 }

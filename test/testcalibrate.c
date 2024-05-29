@@ -66,7 +66,7 @@ int setup_src(mpr_graph g, const char *iface)
     return 1;
 }
 
-void cleanup_src()
+void cleanup_src(void)
 {
     if (src) {
         eprintf("Freeing source.. ");
@@ -115,7 +115,7 @@ int setup_dst(mpr_graph g, const char *iface)
     return 1;
 }
 
-void cleanup_dst()
+void cleanup_dst(void)
 {
     if (dst) {
         eprintf("Freeing destination.. ");
@@ -160,7 +160,7 @@ int setup_maps(int calibrate)
     return 0;
 }
 
-void wait_ready()
+void wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
@@ -168,7 +168,7 @@ void wait_ready()
     }
 }
 
-void loop()
+void loop(void)
 {
     int i = -1, val = 0, changed = 0;
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);

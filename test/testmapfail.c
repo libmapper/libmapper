@@ -67,7 +67,7 @@ int setup_src(const char *iface)
     return 1;
 }
 
-void cleanup_src()
+void cleanup_src(void)
 {
     if (src) {
         eprintf("Freeing source.. ");
@@ -113,7 +113,7 @@ int setup_dst(const char *iface)
     return 1;
 }
 
-void cleanup_dst()
+void cleanup_dst(void)
 {
     if (dst) {
         eprintf("Freeing destination.. ");
@@ -123,7 +123,7 @@ void cleanup_dst()
     }
 }
 
-int setup_maps()
+int setup_maps(void)
 {
     int i = 10;
     /* Here we will deliberately create a map with a faulty expression */
@@ -144,7 +144,7 @@ int setup_maps()
     return 0;
 }
 
-void wait_ready()
+void wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
@@ -152,7 +152,7 @@ void wait_ready()
     }
 }
 
-void loop()
+void loop(void)
 {
     int i = 0;
     mpr_list links = 0;

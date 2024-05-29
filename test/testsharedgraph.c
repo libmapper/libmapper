@@ -3,7 +3,7 @@
 #include <mapper/mapper.h>
 
 
-int main()
+int main(void)
 {
     mpr_graph graph = mpr_graph_new(0);
     mpr_dev foo = mpr_dev_new("/foo", graph);

@@ -47,7 +47,7 @@ struct _mpr_expr_stack {
     int size;
 };
 
-mpr_expr_stack mpr_expr_stack_new() {
+mpr_expr_stack mpr_expr_stack_new(void) {
     mpr_expr_stack stk = calloc(1, sizeof(struct _mpr_expr_stack));
     return stk;
 }
@@ -661,17 +661,17 @@ static struct {
     { "vector",   0, OP_UNKNOWN,     VFN_UNKNOWN }  /* replaced during parsing */
 };
 
-typedef int fn_int_arity0();
+typedef int fn_int_arity0(void);
 typedef int fn_int_arity1(int);
 typedef int fn_int_arity2(int,int);
 typedef int fn_int_arity3(int,int,int);
 typedef int fn_int_arity4(int,int,int,int);
-typedef float fn_flt_arity0();
+typedef float fn_flt_arity0(void);
 typedef float fn_flt_arity1(float);
 typedef float fn_flt_arity2(float,float);
 typedef float fn_flt_arity3(float,float,float);
 typedef float fn_flt_arity4(float,float,float,float);
-typedef double fn_dbl_arity0();
+typedef double fn_dbl_arity0(void);
 typedef double fn_dbl_arity1(double);
 typedef double fn_dbl_arity2(double,double);
 typedef double fn_dbl_arity3(double,double,double);

@@ -85,7 +85,7 @@ int setup(const char *iface)
     return 1;
 }
 
-void cleanup()
+void cleanup(void)
 {
     if (dev) {
         eprintf("Freeing device.. ");
@@ -95,7 +95,7 @@ void cleanup()
     }
 }
 
-int setup_maps()
+int setup_maps(void)
 {
     mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
     float sMin, sMax, dMin, dMax;
@@ -129,7 +129,7 @@ int setup_maps()
     return 0;
 }
 
-int setup_loop_test()
+int setup_loop_test(void)
 {
     mpr_map map1, map2;
 
@@ -159,14 +159,14 @@ int setup_loop_test()
     return 0;
 }
 
-void wait_ready()
+void wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(dev))) {
         mpr_dev_poll(dev, 25);
     }
 }
 
-void loop()
+void loop(void)
 {
     int i = 0;
     mpr_time t;

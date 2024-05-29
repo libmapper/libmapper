@@ -18,7 +18,7 @@ int done = 0;
 int update = 0;
 const int polltime_ms = 100;
 
-void monitor_pause()
+void monitor_pause(void)
 {
     // Don't pause normally, but this is left here to be easily
     // enabled for debugging purposes.

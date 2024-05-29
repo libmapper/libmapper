@@ -84,7 +84,7 @@ int setup_devs(mpr_graph g, const char *iface)
     return 1;
 }
 
-void cleanup_devs()
+void cleanup_devs(void)
 {
     int i;
     for (i = 0; i < 3; i++) {
@@ -97,7 +97,7 @@ void cleanup_devs()
     }
 }
 
-int setup_maps()
+int setup_maps(void)
 {
     maps[0] = mpr_map_new(1, &sendsigs[0], 1, &recvsigs[1]);
     mpr_obj_push(maps[0]);
@@ -132,7 +132,7 @@ void wait_ready(int iterations)
     }
 }
 
-void loop()
+void loop(void)
 {
     int i = 0;
     const char *devname = mpr_obj_get_prop_as_str((mpr_obj)devs[0], MPR_PROP_NAME, NULL);

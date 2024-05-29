@@ -76,7 +76,7 @@ int setup_graph(const char *iface)
     return 1;
 }
 
-void cleanup_graph()
+void cleanup_graph(void)
 {
     if (graph) {
         eprintf("Freeing graph.. ");
@@ -124,7 +124,7 @@ int setup_device(const char *iface)
     return 1;
 }
 
-void cleanup_dev()
+void cleanup_dev(void)
 {
     if (dev) {
         eprintf("Freeing destination.. ");
@@ -134,7 +134,7 @@ void cleanup_dev()
     }
 }
 
-void wait_ready()
+void wait_ready(void)
 {
     while (!done && (!mpr_dev_get_is_ready(dev) || !signal_detected)) {
         mpr_dev_poll(dev, 25);
@@ -144,7 +144,7 @@ void wait_ready()
     mpr_graph_poll(graph, 25);
 }
 
-void loop()
+void loop(void)
 {
     int i = 0;
     mpr_list sigs;

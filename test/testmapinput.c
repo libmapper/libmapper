@@ -103,7 +103,7 @@ int setup_devs(const char *iface)
     return 1;
 }
 
-void cleanup_devs()
+void cleanup_devs(void)
 {
     int i;
     for (i = 0; i < 2; i++) {
@@ -116,7 +116,7 @@ void cleanup_devs()
     }
 }
 
-void wait_local_devs()
+void wait_local_devs(void)
 {
     while (!done && !(mpr_dev_get_is_ready(devices[0]) && mpr_dev_get_is_ready(devices[1]))) {
         mpr_dev_poll(devices[0], 25);
@@ -124,7 +124,7 @@ void wait_local_devs()
     }
 }
 
-void loop()
+void loop(void)
 {
     int i = 0, recvd, ready = 0;
     float val;

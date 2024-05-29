@@ -74,7 +74,7 @@ int setup_dev(mpr_graph g, const char *iface)
     return 1;
 }
 
-void cleanup_dev()
+void cleanup_dev(void)
 {
     if (dev) {
         eprintf("Freeing device.. ");
@@ -84,7 +84,7 @@ void cleanup_dev()
     }
 }
 
-void wait_for_registration_and_sync()
+void wait_for_registration_and_sync(void)
 {
     int i = 10;
     while (!done && !mpr_dev_get_is_ready(dev)) {

@@ -112,7 +112,7 @@ typedef struct _mpr_local_sig
     uint8_t updated;                /* TODO: fold into updated_inst bitflags. */
 } mpr_local_sig_t;
 
-size_t mpr_sig_get_struct_size()
+size_t mpr_sig_get_struct_size(void)
 {
     return sizeof(mpr_sig_t);
 }

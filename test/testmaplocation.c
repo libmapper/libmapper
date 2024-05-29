@@ -70,7 +70,7 @@ error:
     return 1;
 }
 
-void cleanup_src()
+void cleanup_src(void)
 {
     if (src) {
         eprintf("Freeing source.. ");
@@ -115,7 +115,7 @@ error:
     return 1;
 }
 
-void cleanup_dst()
+void cleanup_dst(void)
 {
     if (dst) {
         eprintf("Freeing destination.. ");
@@ -158,7 +158,7 @@ int set_map_location(mpr_loc loc)
     return done;
 }
 
-int setup_map()
+int setup_map(void)
 {
     map = mpr_map_new(1, &sendsig, 1, &recvsig);
     mpr_obj_push(map);
@@ -172,7 +172,7 @@ int setup_map()
     return done;
 }
 
-int wait_ready()
+int wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 10);
@@ -182,7 +182,7 @@ int wait_ready()
     return done;
 }
 
-void loop()
+void loop(void)
 {
     int i = 0;
     const char *name = mpr_obj_get_prop_as_str(sendsig, MPR_PROP_NAME, NULL);

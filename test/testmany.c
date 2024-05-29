@@ -45,7 +45,8 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     received++;
 }
 
-int setup_devs(const char *iface) {
+int setup_devs(const char *iface)
+{
 	char str[20];
 	float mn=0, mx=1;
     int i, j;
@@ -84,7 +85,8 @@ int setup_devs(const char *iface) {
     return 1;
 }
 
-void cleanup_devs() {
+void cleanup_devs(void)
+{
     int i;
 	mpr_dev dest;
 
@@ -100,7 +102,8 @@ void cleanup_devs() {
     eprintf("\n");
 }
 
-int wait_local_devs(int *cancel) {
+int wait_local_devs(int *cancel)
+{
     int i, j = 0, k = 0, keep_waiting = 1, highest = 0, result = 0;
 
 	while ( keep_waiting && !*cancel ) {
@@ -149,7 +152,8 @@ int wait_local_devs(int *cancel) {
     return result;
 }
 
-void loop() {
+void loop(void)
+{
     int i = 0, j;
     eprintf("-------------------- GO ! --------------------\n");
 
@@ -161,11 +165,13 @@ void loop() {
     }
 }
 
-void ctrlc(int sig) {
+void ctrlc(int sig)
+{
     done = 1;
 }
 
-void segv(int sig) {
+void segv(int sig)
+{
     printf("\x1B[31m(SEGV)\n\x1B[0m");
     exit(1);
 }

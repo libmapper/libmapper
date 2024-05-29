@@ -50,7 +50,7 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 static double multiplier = 0.00000000023283064365;
 
 /*! Internal function to get the current time. */
-double mpr_get_current_time()
+double mpr_get_current_time(void)
 {
 #ifdef HAVE_GETTIMEOFDAY
     struct timeval tv;

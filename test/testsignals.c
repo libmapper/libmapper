@@ -54,7 +54,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int len,
     eprintf("\n");
 }
 
-void loop()
+void loop(void)
 {
     if (terminate) {
         while (wait_ms > 0 && !done) {

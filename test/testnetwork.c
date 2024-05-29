@@ -26,7 +26,7 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-int test_network()
+int test_network(void)
 {
     int error = 0, wait, len, port = 7777;
     mpr_type type;

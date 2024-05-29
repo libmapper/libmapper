@@ -58,7 +58,7 @@ typedef struct _mpr_link {
     mpr_sync_clock_t clock;
 } mpr_link_t;
 
-size_t mpr_link_get_struct_size()
+size_t mpr_link_get_struct_size(void)
 {
     return sizeof(mpr_link_t);
 }

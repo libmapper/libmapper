@@ -42,8 +42,8 @@ int done = 0;
 double times[100];
 float expected[NUM_INST];
 
-void switch_modes();
-void print_results();
+void switch_modes(void);
+void print_results(void);
 
 static void eprintf(const char *format, ...)
 {
@@ -94,7 +94,7 @@ int setup_src(mpr_graph g, const char *iface)
     return 1;
 }
 
-void cleanup_src()
+void cleanup_src(void)
 {
     if (src) {
         eprintf("Freeing source... ");
@@ -164,7 +164,7 @@ int setup_dst(mpr_graph g, const char *iface)
     return 1;
 }
 
-void cleanup_dst()
+void cleanup_dst(void)
 {
     if (dst) {
         eprintf("Freeing destination... ");
@@ -174,7 +174,7 @@ void cleanup_dst()
     }
 }
 
-void wait_local_devs()
+void wait_local_devs(void)
 {
     while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
@@ -183,7 +183,7 @@ void wait_local_devs()
     eprintf("Devices are ready.\n");
 }
 
-void map_sigs()
+void map_sigs(void)
 {
     mpr_map map;
 
@@ -209,7 +209,7 @@ void ctrlc(int sig)
     done = 1;
 }
 
-void switch_modes()
+void switch_modes(void)
 {
     int i;
     eprintf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
@@ -241,7 +241,7 @@ void switch_modes()
     times[mode * numTrials + trial] = mpr_get_current_time();
 }
 
-void print_results()
+void print_results(void)
 {
     int i, j, sent = iterations * numModes * numTrials;
     double total_elapsed_time = 0;

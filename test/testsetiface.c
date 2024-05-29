@@ -60,7 +60,7 @@ void cleanup_dev(mpr_dev dev)
     }
 }
 
-void wait_ready()
+void wait_ready(void)
 {
     while (!done) {
         int i, ready = 1;

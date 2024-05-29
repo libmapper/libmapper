@@ -79,7 +79,7 @@ error:
     return 1;
 }
 
-void cleanup_src()
+void cleanup_src(void)
 {
     int i;
     for (i = 0; i < num_sources; i++) {
@@ -136,7 +136,7 @@ error:
     return 1;
 }
 
-void cleanup_dst()
+void cleanup_dst(void)
 {
     if (dst) {
         eprintf("Freeing destination.. ");
@@ -146,7 +146,7 @@ void cleanup_dst()
     }
 }
 
-int setup_maps()
+int setup_maps(void)
 {
     int i, j = 10;
     mpr_graph g2 = NULL;
@@ -316,7 +316,7 @@ void wait_ready(int *cancel)
     }
 }
 
-void loop()
+void loop(void)
 {
     int i = 0, j;
     eprintf("Polling device..\n");

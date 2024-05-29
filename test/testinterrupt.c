@@ -66,7 +66,7 @@ int setup_src(mpr_graph g, const char *iface)
     return 1;
 }
 
-void cleanup_src()
+void cleanup_src(void)
 {
     if (src) {
         eprintf("Freeing source.. ");
@@ -114,7 +114,7 @@ int setup_dst(mpr_graph g, const char *iface)
     return 1;
 }
 
-void cleanup_dst()
+void cleanup_dst(void)
 {
     if (dst) {
         eprintf("Freeing destination.. ");
@@ -124,7 +124,7 @@ void cleanup_dst()
     }
 }
 
-int setup_maps()
+int setup_maps(void)
 {
     mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
 
@@ -145,7 +145,7 @@ int setup_maps()
     return 0;
 }
 
-void wait_ready()
+void wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);

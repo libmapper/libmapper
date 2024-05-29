@@ -39,7 +39,7 @@ static void eprintf(const char *format, ...)
 }
 
 /*! A helper function to seed the random number generator. */
-static void seed_srand()
+static void seed_srand(void)
 {
     unsigned int s;
     double d;
@@ -82,7 +82,8 @@ void generate_name(char *str, int len)
     }
 }
 
-int setup_devs(const char *iface) {
+int setup_devs(const char *iface)
+{
 	char str[20];
 	float mn = 0, mx = 1;
     int i, j;
@@ -125,7 +126,8 @@ int setup_devs(const char *iface) {
     return 1;
 }
 
-void cleanup_devs() {
+void cleanup_devs(void)
+{
 	mpr_dev dest;
     int i;
 
@@ -141,7 +143,8 @@ void cleanup_devs() {
     eprintf("\n");
 }
 
-void wait_local_devs(int *cancel) {
+void wait_local_devs(int *cancel)
+{
     int i, j = 0, k = 0, keep_waiting = 1, ordinal, highest = 0;
 
 	while ( keep_waiting && !*cancel ) {
@@ -191,7 +194,8 @@ void wait_local_devs(int *cancel) {
     }
 }
 
-void loop() {
+void loop(void)
+{
     int i = 0, j;
     eprintf("-------------------- GO ! --------------------\n");
     while (i >= 0 && !done) {
@@ -202,11 +206,13 @@ void loop() {
     }
 }
 
-void ctrlc(int sig) {
+void ctrlc(int sig)
+{
     done = 1;
 }
 
-void segv(int sig) {
+void segv(int sig)
+{
     printf("\x1B[31m(SEGV)\n\x1B[0m");
     exit(1);
 }
