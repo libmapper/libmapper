@@ -80,7 +80,7 @@ public class Map : MapperObject
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) &&
             RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
         {
-            // apple silicon varargs wrapper (see varargs_wapper.s)
+            // apple silicon varargs wrapper (see varargs_wrapper.s)
             var handle = dlopen(null, 0);
             var func = dlsym(handle, "mpr_map_new_from_str");
             var args = signals.Select(sig => sig._obj).ToArray();
