@@ -6,36 +6,42 @@
 Run the following command from within the bindings/csharp directory:
 
 ~~~
-csc -unsafe -t:library Mapper.cs
+dotnet publish -c Release -o . Mapper.NET
 ~~~
 
-This should produce a file named `Mapper.dll`
+This should produce a file named `Mapper.NET.dll`, as well as some debugging symbols.
 
 ## Building the test example
 
 Run the following command from within the bindings/csharp directory:
 
 ~~~
-csc /r:Mapper.dll test.cs
+dotnet publish -c Release -o testbin Demo
 ~~~
 
-This should produce a file named `test.exe`
+This should produce an executable in the `testbin` directory named `Demo`
 
 ## Running the test example
 
-Run the following command from within the bindings/csharp directory:
+> [!IMPORTANT]  
+> If you're on Apple Silicon, you'll need to compile another library first. See the Notes section below.
 
-~~~
-mono test.exe
-~~~
+Run the `Demo` executable from the `testbin` directory.
 
 You may need to copy the libmapper dynamic library into the same directory (depending on dynamic linker path configuration).
 
 ## Notes
 
-Constructing Maps using a format/expression string and Signal arguments does not currently work on Apple Silicon due to architectural differences in how arguments to variadic functions are stored (stack vs registers). For now we recommend against using this constructor if you want your code to be fully cross-platform.
+Due to how Apple Silicon handles variadic arguments (and C#'s lack of support for variadic arguments on non-Windows platforms), 
+the constructor `Map(string, Signal[])`, used for creating a map from an expression string, requires another dynamic library to act as a wrapper
+around the variadic call. The code for this library is contained in `varargs_wrapper.s`.
 
-`public Map(string expression, params Signal[] signals)`
+If you don't plan on using that constructor, you can stop reading now. Else, you'll need to compile the wrapper library:
+```bash
+$ clang -shared -o varargs_wrapper.dylib varargs_wrapper.s
+```
+
+Either put `varargs_wrapper.dylib` in your library search path or in the same directory as your executable.
 
 ## To Do
 
