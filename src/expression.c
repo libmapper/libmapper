@@ -512,6 +512,14 @@ static double dbl_sqrt(double x) { return sqrt(x); }
 static double dbl_tan(double x) { return tan(x); }
 static double dbl_tanh(double x) { return tanh(x); }
 
+#if _M_ARM64
+// Needed to work around the fact that the function fabsf on Windows ARM64 is inline-only apparently?
+// This lets libmapper compile with optimizations when targeting Windows ARM64 (e.g. HoloLens)
+float arm64_fabsf(float a) {
+    return (float)fabs(a);
+}
+#endif
+
 static struct {
     const char *name;
     uint8_t arity;
@@ -520,7 +528,11 @@ static struct {
     void *fn_flt;
     void *fn_dbl;
 } fn_tbl[] = {
+#if _M_ARM64
+    { "abs",      1, 0, (void*)abs,   (void*)arm64_fabsf,     (void*)fabs      },
+#else
     { "abs",      1, 0, (void*)abs,   (void*)fabsf,     (void*)fabs      },
+#endif
     { "acos",     1, 0, 0,            (void*)flt_acos,  (void*)dbl_acos  },
     { "acosh",    1, 0, 0,            (void*)acoshf,    (void*)acosh     },
     { "asin",     1, 0, 0,            (void*)flt_asin,  (void*)dbl_asin  },
