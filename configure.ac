@@ -275,6 +275,12 @@ if test x$enable_csharp = xyes; then
    if test x$CSC = x; then
      enable_csharp=no
      csharp_explain="(csc not found)"
+   else
+     AC_CHECK_PROG([DOTNET], [dotnet], [dotnet])
+     if test x$DOTNET = x; then
+       enable_csharp=no
+       csharp_explain="(dotnet not found)"
+     fi
    fi
 fi
 

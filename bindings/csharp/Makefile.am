@@ -7,7 +7,7 @@ Mapper.NET.dll: Mapper.NET/*.cs
 	-cp $(_LIBPATH).*.dylib ./libmapper.dylib
 	-cp $(_LIBPATH).*.so ./libmapper.so
 	-cp $(_LIBPATH).*.dll ./libmapper.dll
-	dotnet publish -c Release -o bin Mapper.NET
+	dotnet publish -c Release -f netstandard2.1 -o bin Mapper.NET
 	-cp bin/Mapper.NET.dll Mapper.NET.dll
 	
 varargs_wrapper.dylib: varargs_wrapper.s
