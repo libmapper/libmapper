@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <Title>Mapper.NET</Title>
@@ -12,6 +11,8 @@
         <RepositoryUrl>https://github.com/libmapper/libmapper</RepositoryUrl>
         <NeutralLanguage>en</NeutralLanguage>
         <Version>2.4.6</Version>
+        <TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
