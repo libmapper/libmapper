@@ -2,14 +2,34 @@ using System.Runtime.InteropServices;
 
 namespace Mapper;
 
+/// <summary>
+/// Graphs are the primary interface through which a program may observe the distributed
+/// graph and store information about devices and signals that are present.
+/// Each Graph stores records of devices, signals, and maps, which can be queried.
+/// </summary>
 public class Graph : MapperObject
 {
+    /// <summary>
+    /// Events fired by Graphs
+    /// </summary>
     public enum Event
     {
-        New, //!< New record has been added to the graph.
-        Modified, //!< The existing record has been modified.
-        Removed, //!< The existing record has been removed.
-        Expired //!< The graph has lost contact with the remote entity.
+        /// <summary>
+        /// New record has been added to the graph
+        /// </summary>
+        New,
+        /// <summary>
+        /// An existing record has been modified
+        /// </summary>
+        Modified,
+        /// <summary>
+        /// An existing record has been removed
+        /// </summary>
+        Removed,
+        /// <summary>
+        /// The graph has lost contact with the remote object
+        /// </summary>
+        Expired
     }
 
     private readonly List<Handler> handlers = new();
@@ -18,11 +38,18 @@ public class Graph : MapperObject
     {
     }
 
-    public Graph(MapperType flags) : base(mpr_graph_new((int)flags))
+    /// <summary>
+    /// Create a new graph, specifying the types of objects to automatically subscribe to.
+    /// </summary>
+    /// <param name="autosubscribe_types">A combination of <see cref="MapperType" /> values indicating what this graph should automatically subscribe to</param>
+    public Graph(MapperType autosubscribe_types) : base(mpr_graph_new((int)autosubscribe_types))
     {
         _owned = true;
     }
 
+    /// <summary>
+    /// Create a new graph that will automatically subscribe to all object types.
+    /// </summary>
     public Graph() : base(mpr_graph_new((int)MapperType.Object))
     {
         _owned = true;
@@ -76,24 +103,37 @@ public class Graph : MapperObject
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern void mpr_graph_set_address(IntPtr graph,
+    private static extern int mpr_graph_set_address(IntPtr graph,
         [MarshalAs(UnmanagedType.LPStr)] string group,
         int port);
 
-    public Graph SetAddress(string group, int port)
+    /// <summary>
+    /// Set the multicast group and port to use
+    /// </summary>
+    /// <param name="group">Multicast group</param>
+    /// <param name="port">Port to use for communication</param>
+    /// <returns>True if successful, false otherwise</returns>
+    public bool SetAddress(string group, int port)
     {
-        mpr_graph_set_address(_obj, group, port);
-        return this;
+        return mpr_graph_set_address(_obj, group, port) == 0;
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern IntPtr mpr_graph_get_address(IntPtr graph);
     
+    /// <summary>
+    /// A string specifying the multicast URL for bus communication with the distributed graph.
+    /// </summary>
     public string? Address => Marshal.PtrToStringAnsi(mpr_graph_get_address(_obj));
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern int mpr_graph_poll(IntPtr graph, int block_ms);
 
+    /// <summary>
+    /// Synchronize a local graph copy with the distributed graph.
+    /// </summary>
+    /// <param name="block_ms">Optionally block for this many milliseconds while polling. A value of 0 will not block.</param>
+    /// <returns>Number of handled messages</returns>
     public int Poll(int block_ms = 0)
     {
         return mpr_graph_poll(_obj, block_ms);
@@ -102,27 +142,45 @@ public class Graph : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern void mpr_graph_subscribe(IntPtr graph, IntPtr dev, int types, int timeout);
 
-    public Graph Subscribe(Device device, MapperType mapperTypes, int timeout = -1)
+    /// <summary>
+    /// Subscribe to receive events for a specific device
+    /// </summary>
+    /// <param name="device">Device to receive events from</param>
+    /// <param name="mapperTypes">Types of information to raise events for</param>
+    /// <param name="timeout">Length of time in seconds to subscribe for. -1 is indefinite.</param>
+    public void Subscribe(Device device, MapperType mapperTypes, int timeout = -1)
     {
         mpr_graph_subscribe(_obj, device._obj, (int)mapperTypes, timeout);
-        return this;
     }
 
-    public Graph Subscribe(MapperType mapperTypes, int timeout = -1)
+    /// <summary>
+    /// Subscribe to receive events for the entire graph
+    /// </summary>
+    /// <param name="mapperTypes">Types of information to raise events for</param>
+    /// <param name="timeout">Length of time in seconds to subscribe for. -1 is indefinite.</param>
+    public void Subscribe(MapperType mapperTypes, int timeout = -1)
     {
         mpr_graph_subscribe(_obj, IntPtr.Zero, (int)mapperTypes, timeout);
-        return this;
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern void mpr_graph_unsubscribe(IntPtr graph, IntPtr dev);
 
+    /// <summary>
+    /// Unsubscribe from events for a specific device
+    /// </summary>
+    /// <param name="device"></param>
+    /// <returns></returns>
     public Graph Unsubscribe(Device device)
     {
         mpr_graph_unsubscribe(_obj, device._obj);
         return this;
     }
 
+    /// <summary>
+    /// Unsubscribe from events for the entire graph
+    /// </summary>
+    /// <returns></returns>
     public Graph Unsubscribe()
     {
         mpr_graph_unsubscribe(_obj, IntPtr.Zero);
