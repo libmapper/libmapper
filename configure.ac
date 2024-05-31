@@ -61,6 +61,18 @@ AC_CHECK_LIB([z], [gzread], , [AC_MSG_ERROR([zlib not found, see http://www.zlib
 AM_CONDITIONAL(WINDOWS, test x$is_windows = xyes)
 AM_CONDITIONAL(WINDOWS_DLL, test x$is_windows = xyes && test x$enable_shared = xyes)
 
+AC_CANONICAL_HOST
+darwin_arm64=no
+case $build_os in
+  darwin*)
+    echo build os check ok
+    if test x$host_cpu = xaarch64; then
+      echo host cpu check ok
+      darwin_arm64=yes
+    fi;;
+esac
+AM_CONDITIONAL(DARWIN_ARM64, test x$darwin_arm64 = xyes)
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
