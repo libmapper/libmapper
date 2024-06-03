@@ -30,7 +30,6 @@ In the grid graphic, `S` and `I` on the left side represent possible **source si
       </td>
       <td>The simplest configuration involves mapping one singleton signal to another singleton signal. In this case neither signal is multiplex nor ephemeral so it does not make any difference whether or not the map is configured to <code>use_inst</code>.</td>
     </tr>
-
     <tr>
       <td colspan=3 style="background:lightgray;">
       Singleton –––> Instanced
@@ -54,7 +53,6 @@ In the grid graphic, `S` and `I` on the left side represent possible **source si
       </td>
       <td>If the map is set instead to <code>use_inst=0</code> updates to the source signal will propagate to all active instances of the destination. Notably, these updates will not cause activation of reserved instances.</td>
     </tr>
-
     <tr>
       <td colspan=3 style="background:lightgray;">
       Instanced –––> Singleton
@@ -78,7 +76,6 @@ In the grid graphic, `S` and `I` on the left side represent possible **source si
       </td>
       <td>If the map is set instead to <code>use_inst=0</code>, an update to any of the source instances will propagate to the destination signal, effectively multiplexing the source signal updates.</td>
     </tr>
-
     <tr>
       <td colspan=3 style="background:lightgray;">
       Instanced –––> Instanced
@@ -102,7 +99,6 @@ In the grid graphic, `S` and `I` on the left side represent possible **source si
       </td>
       <td>If the map is set instead to <code>use_inst=0</code>, an update to any of the source instances will propagate to every active instance of the destination.</td>
     </tr>
-
     <tr>
       <td colspan=3 style="background:lightgray;">
       Convergent Mixed –––> Singleton*
@@ -127,7 +123,6 @@ In the grid graphic, `S` and `I` on the left side represent possible **source si
       </td>
       <td>If this map is set instead to <code>use_inst=0</code>, all active instances of the instanced source will contribute to destination updates.</td>
     </tr>
-
     <tr>
       <td colspan=3 style="background:lightgray;">
       Convergent Mixed –––> Instanced*
