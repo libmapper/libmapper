@@ -509,6 +509,33 @@ void mpr_dev_update_maps(mpr_dev dev) {
         process_outgoing_maps((mpr_local_dev)dev);
 }
 
+static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir, int dirty_only)
+{
+    mpr_list list = mpr_dev_get_sigs((mpr_dev)dev, dir);
+    int sent = 0;
+    while (list) {
+        mpr_sig sig = (mpr_sig)*list;
+        if (!dirty_only || mpr_tbl_get_is_dirty(((mpr_obj)sig)->props.synced)) {
+            mpr_sig_send_state(sig, MSG_SIG);
+            ++sent;
+        }
+        list = mpr_list_get_next(list);
+    }
+    return sent;
+}
+
+static int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
+{
+    mpr_list maps = mpr_dev_get_maps((mpr_dev)dev, dir);
+    int sent = 0;
+    while (maps) {
+        mpr_map_send_state((mpr_map)*maps, -1, msg);
+        maps = mpr_list_get_next(maps);
+        ++sent;
+    }
+    return sent;
+}
+
 int mpr_dev_poll(mpr_dev dev, int block_ms)
 {
     int admin_count = 0, device_count = 0, status[4];
@@ -600,6 +627,9 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
         mpr_net_use_subscribers(net, ldev, MPR_DEV);
         mpr_dev_send_state(dev, MSG_DEV);
     }
+    /* TODO: add sig_dirty flag to device */
+    mpr_net_use_subscribers(net, ldev, MPR_SIG);
+    mpr_dev_send_sigs(ldev, MPR_DIR_ANY, 1);
 
     ldev->time_is_stale = 1;
     return admin_count + device_count;
@@ -1179,26 +1209,6 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
     return updated;
 }
 
-static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir)
-{
-    mpr_list l = mpr_dev_get_sigs((mpr_dev)dev, dir);
-    while (l) {
-        mpr_sig_send_state((mpr_sig)*l, MSG_SIG);
-        l = mpr_list_get_next(l);
-    }
-    return 0;
-}
-
-static int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
-{
-    mpr_list maps = mpr_dev_get_maps((mpr_dev)dev, dir);
-    while (maps) {
-        mpr_map_send_state((mpr_map)*maps, -1, msg);
-        maps = mpr_list_get_next(maps);
-    }
-    return 0;
-}
-
 int mpr_dev_get_is_subscribed(mpr_dev dev)
 {
     return dev->subscribed != 0;
@@ -1284,7 +1294,7 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
         if (flags & MPR_SIG_OUT)
             dir |= MPR_DIR_OUT;
         mpr_net_use_mesh(net, addr);
-        mpr_dev_send_sigs(dev, dir);
+        mpr_dev_send_sigs(dev, dir, 0);
         mpr_net_send(net);
     }
     if (flags & MPR_MAP) {

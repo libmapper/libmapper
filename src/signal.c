@@ -619,6 +619,9 @@ void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const cha
     sig->ephemeral = 0;
     sig->steal_mode = MPR_STEAL_NONE;
 
+    sig->obj.type = MPR_SIG;
+    sig->obj.props.synced = mpr_tbl_new();
+
     if (sig->obj.is_local) {
         mpr_local_sig lsig = (mpr_local_sig)sig;
         sig->num_inst = 0;
@@ -645,9 +648,6 @@ void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const cha
         sig->use_inst = 0;
         sig->obj.props.staged = mpr_tbl_new();
     }
-
-    sig->obj.type = MPR_SIG;
-    sig->obj.props.synced = mpr_tbl_new();
 
     tbl = sig->obj.props.synced;
     loc_mod = sig->obj.is_local ? MOD_ANY : MOD_NONE;
@@ -1172,9 +1172,8 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
     int i = 0, count = 0, highest = -1, result, old_num = sig->num_inst;
     mpr_local_sig lsig = (mpr_local_sig)sig;
     RETURN_ARG_UNLESS(sig && sig->obj.is_local && num, 0);
-    sig->use_inst = 1;
 
-    if (lsig->num_inst == 1 && !lsig->inst[0]->id && !lsig->inst[0]->data) {
+    if (!sig->use_inst && lsig->num_inst == 1 && !lsig->inst[0]->id && !lsig->inst[0]->data) {
         /* we will overwrite the default instance first */
         if (ids)
             lsig->inst[0]->id = ids[0];
@@ -1183,6 +1182,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
         ++i;
         ++count;
     }
+    sig->use_inst = 1;
     for (; i < num; i++) {
         result = _reserve_inst(lsig, ids ? &ids[i] : 0, data ? data[i] : 0);
         if (result == -1)
@@ -1192,6 +1192,8 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
     }
     if (highest != -1)
         realloc_maps(lsig, highest + 1);
+
+    mpr_obj_increment_version((mpr_obj)lsig);
 
     if (old_num > 0 && (lsig->num_inst / 8) == (old_num / 8))
         return count;
@@ -1403,6 +1405,7 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
         if (lsig->inst[i]->idx > remove_idx)
             --lsig->inst[i]->idx;
     }
+    mpr_obj_increment_version((mpr_obj)sig);
 }
 
 const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)

@@ -35,9 +35,13 @@ mpr_type mpr_obj_get_type(mpr_obj o)
 
 void mpr_obj_increment_version(mpr_obj o)
 {
-    RETURN_UNLESS(o && o->props.staged);
-    ++o->version;
-    mpr_tbl_set_is_dirty(o->props.synced, 1);
+    RETURN_UNLESS(o);
+    if (o->is_local) {
+        ++o->version;
+        mpr_tbl_set_is_dirty(o->props.synced, 1);
+    }
+    else if (o->props.staged)
+        mpr_tbl_set_is_dirty(o->props.staged, 1);
 }
 
 int mpr_obj_get_num_props(mpr_obj o, int staged)
