@@ -45,13 +45,9 @@ public class Map : MapperObject
     {
         unsafe
         {
-            fixed (void* s = &source._obj)
-            {
-                fixed (void* d = &destination._obj)
-                {
-                    _obj = mpr_map_new(1, s, 1, d);
-                }
-            }
+            var x = source.NativePtr;
+            var y = destination.NativePtr;
+            NativePtr = mpr_map_new(1, &x, 1, &y);
         }
     }
 
@@ -83,18 +79,18 @@ public class Map : MapperObject
             // apple silicon varargs wrapper (see varargs_wrapper.s)
             var handle = dlopen(null, 0);
             var func = dlsym(handle, "mpr_map_new_from_str");
-            var args = signals.Select(sig => sig._obj).ToArray();
-            _obj = varargs_wrapper(func, expression, args.Length, args);
+            var args = signals.Select(sig => sig.NativePtr).ToArray();
+            NativePtr = varargs_wrapper(func, expression, args.Length, args);
         }
         else
         {
             var a = new IntPtr[10];
             for (var i = 0; i < 10; i++)
                 if (i < signals.Length)
-                    a[i] = signals[i]._obj;
+                    a[i] = signals[i].NativePtr;
                 else
                     a[i] = default;
-            _obj = mpr_map_new_from_str(expression, a[0], a[1], a[2], a[3], a[4], a[5],
+            NativePtr = mpr_map_new_from_str(expression, a[0], a[1], a[2], a[3], a[4], a[5],
                 a[6], a[7], a[8], a[9], default);
         }
     }
@@ -102,7 +98,7 @@ public class Map : MapperObject
     /// <summary>
     ///     If this map has been completely initialized.
     /// </summary>
-    public bool IsReady => mpr_map_get_is_ready(_obj) != 0;
+    public bool IsReady => mpr_map_get_is_ready(NativePtr) != 0;
 
     [DllImport("varargs_wrapper.dylib")]
     private static extern IntPtr varargs_wrapper(IntPtr func,
@@ -159,7 +155,7 @@ public class Map : MapperObject
     /// <returns>The same instance to allow for chaining</returns>
     public Map Refresh()
     {
-        mpr_map_refresh(_obj);
+        mpr_map_refresh(NativePtr);
         return this;
     }
 
@@ -171,8 +167,8 @@ public class Map : MapperObject
     /// </summary>
     public void Release()
     {
-        mpr_map_release(_obj);
-        _obj = IntPtr.Zero;
+        mpr_map_release(NativePtr);
+        NativePtr = IntPtr.Zero;
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -185,7 +181,7 @@ public class Map : MapperObject
     /// <returns>A possibly filtered list of signals connected by this map</returns>
     public MapperList<Signal> GetSignals(Location location = Location.Any)
     {
-        return new MapperList<Signal>(mpr_map_get_sigs(_obj, (int)location), MapperType.Signal);
+        return new MapperList<Signal>(mpr_map_get_sigs(NativePtr, (int)location), MapperType.Signal);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -198,6 +194,6 @@ public class Map : MapperObject
     /// <returns>Numerical signal index</returns>
     public int GetSignalIndex(Signal signal)
     {
-        return mpr_map_get_sig_idx(_obj, signal._obj);
+        return mpr_map_get_sig_idx(NativePtr, signal.NativePtr);
     }
 }

@@ -34,7 +34,7 @@ public class Graph : MapperObject
 
     private readonly List<Handler> handlers = new();
 
-    internal Graph(IntPtr obj) : base(obj)
+    internal Graph(IntPtr nativePtr) : base(nativePtr)
     {
     }
 
@@ -64,7 +64,7 @@ public class Graph : MapperObject
 
     ~Graph()
     {
-        if (_owned) mpr_graph_free(_obj);
+        if (_owned) mpr_graph_free(NativePtr);
     }
 
     public new Graph SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
@@ -91,14 +91,14 @@ public class Graph : MapperObject
     /// </summary>
     public string? Interface
     {
-        get => Marshal.PtrToStringAnsi(mpr_graph_get_interface(_obj));
+        get => Marshal.PtrToStringAnsi(mpr_graph_get_interface(NativePtr));
         set
         {
             if (value == null)
             {
                 throw new ArgumentException("Cannot set interface to null.");
             }
-            mpr_graph_set_interface(_obj, value);
+            mpr_graph_set_interface(NativePtr, value);
         }
     }
 
@@ -115,7 +115,7 @@ public class Graph : MapperObject
     /// <returns>True if successful, false otherwise</returns>
     public bool SetAddress(string group, int port)
     {
-        return mpr_graph_set_address(_obj, group, port) == 0;
+        return mpr_graph_set_address(NativePtr, group, port) == 0;
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -124,7 +124,7 @@ public class Graph : MapperObject
     /// <summary>
     /// A string specifying the multicast URL for bus communication with the distributed graph.
     /// </summary>
-    public string? Address => Marshal.PtrToStringAnsi(mpr_graph_get_address(_obj));
+    public string? Address => Marshal.PtrToStringAnsi(mpr_graph_get_address(NativePtr));
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern int mpr_graph_poll(IntPtr graph, int block_ms);
@@ -136,7 +136,7 @@ public class Graph : MapperObject
     /// <returns>Number of handled messages</returns>
     public int Poll(int block_ms = 0)
     {
-        return mpr_graph_poll(_obj, block_ms);
+        return mpr_graph_poll(NativePtr, block_ms);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -150,7 +150,7 @@ public class Graph : MapperObject
     /// <param name="timeout">Length of time in seconds to subscribe for. -1 is indefinite.</param>
     public void Subscribe(Device device, MapperType mapperTypes, int timeout = -1)
     {
-        mpr_graph_subscribe(_obj, device._obj, (int)mapperTypes, timeout);
+        mpr_graph_subscribe(NativePtr, device.NativePtr, (int)mapperTypes, timeout);
     }
 
     /// <summary>
@@ -160,7 +160,7 @@ public class Graph : MapperObject
     /// <param name="timeout">Length of time in seconds to subscribe for. -1 is indefinite.</param>
     public void Subscribe(MapperType mapperTypes, int timeout = -1)
     {
-        mpr_graph_subscribe(_obj, IntPtr.Zero, (int)mapperTypes, timeout);
+        mpr_graph_subscribe(NativePtr, IntPtr.Zero, (int)mapperTypes, timeout);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -173,7 +173,7 @@ public class Graph : MapperObject
     /// <returns></returns>
     public Graph Unsubscribe(Device device)
     {
-        mpr_graph_unsubscribe(_obj, device._obj);
+        mpr_graph_unsubscribe(NativePtr, device.NativePtr);
         return this;
     }
 
@@ -183,7 +183,7 @@ public class Graph : MapperObject
     /// <returns></returns>
     public Graph Unsubscribe()
     {
-        mpr_graph_unsubscribe(_obj, IntPtr.Zero);
+        mpr_graph_unsubscribe(NativePtr, IntPtr.Zero);
         return this;
     }
 
@@ -222,7 +222,7 @@ public class Graph : MapperObject
     {
         // TODO: check if handler is already registered
         if (handlers.Count == 0)
-            mpr_graph_add_cb(_obj,
+            mpr_graph_add_cb(NativePtr,
                 Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
                 (int)MapperType.Object,
                 IntPtr.Zero);
@@ -246,7 +246,7 @@ public class Graph : MapperObject
         {
             handlers.RemoveAt(found);
             if (handlers.Count == 0)
-                mpr_graph_remove_cb(_obj,
+                mpr_graph_remove_cb(NativePtr,
                     Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
                     IntPtr.Zero);
         }
@@ -257,9 +257,9 @@ public class Graph : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern IntPtr mpr_graph_get_list(IntPtr graph, int type);
 
-    public MapperList<Device> Devices => new(mpr_graph_get_list(_obj, (int)MapperType.Device), MapperType.Device);
-    public MapperList<Signal> Signals => new(mpr_graph_get_list(_obj, (int)MapperType.Signal), MapperType.Signal);
-    public MapperList<Map> Maps => new(mpr_graph_get_list(_obj, (int)MapperType.Map), MapperType.Map);
+    public MapperList<Device> Devices => new(mpr_graph_get_list(NativePtr, (int)MapperType.Device), MapperType.Device);
+    public MapperList<Signal> Signals => new(mpr_graph_get_list(NativePtr, (int)MapperType.Signal), MapperType.Signal);
+    public MapperList<Map> Maps => new(mpr_graph_get_list(NativePtr, (int)MapperType.Map), MapperType.Map);
     
     private delegate void HandlerDelegate(IntPtr graph, IntPtr obj, int evt, IntPtr data);
 

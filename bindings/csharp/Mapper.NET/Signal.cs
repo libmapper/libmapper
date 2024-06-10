@@ -124,18 +124,18 @@ public class Signal : MapperObject
     /// <summary>
     ///     The device that this signal belongs to
     /// </summary>
-    public Device Device => new(mpr_sig_get_dev(_obj));
+    public Device Device => new(mpr_sig_get_dev(NativePtr));
 
 
     /// <summary>
     ///     Get a handle to the oldest active instance of this signal.
     /// </summary>
-    public Instance OldestInstance => new(_obj, mpr_sig_get_oldest_inst_id(_obj));
+    public Instance OldestInstance => new(NativePtr, mpr_sig_get_oldest_inst_id(NativePtr));
 
     /// <summary>
     ///     Get a handle to the newest active instance of this signal.
     /// </summary>
-    public Instance GetNewestInstance => new(_obj, mpr_sig_get_newest_inst_id(_obj));
+    public Instance GetNewestInstance => new(NativePtr, mpr_sig_get_newest_inst_id(NativePtr));
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern IntPtr mpr_sig_get_dev(IntPtr sig);
@@ -154,17 +154,17 @@ public class Signal : MapperObject
 
     private unsafe void _SetValue(int value, ulong instanceId)
     {
-        mpr_sig_set_value(_obj, instanceId, 1, (int)MapperType.Int32, &value);
+        mpr_sig_set_value(NativePtr, instanceId, 1, (int)MapperType.Int32, &value);
     }
 
     private unsafe void _SetValue(float value, ulong instanceId)
     {
-        mpr_sig_set_value(_obj, instanceId, 1, (int)MapperType.Float, &value);
+        mpr_sig_set_value(NativePtr, instanceId, 1, (int)MapperType.Float, &value);
     }
 
     private unsafe void _SetValue(double value, ulong instanceId)
     {
-        mpr_sig_set_value(_obj, instanceId, 1, (int)MapperType.Double, &value);
+        mpr_sig_set_value(NativePtr, instanceId, 1, (int)MapperType.Double, &value);
     }
 
     private unsafe void _SetValue(int[] value, ulong instanceId)
@@ -172,7 +172,7 @@ public class Signal : MapperObject
         fixed (int* temp = &value[0])
         {
             var intPtr = new IntPtr(temp);
-            mpr_sig_set_value(_obj, instanceId, value.Length, (int)MapperType.Int32, (void*)intPtr);
+            mpr_sig_set_value(NativePtr, instanceId, value.Length, (int)MapperType.Int32, (void*)intPtr);
         }
     }
 
@@ -181,7 +181,7 @@ public class Signal : MapperObject
         fixed (float* temp = &value[0])
         {
             var intPtr = new IntPtr(temp);
-            mpr_sig_set_value(_obj, instanceId, value.Length, (int)MapperType.Float, (void*)intPtr);
+            mpr_sig_set_value(NativePtr, instanceId, value.Length, (int)MapperType.Float, (void*)intPtr);
         }
     }
 
@@ -190,7 +190,7 @@ public class Signal : MapperObject
         fixed (double* temp = &value[0])
         {
             var intPtr = new IntPtr(temp);
-            mpr_sig_set_value(_obj, instanceId, value.Length, (int)MapperType.Double, (void*)intPtr);
+            mpr_sig_set_value(NativePtr, instanceId, value.Length, (int)MapperType.Double, (void*)intPtr);
         }
     }
 
@@ -232,10 +232,10 @@ public class Signal : MapperObject
     /// <returns>A tuple of the value and what time it was last updated at. The value might be null.</returns>
     public unsafe (object?, Time) GetValue(ulong instanceId = 0)
     {
-        var len = mpr_obj_get_prop_as_int32(_obj, (int)Property.Length, null);
-        var type = mpr_obj_get_prop_as_int32(_obj, (int)Property.Type, null);
+        var len = mpr_obj_get_prop_as_int32(NativePtr, (int)Property.Length, null);
+        var type = mpr_obj_get_prop_as_int32(NativePtr, (int)Property.Type, null);
         long time = 0;
-        var val = mpr_sig_get_value(_obj, instanceId, ref time);
+        var val = mpr_sig_get_value(NativePtr, instanceId, ref time);
         return (BuildValue(len, type, val, 0), new Time(time));
     }
     // unsafe public dynamic GetValue(UInt64 instanceId = 0)
@@ -258,7 +258,7 @@ public class Signal : MapperObject
     {
         unsafe
         {
-            mpr_sig_reserve_inst(_obj, number, null, IntPtr.Zero);
+            mpr_sig_reserve_inst(NativePtr, number, null, IntPtr.Zero);
         }
         return this;
     }
@@ -271,7 +271,7 @@ public class Signal : MapperObject
     {
         unsafe
         {
-            mpr_sig_reserve_inst(_obj, 1, &id, IntPtr.Zero);
+            mpr_sig_reserve_inst(NativePtr, 1, &id, IntPtr.Zero);
         }
     }
 
@@ -285,7 +285,7 @@ public class Signal : MapperObject
     /// <returns>The same signal for chaining</returns>
     public Signal RemoveInstance(ulong instanceId)
     {
-        mpr_sig_remove_inst(_obj, instanceId);
+        mpr_sig_remove_inst(NativePtr, instanceId);
         return this;
     }
 
@@ -295,7 +295,7 @@ public class Signal : MapperObject
     /// <param name="id">The instance id</param>
     public Instance GetInstance(ulong id)
     {
-        return new Instance(_obj, id);
+        return new Instance(NativePtr, id);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -339,7 +339,7 @@ public class Signal : MapperObject
 
     public MapperList<Map> GetMaps(Direction direction = Direction.Any)
     {
-        return new MapperList<Map>(mpr_sig_get_maps(_obj, (int)direction), MapperType.Map);
+        return new MapperList<Map>(mpr_sig_get_maps(NativePtr, (int)direction), MapperType.Map);
     }
 
     private delegate void HandlerDelegate(IntPtr sig, int evt, ulong instanceId, int length,
@@ -376,7 +376,7 @@ public class Signal : MapperObject
         /// </summary>
         public void Release()
         {
-            mpr_sig_release_inst(_obj, id);
+            mpr_sig_release_inst(NativePtr, id);
         }
     }
     
