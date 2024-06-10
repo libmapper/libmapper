@@ -13,6 +13,8 @@
         <Version>2.4.6.3</Version>
         <TargetFrameworks>net8.0;netstandard2.1;net6.0;net7.0</TargetFrameworks>
         <LangVersion>latest</LangVersion>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
