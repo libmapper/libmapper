@@ -247,7 +247,7 @@ public class Signal : MapperObject
     // }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern int mpr_sig_reserve_inst(IntPtr sig, int num, IntPtr ids, IntPtr data);
+    private static extern unsafe int mpr_sig_reserve_inst(IntPtr sig, int num, int* ids, IntPtr data);
 
     /// <summary>
     ///     Preallocates space to store `number` instances of this signal.
@@ -256,8 +256,23 @@ public class Signal : MapperObject
     /// <returns>This signal for chaining</returns>
     public Signal ReserveInstances(int number = 1)
     {
-        mpr_sig_reserve_inst(_obj, number, IntPtr.Zero, IntPtr.Zero);
+        unsafe
+        {
+            mpr_sig_reserve_inst(_obj, number, null, IntPtr.Zero);
+        }
         return this;
+    }
+
+    /// <summary>
+    /// Reserve a single instance, with a specific id.
+    /// </summary>
+    /// <param name="id">Identifier used to refer to this specific instance</param>
+    public void ReserveInstance(int id)
+    {
+        unsafe
+        {
+            mpr_sig_reserve_inst(_obj, 1, &id, IntPtr.Zero);
+        }
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
