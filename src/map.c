@@ -79,8 +79,8 @@ typedef struct _mpr_local_map {
     int num_inst;                   /*!< Number of local instances. */
 
     uint8_t locality;               /* requires 3 bits -----XXX */
-    uint8_t one_src;                // requires 1 bit
-    uint8_t updated;                // requires 1 bit
+    uint8_t one_src;                /* requires 1 bit */
+    uint8_t updated;                /* requires 1 bit */
 } mpr_local_map_t;
 
 size_t mpr_map_get_struct_size(int is_local)
@@ -1470,10 +1470,10 @@ int mpr_local_map_update_status(mpr_local_map map)
     return map->status;
 }
 
-// TODO: currently we could send 2 modify messages (process at src; process at dst) at the same time
-// and they would just keep switching back and forth
-// need more deterministic way of doing map admin, e.g. always dst?
-    // move mapto handler to mesh only to avoid user spam?
+/* TODO: currently we could send 2 modify messages (process at src; process at dst) at the same time
+ * and they would just keep switching back and forth
+ * We need a more deterministic way of doing map admin, e.g. always dst?
+ * Move mapto handler to mesh only to avoid user spam? */
 
 int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
 {
