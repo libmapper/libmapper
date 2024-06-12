@@ -504,9 +504,9 @@ static int process_outgoing_maps(mpr_local_dev dev)
 
 void mpr_dev_update_maps(mpr_dev dev) {
     RETURN_UNLESS(dev && dev->obj.is_local);
-    ((mpr_local_dev)dev)->time_is_stale = 1;
     if (!((mpr_local_dev)dev)->polling)
         process_outgoing_maps((mpr_local_dev)dev);
+    ((mpr_local_dev)dev)->time_is_stale = 1;
 }
 
 static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir, int dirty_only)
@@ -551,9 +551,8 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
 
     if (ldev->registered) {
         ldev->polling = 1;
-        ldev->time_is_stale = 1;
-        mpr_dev_get_time(dev);
         process_outgoing_maps(ldev);
+        ldev->time_is_stale = 1;
         ldev->polling = 0;
     }
 
