@@ -360,6 +360,7 @@ TYPED_SCHMITT(double, d)
 typedef enum {
     VAR_UNKNOWN = -1,
     VAR_Y = N_USER_VARS,
+    VAR_X_NEWEST,
     VAR_X,
     N_VARS
 } expr_var_t;
@@ -636,6 +637,7 @@ typedef enum {
     /* function names above this line are also found in vfn_table */
     RFN_COUNT,
     RFN_SIZE,
+    RFN_NEWEST,
     RFN_MAP,
     RFN_FILTER,
     RFN_REDUCE,
@@ -662,6 +664,7 @@ static struct {
     { "concat",   3, OP_UNKNOWN,     VFN_CONCAT  }, /* replaced during parsing */
     { "count",    0, OP_ADD,         VFN_UNKNOWN },
     { "size",     0, OP_UNKNOWN,     VFN_MAXMIN  },
+    { "newest",   0, OP_UNKNOWN,     VFN_UNKNOWN },
     { "map",      1, OP_UNKNOWN,     VFN_UNKNOWN }, /* replaced during parsing */
     { "filter",   1, OP_UNKNOWN,     VFN_UNKNOWN }, /* replaced during parsing */
     { "reduce",   1, OP_UNKNOWN,     VFN_UNKNOWN }, /* replaced during parsing */
@@ -915,7 +918,11 @@ static int var_lookup(mpr_token_t *tok, const char *s, int len)
         tok->var.idx = VAR_Y;
     else if ('x' == *s) {
         if ('$' == *(s+1)) {
-            if (isdigit(*(s+2))) {
+            if ('$' == *(s+2)) {
+                tok->var.idx = VAR_X_NEWEST;
+                return 2;
+            }
+            else if (isdigit(*(s+2))) {
                 /* literal input signal index */
                 int num_digits = 1;
                 while (isdigit(*s+1+num_digits))
@@ -1355,6 +1362,8 @@ static void printtoken(mpr_token_t *t, mpr_var_t *vars, int show_locks)
 
             if (t->var.idx == VAR_Y)
                 d += snprintf(s + d, l - d, ".y");
+            else if (t->var.idx == VAR_X_NEWEST)
+                d += snprintf(s + d, l - d, ".x$$");
             else if (t->var.idx >= VAR_X) {
                 d += snprintf(s + d, l - d, ".x");
                 if (t->gen.flags & VAR_SIG_IDX)
@@ -1389,6 +1398,8 @@ static void printtoken(mpr_token_t *t, mpr_var_t *vars, int show_locks)
         case TOK_VAR_NUM_INST:
             if (t->var.idx == VAR_Y)
                 snprintf(s, l, "NUM_INST\tvar.y");
+            else if (t->var.idx == VAR_X_NEWEST)
+                snprintf(s, l, "NUM_INST\tvar.x$$");
             else if (t->var.idx >= VAR_X)
                 snprintf(s, l, "NUM_INST\tvar.x$%d", t->var.idx - VAR_X);
             else
@@ -1504,7 +1515,7 @@ static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars,
                     break;
                 case TOK_RFN:
                 case TOK_VAR:
-                    if (stk[i].var.idx >= VAR_X)
+                    if (stk[i].var.idx >= VAR_X_NEWEST)
                         can_advance = 0;
                     break;
                 default:
@@ -2162,7 +2173,7 @@ static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, 
                     reducing *= 2;
                     break;
                 case TOK_VAR:
-                    if (!skipping && stk[sp - i].var.idx >= VAR_X)
+                    if (!skipping && stk[sp - i].var.idx >= VAR_X_NEWEST)
                         reducing = 0;
                     break;
                 default:
@@ -2651,7 +2662,23 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     break;
                 }
 
-                if (tok.var.idx >= VAR_X) {
+                if (tok.var.idx == VAR_X_NEWEST) {
+                    tok.gen.datatype = tok.gen.casttype = in_types[0];
+                    tok.gen.vec_len = in_vec_lens[0];
+                    for (i = 1; i < n_ins; i++) {
+                        if (in_types[i] < tok.gen.datatype) {
+                            tok.gen.casttype = tok.gen.datatype;
+                            tok.gen.datatype = in_types[i];
+                        }
+                        if (in_types[i] < tok.gen.casttype)
+                            tok.gen.casttype = in_types[i];
+                        if (in_vec_lens[i] > tok.gen.vec_len)
+                            tok.gen.vec_len = in_vec_lens[i];
+                    }
+                    tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
+                    is_const = 0;
+                }
+                else if (tok.var.idx >= VAR_X) {
                     int slot = tok.var.idx - VAR_X;
                     {FAIL_IF(slot >= n_ins, "Input slot index > number of sources.");}
                     tok.gen.datatype = in_types[slot];
@@ -2860,7 +2887,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                     y_ref = 1;
                                     break;
                                 }
-                                else if (tok.var.idx >= VAR_X)
+                                else if (tok.var.idx >= VAR_X_NEWEST)
                                     x_ref = 1;
                             }
                             /* TODO: reduce prefix could include BOTH x and y */
@@ -3022,6 +3049,17 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         allow_toktype = JOIN_TOKENS;
                         break;
                     }
+                }
+                else if (RFN_NEWEST == rfn) {
+                    {FAIL_IF(rt != RT_SIGNAL, "newest() requires 'signal' prefix'");}
+                    out[out_idx].toktype = TOK_VAR;
+                    out[out_idx].var.idx = VAR_X_NEWEST;
+                    out[out_idx].gen.datatype = out[out_idx - 1].gen.casttype;
+                    out[out_idx].gen.vec_len = out[out_idx - 1].gen.vec_len;
+                    out[out_idx].gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
+                    is_const = 0;
+                    allow_toktype = JOIN_TOKENS;
+                    break;
                 }
 
                 /* get compound arity of last token */
@@ -3874,7 +3912,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
                 if (out[out_idx].toktype == TOK_VAR) {
                     int var = out[out_idx].var.idx;
-                    if (var >= VAR_X)
+                    if (var >= VAR_X_NEWEST)
                         {FAIL("Cannot assign to input variable 'x'.");}
                     if (out[out_idx].gen.flags & VAR_HIST_IDX) {
                         /* unlike variable lookup, history assignment index must be an integer */
@@ -3919,7 +3957,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     {FAIL_IF(out[out_idx].toktype != TOK_VAR,
                              "Illegal tokens left of assignment. (1)");}
                     var = out[out_idx].var.idx;
-                    if (var >= VAR_X)
+                    if (var >= VAR_X_NEWEST)
                         {FAIL("Cannot assign to input variable 'x'.");}
                     else if (!(out[out_idx].gen.flags & VAR_HIST_IDX)) {
                         if (var == VAR_Y)
@@ -4356,9 +4394,29 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 b = b_out;
                 can_advance = 0;
             }
-            else if (tok->var.idx >= VAR_X) {
+            else if (tok->var.idx >= VAR_X_NEWEST) {
                 RETURN_ARG_UNLESS(v_in, status);
-                if (!(tok->gen.flags & VAR_SIG_IDX)) {
+                if (tok->var.idx == VAR_X_NEWEST) {
+                    /* Find most recently-updated source signal */
+                    int newest_idx = 0;
+                    for (i = 1; i < expr->n_ins; i++) {
+#if TRACE_EVAL
+                        mpr_time_print(*mpr_value_get_time(v_in[newest_idx], inst_idx));
+                        printf(" : ");
+                        mpr_time_print(*mpr_value_get_time(v_in[i], inst_idx));
+                        printf("\n");
+#endif
+                        if (mpr_time_cmp(*mpr_value_get_time(v_in[newest_idx], inst_idx),
+                                         *mpr_value_get_time(v_in[i], inst_idx)) < 0) {
+                            newest_idx = i;
+                        }
+                    }
+                    v = v_in[newest_idx];
+#if TRACE_EVAL
+                    printf("\n\t\tvar.x$%d", newest_idx);
+#endif
+                }
+                else if (!(tok->gen.flags & VAR_SIG_IDX)) {
                     v = v_in[tok->var.idx - VAR_X + sig_offset];
 #if TRACE_EVAL
                     printf("\n\t\tvar.x$%d", tok->var.idx - VAR_X + sig_offset);

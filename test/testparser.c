@@ -1738,7 +1738,29 @@ int run_tests()
         }
     }
 
-    /* 134) IDEA: map instance reduce to instanced destination */
+    /* 134) Use latest input */
+    set_expr_str("y=x.signal.newest();");
+    types[0] = MPR_FLT;
+    types[1] = MPR_INT32;
+    lens[0] = 1;
+    lens[1] = 2;
+    setup_test_multisource(2, types, lens, MPR_FLT, 2);
+    expect_flt[0] = expect_flt[1] = src_flt[0];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 135) Use latest input (shorthand) */
+    set_expr_str("y=x$$;");
+    types[0] = MPR_FLT;
+    types[1] = MPR_INT32;
+    lens[0] = 1;
+    lens[1] = 2;
+    setup_test_multisource(2, types, lens, MPR_FLT, 2);
+    expect_flt[0] = expect_flt[1] = src_flt[0];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 136) IDEA: map instance reduce to instanced destination */
     // dst instance should be released when there are zero sources
     // e.g. y = x.instance.mean()
 
