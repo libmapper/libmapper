@@ -9,16 +9,16 @@ typedef struct _mpr_tbl_record *mpr_tbl_record;
 #include "message.h"
 
 /* bit flags for tracking permissions for modifying properties */
-#define MOD_NONE        0x00
-#define MOD_LOCAL       0x01
-#define MOD_REMOTE      0x02
-#define MOD_ANY         0x03
-#define LOCAL_ACCESS    0x04
-#define MUTABLE_TYPE    0x08
-#define MUTABLE_LENGTH  0x10
-#define INDIRECT        0x20
-#define PROP_OWNED      0x40
-#define PROP_SET        0x80
+#define MOD_NONE        0x00    /* 00000000 */
+#define MOD_LOCAL       0x01    /* 00000001 */
+#define MOD_REMOTE      0x02    /* 00000010 */
+#define MOD_ANY         0x03    /* 00000011 */
+#define LOCAL_ACCESS    0x04    /* 00000100 */
+#define MUTABLE_TYPE    0x08    /* 00001000 */
+#define MUTABLE_LENGTH  0x10    /* 00010000 */
+#define INDIRECT        0x20    /* 00100000 */
+#define PROP_OWNED      0x40    /* 01000000 */
+#define PROP_SET        0x80    /* 10000000 */
 
 /*! Create a new string table. */
 mpr_tbl mpr_tbl_new(void);

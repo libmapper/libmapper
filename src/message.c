@@ -166,7 +166,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
         a->types = &types[i+1];
         a->vals = &argv[i+1];
         while (++i < argc) {
-            if ((types[i] == MPR_STR) && strcspn(&argv[i]->s, "@") < 2) {
+            if ((types[i] == MPR_STR) && ((&argv[i]->s)[0] == '@' || (&argv[i]->s)[1] == '@')) {
                 /* Arrived at next property index. */
                 --i;
                 break;
@@ -225,7 +225,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
                 }
             }
             else if (protocol_type == MPR_BOOL) {
-                if (!mpr_type_get_is_bool(a->types[0])) {
+                if (!mpr_type_get_is_bool(a->types[0]) && !mpr_type_get_is_str(a->types[0])) {
                     trace("Static property '%s:%s' cannot have type '%c' (2).\n", a->key,
                           mpr_prop_as_str(a->prop, 1), a->types[0]);
                     a->len = a->prop = 0;

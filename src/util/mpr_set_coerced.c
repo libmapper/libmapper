@@ -23,6 +23,7 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
         case MPR_FLT:{
             float *dstf = (float*)dst_val;
             switch (src_type) {
+                case MPR_BOOL:
                 case MPR_INT32: {
                     int *srci = (int*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
@@ -46,7 +47,7 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
             }
             break;
         }
-        case MPR_INT32:{
+        case MPR_INT32: {
             int *dsti = (int*)dst_val;
             switch (src_type) {
                 case MPR_FLT: {
@@ -72,7 +73,7 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
             }
             break;
         }
-        case MPR_DBL:{
+        case MPR_DBL: {
             double *dstd = (double*)dst_val;
             switch (src_type) {
                 case MPR_INT32: {
@@ -95,6 +96,56 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
                 }
                 default:
                     return -1;
+            }
+            break;
+        }
+        case MPR_BOOL: {
+            int *dstb = (int*)dst_val;
+            switch (src_type) {
+                case MPR_INT32: {
+                    int *srci = (int*)src_val;
+                    for (i = 0, j = 0; i < dst_len; i++, j++) {
+                        if (j >= src_len)
+                            j = 0;
+                        dstb[i] = srci[j] != 0;
+                    }
+                    break;
+                }
+                case MPR_FLT: {
+                    float *srcf = (float*)src_val;
+                    for (i = 0, j = 0; i < dst_len; i++, j++) {
+                        if (j >= src_len)
+                            j = 0;
+                        dstb[i] = (int)srcf[j] != 0;
+                    }
+                    break;
+                }
+                case MPR_DBL: {
+                    double *srcd = (double*)src_val;
+                    for (i = 0, j = 0; i < dst_len; i++, j++) {
+                        if (j >= src_len)
+                            j = 0;
+                        dstb[i] = (int)srcd[j] != 0;
+                    }
+                    break;
+                }
+                case MPR_STR: {
+                    if (src_len == 1) {
+                        const char *srcs = (const char*)src_val;
+                        dstb[0] = srcs[0] == 'T' || srcs[0] == 't';
+                        for (i = 1; i < dst_len; i++)
+                            dstb[i] = dstb[0];
+                    }
+                    else {
+                        const char **srcs = (const char**)src_val;
+                        for (i = 0, j = 0; i < dst_len; i++, j++) {
+                            if (j >= src_len)
+                                j = 0;
+                            dstb[i] = (srcs[j][0] == 'T' || srcs[j][0] == 't');
+                        }
+                    }
+                    break;
+                }
             }
             break;
         }

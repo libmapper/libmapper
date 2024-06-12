@@ -1549,7 +1549,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
         updated += mpr_slot_set_from_msg(m->src[i], msg);
 
     if (m->obj.is_local) {
-        /* need to handle some properties carefully since they impaxt expression hosting */
+        /* need to handle some properties carefully since they impact expression hosting */
         updated += mpr_local_map_set_from_msg((mpr_local_map)m, msg);
     }
 
@@ -1609,7 +1609,22 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                 break;
             }
             case PROP(USE_INST): {
-                int use_inst = types[0] == 'T';
+                int use_inst;
+                if (types[0] == 's') {
+                    const char *str = &(vals[0])->s;
+                    if (!strchr("TFtf", str[0]))
+                        break;
+                    if (strlen(str) == 1)
+                        use_inst = str[0] == 'T' || str[0] == 't';
+                    else if (strcmp(str + 1, "rue") == 0)
+                        use_inst = 1;
+                    else if (strcmp(str + 1, "alse") == 0)
+                        use_inst = 0;
+                    else
+                        break;
+                }
+                else
+                    use_inst = types[0] == 'T';
                 if (m->obj.is_local && m->use_inst && !use_inst) {
                     /* TODO: release map instances */
                 }
