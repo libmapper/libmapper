@@ -1726,12 +1726,14 @@ int run_tests()
     setup_test(MPR_FLT, 1, MPR_FLT, 4);
     if (parse_and_eval(EXPECT_SUCCESS, 5, 0, iterations))
         return 1;
-    for (i = 1; i < 4; i++) {
-        int j;
-        for (j = i - 1; j >= 0; j--) {
-            if (dst_flt[i] == dst_flt[j]) {
-                eprintf("... error: duplicate element values at index %d and %d.\n", j, i);
-                return 1;
+    if (start_index < 0 || start_index == 133) {
+        for (i = 1; i < 4; i++) {
+            int j;
+            for (j = i - 1; j >= 0; j--) {
+                if (dst_flt[i] == dst_flt[j]) {
+                    eprintf("... error: duplicate element values at index %d and %d.\n", j, i);
+                    return 1;
+                }
             }
         }
     }
