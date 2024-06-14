@@ -298,7 +298,7 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, 
             for (i = 0; i < rec->len; i++)
                 free(((char**)old_val)[i]);
         }
-        if (rec->len != 1 || (MPR_PTR != rec->type && MPR_LIST < rec->type))
+        if (rec->len > 1 || (MPR_PTR != rec->type && MPR_GRAPH < rec->type))
             free(old_val);
         old_val = 0;
         updated = 1;
@@ -374,10 +374,11 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
         }
         else
             rec->prop &= ~PROP_REMOVE;
-        if ((rec->flags & INDIRECT) && (type != rec->type || len != rec->len)) {
+        if (   (rec->flags & INDIRECT || rec->prop != MPR_PROP_EXTRA)
+            && (type != rec->type || len != rec->len)) {
             void *coerced = malloc(mpr_type_get_size(rec->type) * rec->len);
-            mpr_set_coerced(len, type, val, rec->len, rec->type, coerced);
-            updated = t->dirty = update_elements(rec, rec->len, rec->type, coerced);
+            if (!mpr_set_coerced(len, type, val, rec->len, rec->type, coerced))
+                updated = t->dirty = update_elements(rec, rec->len, rec->type, coerced);
             free(coerced);
         }
         else
