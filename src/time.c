@@ -144,7 +144,12 @@ void mpr_time_set(mpr_time *l, mpr_time r)
 
 int mpr_time_cmp(mpr_time l, mpr_time r)
 {
-    return l.sec == r.sec ? l.frac - r.frac : l.sec - r.sec;
+    register int res;
+    if (l.sec == r.sec)
+        res = (l.frac > r.frac) - (l.frac < r.frac);
+    else
+        res = (l.sec > r.sec) - (l.sec < r.sec);
+    return res;
 }
 
 void mpr_time_print(mpr_time t)

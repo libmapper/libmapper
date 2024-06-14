@@ -777,6 +777,10 @@ void mpr_time_set(mpr_time *timel, mpr_time timer);
  *  \return             `<0` if `time1 < time2`; `0` if `time1 == time2`; `>0` if `time1 > time2`. */
 int mpr_time_cmp(mpr_time time1, mpr_time time2);
 
+/*! Helper to print a libmapper timetag
+ *  \param time         The timetag to print. */
+void mpr_time_print(mpr_time time);
+
 /** @} */ /* end of group Times */
 
 /*! Get the version of libmapper.
