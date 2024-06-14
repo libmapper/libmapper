@@ -1503,15 +1503,6 @@ void mpr_sig_set_cb(mpr_sig sig, mpr_sig_handler *h, int events)
 {
     mpr_local_sig lsig = (mpr_local_sig)sig;
     RETURN_UNLESS(sig && sig->obj.is_local);
-    if (!lsig->handler && h && events) {
-        /* Need to register a new liblo methods */
-        mpr_local_dev_add_server_method((mpr_local_dev)sig->dev, lsig->path,
-                                        mpr_sig_osc_handler, (void*)lsig);
-    }
-    else if (lsig->handler && !(h || events)) {
-        /* Need to remove liblo methods */
-        mpr_local_dev_remove_server_method((mpr_local_dev)sig->dev, lsig->path);
-    }
     lsig->handler = (void*)h;
     lsig->event_flags = events;
 }
