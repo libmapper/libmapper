@@ -2,7 +2,7 @@ AC_PREREQ(2.61)
 
 m4_define([LIBMAPPER_VERSION],[2.4.6])
 AC_INIT([libmapper],
-  m4_esyscmd_s([test -d .git && (git describe --tags | sed 's/\([^\-]*\)-\([^\-]*\)-\([^\-]*\)/\1.\2+\3/g') || echo LIBMAPPER_VERSION]),
+  m4_esyscmd_s([test -d .git/refs/tags && (git describe --tags | sed 's/\([^\-]*\)-\([^\-]*\)-\([^\-]*\)/\1.\2+\3/g') || echo LIBMAPPER_VERSION]),
   [dot_mapper@googlegroups.com],[],[http://libmapper.org])
 
 # libtool version: current:revision:age
