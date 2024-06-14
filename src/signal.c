@@ -807,8 +807,11 @@ static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
         si = lsig->inst[i];
         for (j = 0; j < lsig->num_id_maps; j++) {
             mpr_id_map id_map = lsig->id_maps[j].id_map;
-            if (!id_map)
-                goto done;
+            if (!id_map) {
+                if (!lsig->use_inst)
+                    goto done;
+                continue;
+            }
             if (lsig->id_maps[j].inst != si)
                 continue;
             if (id_map->GID >> 32 != mpr_obj_get_id((mpr_obj)lsig->dev) >> 32)
@@ -856,6 +859,7 @@ mpr_id mpr_sig_get_oldest_inst_id(mpr_sig sig)
     int idx;
     mpr_local_sig lsig = (mpr_local_sig)sig;
     RETURN_ARG_UNLESS(sig && sig->obj.is_local, 0);
+    /* for non-ephemeral signals all instances are the same age */
     RETURN_ARG_UNLESS(sig->ephemeral, lsig->id_maps[0].id_map->LID);
     idx = _oldest_inst((mpr_local_sig)sig);
     return (idx >= 0) ? lsig->id_maps[idx].id_map->LID : 0;
@@ -890,6 +894,7 @@ mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig)
     int idx;
     mpr_local_sig lsig = (mpr_local_sig)sig;
     RETURN_ARG_UNLESS(sig && sig->obj.is_local, 0);
+    /* for non-ephemeral signals all instances are the same age */
     RETURN_ARG_UNLESS(sig->ephemeral, lsig->id_maps[0].id_map->LID);
     idx = _newest_inst((mpr_local_sig)sig);
     return (idx >= 0) ? lsig->id_maps[idx].id_map->LID : 0;
@@ -939,13 +944,14 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
 
         /* store pointer to device map in a new signal map */
         i = _init_and_add_id_map(lsig, si, id_map);
+
+        /* TODO: fix SEGV if user code releases new instance in handler */
         if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
             h((mpr_sig)lsig, MPR_SIG_INST_NEW, LID, 0, lsig->type, NULL, t);
         return i;
     }
 
-    RETURN_ARG_UNLESS(h, -1);
-    if (lsig->event_flags & MPR_SIG_INST_OFLW) {
+    if (h && lsig->event_flags & MPR_SIG_INST_OFLW) {
         /* call instance event handler */
         h((mpr_sig)lsig, MPR_SIG_INST_OFLW, 0, 0, lsig->type, NULL, t);
     }
@@ -953,15 +959,21 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
         i = _oldest_inst(lsig);
         if (i < 0)
             return -1;
-        h((mpr_sig)lsig, MPR_SIG_REL_UPSTRM & lsig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE,
-          lsig->id_maps[i].id_map->LID, 0, lsig->type, 0, t);
+        if (h)
+            h((mpr_sig)lsig, MPR_SIG_REL_UPSTRM & lsig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE,
+              lsig->id_maps[i].id_map->LID, 0, lsig->type, 0, t);
+        else
+            mpr_sig_release_inst_internal(lsig, i);
     }
     else if (lsig->steal_mode == MPR_STEAL_NEWEST) {
         i = _newest_inst(lsig);
         if (i < 0)
             return -1;
-        h((mpr_sig)lsig, MPR_SIG_REL_UPSTRM & lsig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE,
-          lsig->id_maps[i].id_map->LID, 0, lsig->type, 0, t);
+        if (h)
+            h((mpr_sig)lsig, MPR_SIG_REL_UPSTRM & lsig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE,
+              lsig->id_maps[i].id_map->LID, 0, lsig->type, 0, t);
+        else
+            mpr_sig_release_inst_internal(lsig, i);
     }
     else
         return -1;
@@ -1042,10 +1054,8 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
         return -1;
     }
 
-    RETURN_ARG_UNLESS(h, -1);
-
     /* try releasing instance in use */
-    if (lsig->event_flags & MPR_SIG_INST_OFLW) {
+    if (h && lsig->event_flags & MPR_SIG_INST_OFLW) {
         /* call instance event handler */
         h((mpr_sig)lsig, MPR_SIG_INST_OFLW, 0, 0, lsig->type, NULL, t);
     }
@@ -1053,15 +1063,21 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
         i = _oldest_inst(lsig);
         if (i < 0)
             return -1;
-        h((mpr_sig)lsig, MPR_SIG_REL_UPSTRM & lsig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE,
-          lsig->id_maps[i].id_map->LID, 0, lsig->type, 0, t);
+        if (h)
+            h((mpr_sig)lsig, MPR_SIG_REL_UPSTRM & lsig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE,
+              lsig->id_maps[i].id_map->LID, 0, lsig->type, 0, t);
+        else
+            mpr_sig_release_inst_internal(lsig, i);
     }
     else if (lsig->steal_mode == MPR_STEAL_NEWEST) {
         i = _newest_inst(lsig);
         if (i < 0)
             return -1;
-        h((mpr_sig)lsig, MPR_SIG_REL_UPSTRM & lsig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE,
-          lsig->id_maps[i].id_map->LID, 0, lsig->type, 0, t);
+        if (h)
+            h((mpr_sig)lsig, MPR_SIG_REL_UPSTRM & lsig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE,
+              lsig->id_maps[i].id_map->LID, 0, lsig->type, 0, t);
+        else
+            mpr_sig_release_inst_internal(lsig, i);
     }
     else
         return -1;
@@ -1563,6 +1579,7 @@ static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map 
         if (lsig->num_id_maps >= MAX_INST) {
             /* Arbitrary limit to number of tracked id_maps */
             /* TODO: add checks for this return value */
+            trace("warning: reached maximum number of instances for signal %s.\n", lsig->name);
             return -1;
         }
         lsig->num_id_maps = lsig->num_id_maps ? lsig->num_id_maps * 2 : 1;
