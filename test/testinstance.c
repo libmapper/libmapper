@@ -211,8 +211,7 @@ int setup_src(mpr_graph g, const char *iface)
                            &mn, &mx, NULL, NULL, 0);
     if (!multisend || !monosend)
         goto error;
-    mpr_obj_set_prop((mpr_obj)multisend, MPR_PROP_STEAL_MODE, NULL, 1,
-                     MPR_INT32, &stl, 1);
+    mpr_obj_set_prop((mpr_obj)multisend, MPR_PROP_STEAL_MODE, NULL, 1, MPR_INT32, &stl, 1);
 
     eprintf("Output signal added with %i instances.\n",
             mpr_sig_get_num_inst(multisend, MPR_STATUS_ANY));
@@ -713,7 +712,7 @@ int main(int argc, char **argv)
                                 --config_start;
                             }
                             else {
-                                printf("config argument must be between 0 and %d\n", NUM_TESTS - 1);
+                                printf("config argument must be between 1 and %d\n", NUM_TESTS);
                                 return 1;
                             }
                             j = len;
