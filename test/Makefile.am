@@ -38,6 +38,7 @@ if WINDOWS_DLL
         testsignalhierarchy \
         testsignals \
         testspeed \
+        teststealing \
         testunmap \
         testvector \
         test
@@ -73,6 +74,7 @@ if WINDOWS_DLL
         testsignalhierarchy \
         testsetremote \
         testselfmap \
+        teststealing \
         test
 
 else
@@ -109,6 +111,7 @@ else
         testsignalhierarchy \
         testsignals \
         testspeed \
+        teststealing \
         testthread \
         testunmap \
         testvector \
@@ -147,6 +150,7 @@ else
         testsignalhierarchy \
         testsetremote \
         testselfmap \
+        teststealing \
         test
 
 endif
@@ -278,6 +282,10 @@ testsignals_LDADD = $(TEST_LDADD)
 testspeed_CFLAGS = $(TEST_CFLAGS)
 testspeed_SOURCES = testspeed.c
 testspeed_LDADD = $(TEST_LDADD)
+
+teststealing_CFLAGS = $(TEST_CFLAGS)
+teststealing_SOURCES = teststealing.c
+teststealing_LDADD = $(TEST_LDADD)
 
 testthread_CFLAGS = $(TEST_CFLAGS)
 testthread_SOURCES = testthread.c
