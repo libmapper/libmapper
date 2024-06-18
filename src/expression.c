@@ -2753,9 +2753,9 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 var_flags = TOK_OPEN_SQUARE | TOK_OPEN_CURLY;
                 if (VAR_X == tok.var.idx)
                     var_flags |= TOK_DOLLAR;
-                allow_toktype = (var_flags | (assigning ? TOK_ASSIGN | TOK_ASSIGN_TT : 0));
+                allow_toktype = TOK_RFN | (var_flags | (assigning ? TOK_ASSIGN | TOK_ASSIGN_TT : 0));
                 if (TOK_VAR == tok.toktype)
-                    allow_toktype |= TOK_VFN_DOT | TOK_RFN;
+                    allow_toktype |= TOK_VFN_DOT;
                 if (tok.var.idx != VAR_Y || out_assigned > 1)
                     allow_toktype |= JOIN_TOKENS;
                 muted = 0;
@@ -2940,7 +2940,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                     tok = out[idx];
                                 }
                                 len += tok_arity(tok);
-                                if (tok.toktype != TOK_VAR)
+                                if (tok.toktype != TOK_VAR && tok.toktype != TOK_TT)
                                     continue;
                                 if (tok.var.idx >= VAR_Y) {
                                     v_ref = 1;

@@ -1760,7 +1760,20 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 136) IDEA: map instance reduce to instanced destination */
+    /* 136) Implicit reduce with variable timetag argument instead of value */
+    set_expr_str("y=t_x.instance.mean();");
+    setup_test(MPR_FLT, 3, MPR_FLT, 1);
+    parse_and_eval(EXPECT_SUCCESS, 9, 0, iterations);
+    if (start_index < 0 || start_index == 136) {
+        if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
+            eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
+            return 1;
+        }
+        else
+            eprintf("... OK\n");
+    }
+
+    /* 137) IDEA: map instance reduce to instanced destination */
     // dst instance should be released when there are zero sources
     // e.g. y = x.instance.mean()
 
