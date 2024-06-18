@@ -904,13 +904,13 @@ FN_LOOKUP(rfn, RFN, 1)
 
 static int var_lookup(mpr_token_t *tok, const char *s, int len)
 {
-    if ('t' == *s && '_' == *(s+1)) {
+    if ('t' != *s || '_' != *(s+1))
+        tok->toktype = TOK_VAR;
+    else if (len > 2) {
         tok->toktype = TOK_TT;
         s += 2;
         len -= 2;
     }
-    else
-        tok->toktype = TOK_VAR;
     tok->var.idx = VAR_UNKNOWN;
     if (1 != len)
         return 0;
@@ -1372,7 +1372,8 @@ static void printtoken(mpr_token_t *t, mpr_var_t *vars, int show_locks)
                     d += snprintf(s + d, l - d, "$%d", t->var.idx - VAR_X);
             }
             else
-                d += snprintf(s + d, l - d, "%c.%s%s", vars ? vars[t->var.idx].datatype : '?',
+                d += snprintf(s + d, l - d, "%d%c.%s%s", t->var.idx,
+                              vars ? vars[t->var.idx].datatype : '?',
                               vars ? vars[t->var.idx].name : "?",
                               vars ? (vars[t->var.idx].flags & VAR_INSTANCED) ? ".N" : ".0" : ".?");
 
@@ -2692,6 +2693,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
                 }
                 else {
+                    if (TOK_TT == tok.toktype) {
+                        varname += 2;
+                        len -= 2;
+                    }
                     i = find_var_by_name(vars, n_vars, varname, len);
                     if (i >= 0) {
                         tok.var.idx = i;
