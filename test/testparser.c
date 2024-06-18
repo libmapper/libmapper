@@ -899,7 +899,8 @@ int run_tests()
     /* 53) Access timetags */
     set_expr_str("y=t_x");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
     if (start_index < 0 || start_index == 53) {
         if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
             eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
@@ -912,14 +913,17 @@ int run_tests()
     /* 54) Access timetags from past samples */
     set_expr_str("y=t_x-t_y{-1}");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
-    /* results may vary depending on machine but we can perform a sanity check */
-    if (dst_dbl[0] < 0.0 || dst_dbl[0] > 0.1) {
-        eprintf("... error: expected value between %g and %g\n", 0.0, 0.1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
+    if (start_index < 0 || start_index == 54) {
+        /* results may vary depending on machine but we can perform a sanity check */
+        if (dst_dbl[0] < 0.0 || dst_dbl[0] > 0.1) {
+            eprintf("... error: expected value between %g and %g\n", 0.0, 0.1);
+            return 1;
+        }
+        else
+            eprintf("... OK\n");
     }
-    else if (start_index < 0 || start_index == 54)
-        eprintf("... OK\n");
 
     /* 55) Moving average of inter-sample period */
     /* Tricky - we need to init t_y{-1} to t_x or the first calculated
@@ -929,14 +933,17 @@ int run_tests()
              "period=t_x-t_y{-1};"
              "y=y{-1}*0.9+period*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
-    /* results may vary depending on machine but we can perform a sanity check */
-    if (dst_dbl[0] < 0. || dst_dbl[0] > 0.003) {
-        eprintf("... error: expected value between %g and %g\n", 0.0, 0.003);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
+    if (start_index < 0 || start_index == 55) {
+        /* results may vary depending on machine but we can perform a sanity check */
+        if (dst_dbl[0] < 0. || dst_dbl[0] > 0.003) {
+            eprintf("... error: expected value between %g and %g\n", 0.0, 0.003);
+            return 1;
+        }
+        else
+            eprintf("... OK\n");
     }
-    else if (start_index < 0 || start_index == 55)
-        eprintf("... OK\n");
 
     /* 56) Moving average of inter-sample jitter */
     /* Tricky - we need to init t_y{-1} to t_x or the first calculated
@@ -947,14 +954,17 @@ int run_tests()
              "sr=sr*0.9+interval*0.1;"
              "y=y{-1}*0.9+abs(interval-sr)*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
-    /* results may vary depending on machine but we can perform a sanity check */
-    if (dst_dbl[0] < 0. || dst_dbl[0] > 0.002) {
-        eprintf("... error: expected value between %g and %g\n", 0.0, 0.002);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
+    if (start_index < 0 || start_index == 56) {
+        /* results may vary depending on machine but we can perform a sanity check */
+        if (dst_dbl[0] < 0. || dst_dbl[0] > 0.002) {
+            eprintf("... error: expected value between %g and %g\n", 0.0, 0.002);
+            return 1;
+        }
+        else
+            eprintf("... OK\n");
     }
-    else if (start_index < 0 || start_index == 56)
-        eprintf("... OK\n");
 
     /* 57) Expression for limiting output rate */
     snprintf(str, 256,
@@ -1763,7 +1773,8 @@ int run_tests()
     /* 136) Implicit reduce with variable timetag argument instead of value */
     set_expr_str("y=t_x.instance.mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
-    parse_and_eval(EXPECT_SUCCESS, 9, 0, iterations);
+    if (parse_and_eval(EXPECT_SUCCESS, 9, 0, iterations))
+        return 1;
     if (start_index < 0 || start_index == 136) {
         if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
             eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
