@@ -197,7 +197,7 @@ void loop(void)
         }
 
         if (!verbose) {
-            printf("\r  Sent: %4i, Received: %4i, Local updates: %4i   ",
+            printf("\r  Sent: %4i, Received: %4i, Local set: %4i  ",
                    sent, received, local_updates);
             fflush(stdout);
         }
@@ -310,7 +310,7 @@ int main(int argc, char **argv)
         mpr_graph_free(g);
     if (timetags)
         free(timetags);
-    printf("....Test %s\x1B[0m.\n",
+    printf("...Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

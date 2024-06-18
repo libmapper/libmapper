@@ -884,7 +884,7 @@ static expr_##LC##_t LC##_lookup(const char *s, int len)            \
     int i, j;                                                       \
     for (i = 0; i < N_##UC; i++) {                                  \
         if (LC##_tbl[i].name && strlen(LC##_tbl[i].name) == len     \
-            && strncmp_lc(s, LC##_tbl[i].name, len)==0) {           \
+            && strncmp_lc(s, LC##_tbl[i].name, len) == 0) {         \
             j = strlen(LC##_tbl[i].name);                           \
             if (CLOSE && i > RFN_HISTORY)                           \
                 return s[j] == '.' ? i : UC##_UNKNOWN;              \
@@ -2224,7 +2224,7 @@ static int find_var_by_name(mpr_var_t *vars, int n_vars, const char *str, int le
     /* check if variable name matches known variable */
     int i;
     for (i = 0; i < n_vars; i++) {
-        if (strlen(vars[i].name) == len && strncmp(vars[i].name, str, len)==0)
+        if (strlen(vars[i].name) == len && strncmp(vars[i].name, str, len) == 0)
             return i;
     }
     return -1;
@@ -2585,11 +2585,12 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 temp_var_cache var_cache_list = temp_vars, found_in = 0, found_accum = 0;
                 while (var_cache_list) {
                     /* break after finding match in case of nested duplicates */
-                    if (strncmp(var_cache_list->in_name, varname, len)==0) {
+                    // TODO: deal with timetag references
+                    if (strncmp(var_cache_list->in_name, varname, len) == 0) {
                         found_in = var_cache_list;
                         break;
                     }
-                    else if (strncmp(var_cache_list->accum_name, varname, len)==0) {
+                    else if (strncmp(var_cache_list->accum_name, varname, len) == 0) {
                         found_accum = var_cache_list;
                         break;
                     }
@@ -2719,8 +2720,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         tok.var.idx = n_vars;
                         tok.var.datatype = var_type;
                         /* special case: 'alive' tracks instance lifetime */
-                        if (   strcmp(vars[n_vars].name, "alive")==0
-                            || strcmp(vars[n_vars].name, "muted")==0) {
+                        if (   strcmp(vars[n_vars].name, "alive") == 0
+                            || strcmp(vars[n_vars].name, "muted") == 0) {
                             vars[n_vars].vec_len = tok.gen.vec_len = 1;
                             vars[n_vars].datatype = tok.gen.datatype = MPR_INT32;
                             tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);

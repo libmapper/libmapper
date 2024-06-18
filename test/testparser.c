@@ -1738,7 +1738,7 @@ int run_tests()
         }
     }
 
-    /* 134) Use latest input */
+    /* 134) Use latest source of a convergent map */
     set_expr_str("y=x.signal.newest();");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1749,7 +1749,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 135) Use latest input (shorthand) */
+    /* 135) Use latest source of a convergent map (shorthand) */
     set_expr_str("y=x$$;");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
