@@ -18,6 +18,11 @@ public abstract class MapperObject
     public IntPtr NativePtr { get; internal set; }
     internal bool _owned;
 
+    /// <summary>
+    /// Get the unique graph ID for this object.
+    /// </summary>
+    public long Id => (long)GetProperty(Property.Id);
+
     public MapperObject()
     {
         NativePtr = IntPtr.Zero;
