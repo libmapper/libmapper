@@ -133,6 +133,17 @@ typedef enum {
     MPR_SIG_ALL         = 0x1F
 } mpr_sig_evt;
 
+typedef enum {
+ /* these items defined in mpr_sig_evt */
+ /* MPR_SIG_INST_NEW    = 0x01,                 // New instance has been created. */
+ /* MPR_SIG_REL_UPSTRM  = 0x02,                 // Instance was released upstream. */
+ /* MPR_SIG_REL_DNSTRM  = 0x04,                 // Instance was released downstream. */
+    MPR_SIG_INST_SET_REMOTE = MPR_SIG_UPDATE,   /*!< Instance value has been set remotely. */
+    MPR_SIG_INST_SET_LOCAL = 0x20,              /*!< Instance value has been set locally. */
+    MPR_SIG_INST_HAS_VALUE = 0x40,              /*!< Instance value has a value. */
+    MPR_SIG_INST_IS_ACTIVE = 0x08,              /*!< Instance value has a value. */
+} mpr_sig_inst_status;
+
 /*! Describes the voice-stealing mode for instances.
  *  @ingroup map */
 typedef enum {
