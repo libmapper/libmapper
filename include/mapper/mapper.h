@@ -448,6 +448,13 @@ void *mpr_sig_get_inst_data(mpr_sig signal, mpr_id instance);
  *  \return             The number of allocated signal instances matching the specified status. */
 int mpr_sig_get_num_inst(mpr_sig signal, mpr_status status);
 
+/*! Get the status of a signal instance.
+ *  \param signal       The signal to check.
+ *  \param instance     The identifier of the instance to check.
+ *  \return             The status of the signal instance returned as bitflags. Test the return
+ *                      value against the constants defined in the enum `mpr_sig_inst_status` */
+int mpr_sig_get_inst_status(mpr_sig, mpr_id instance);
+
 /** @} */ /* end of group Instances */
 
 /** @} */ /* end of group Signals */

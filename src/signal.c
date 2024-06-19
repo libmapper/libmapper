@@ -228,11 +228,12 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
             /* reset associated output memory */
             mpr_slot_reset_inst(dst_slot, inst_idx);
 
-            if (mpr_local_map_get_has_scope(map, id_map->GID)) {
-                /* send release to downstream */
-                msg = mpr_map_build_msg(map, src_slot, 0, 0, id_map);
-                mpr_local_slot_send_msg(dst_slot, msg, t, mpr_map_get_protocol((mpr_map)map));
-            }
+            if (!mpr_local_map_get_has_scope(map, id_map->GID))
+                continue;
+
+            /* send release to downstream */
+            msg = mpr_map_build_msg(map, src_slot, 0, 0, id_map);
+            mpr_local_slot_send_msg(dst_slot, msg, t, mpr_map_get_protocol((mpr_map)map));
         }
         *locked = 0;
         return;
@@ -467,6 +468,10 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     if (vals == 0) {
         if (GID && sig->dir == MPR_DIR_IN) {
             sig->id_maps[id_map_idx].status |= RELEASED_REMOTELY;
+            if (sig->dir == MPR_DIR_IN)
+                sig->id_maps[id_map_idx].inst->status |= MPR_SIG_REL_UPSTRM;
+            else
+                sig->id_maps[id_map_idx].inst->status |= MPR_SIG_REL_DNSTRM;
             mpr_dev_GID_decref(dev, sig->group, id_map);
             if (!sig->ephemeral) {
                 /* clear signal's reference to id_map */
@@ -549,6 +554,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             if (si->status & MPR_SIG_INST_HAS_VALUE) {
                 memcpy(&si->time, &time, sizeof(mpr_time));
                 mpr_bitflags_unset(sig->updated_inst, si->idx);
+                si->status |= MPR_SIG_INST_SET_REMOTE;
                 mpr_sig_call_handler(sig, MPR_SIG_UPDATE, id_map->LID, sig->len, si->value, time, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */
                 if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
@@ -772,7 +778,7 @@ void mpr_sig_call_handler(mpr_local_sig lsig, int evt, mpr_id inst, int len,
     }
 
     /* Non-ephemeral signals cannot have a null value */
-    RETURN_UNLESS(val || lsig->ephemeral)
+    RETURN_UNLESS(val || lsig->ephemeral);
 
     mpr_sig_update_timing_stats(lsig, diff);
     if (MPR_SIG_REL_UPSTRM == evt && !(MPR_SIG_REL_UPSTRM & lsig->event_flags))
@@ -1222,6 +1228,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
     return count;
 }
 
+/* TODO: deprecate this function in favour of mpr_sig_get_inst_status */
 int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id id)
 {
     int id_map_idx;
@@ -1337,7 +1344,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
         mpr_set_coerced(lsig->len, type, val, lsig->len, lsig->type, si->value);
     else
         memcpy(si->value, (void*)val, get_value_size(lsig));
-    si->status |= MPR_SIG_INST_HAS_VALUE;
+    si->status |= (MPR_SIG_INST_HAS_VALUE | MPR_SIG_INST_SET_LOCAL);
 
     /* mark instance as updated */
     mpr_local_sig_set_updated(lsig, si->idx);
@@ -1513,6 +1520,19 @@ void *mpr_sig_get_inst_data(mpr_sig sig, mpr_id id)
     return si ? si->data : 0;
 }
 
+int mpr_sig_get_inst_status(mpr_sig sig, mpr_id id)
+{
+    int status = 0;
+    mpr_sig_inst si;
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local, 0);
+    si = _find_inst_by_id((mpr_local_sig)sig, id);
+    if (si && (status = si->status)) {
+        /* clear all flags except for HAS_VALUE and IS_ACTIVE */
+        si->status &= (MPR_SIG_INST_HAS_VALUE | MPR_SIG_INST_IS_ACTIVE);
+    }
+    return status;
+}
+
 /**** Queries ****/
 
 void mpr_sig_set_cb(mpr_sig sig, mpr_sig_handler *h, int events)
@@ -1563,7 +1583,7 @@ static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map 
 {
     int i;
     if (!(si->status & MPR_SIG_INST_IS_ACTIVE)) {
-        si->status = MPR_SIG_INST_IS_ACTIVE;
+        si->status = MPR_SIG_INST_NEW | MPR_SIG_INST_IS_ACTIVE;
         mpr_time_set(&si->created, MPR_NOW);
         mpr_time_set(&si->time, si->created);
     }
@@ -1775,6 +1795,7 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, void *value, int inst_idx, 
         /* TODO: release map-tracked instance */
         /* Try to release instance, but do not call process_sig() here, since we don't
          * know if the local signal instance will actually be released. */
+        si->status |= MPR_SIG_REL_UPSTRM;
         mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, id_map ? id_map->LID : 0, 0, 0, time, diff);
     }
 
@@ -1792,7 +1813,7 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, void *value, int inst_idx, 
         /* copy to signal value and call handler */
         memcpy(si->value, value, get_value_size(sig));
         memcpy(&si->time, &time, sizeof(mpr_time));
-        si->status |= MPR_SIG_INST_HAS_VALUE;
+        si->status |= (MPR_SIG_INST_HAS_VALUE | MPR_SIG_INST_SET_REMOTE);
 
         mpr_sig_call_handler(sig, MPR_SIG_UPDATE, si->id, -1, value, time, diff);
 
@@ -1808,6 +1829,7 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, void *value, int inst_idx, 
         /* TODO: release map-tracked instance */
         /* Try to release instance, but do not call process_sig() here, since we don't
          * know if the local signal instance will actually be released. */
+        si->status |= MPR_SIG_REL_UPSTRM;
         mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, id_map ? id_map->LID : 0, 0, 0, time, diff);
     }
 }
