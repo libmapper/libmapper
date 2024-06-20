@@ -137,7 +137,7 @@ public class MapperList<T> : _MapperList, IEnumerator, IEnumerable, IDisposable
         get
         {
             var t = new T();
-            t._obj = GetIdx(index);
+            t.NativePtr = GetIdx(index);
             return t;
         }
     }
@@ -147,7 +147,7 @@ public class MapperList<T> : _MapperList, IEnumerator, IEnumerable, IDisposable
         get
         {
             var t = new T();
-            t._obj = Deref();
+            t.NativePtr = Deref();
             return t;
         }
     }

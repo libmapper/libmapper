@@ -15,20 +15,20 @@ public class Device : MapperObject
     }
 
     public Device(string name, Graph graph)
-        : base(mpr_dev_new(name, graph._obj))
+        : base(mpr_dev_new(name, graph.NativePtr))
     {
         _owned = true;
     }
 
     // construct from mpr_dev pointer
-    internal Device(IntPtr dev) : base(dev)
+    public Device(IntPtr dev) : base(dev)
     {
     }
 
     /// <summary>
     ///     If the device is ready to send and receive signals.
     /// </summary>
-    public bool Ready => mpr_dev_get_is_ready(_obj) != 0;
+    public bool Ready => mpr_dev_get_is_ready(NativePtr) != 0;
 
     /// <summary>
     ///     Return the list of all maps for this device. Use <see cref="GetMaps" /> if you want to filter by direction.
@@ -40,8 +40,8 @@ public class Device : MapperObject
     /// </summary>
     public Time Time
     {
-        get => new(mpr_dev_get_time(_obj));
-        set => mpr_dev_set_time(_obj, value.data.ntp);
+        get => new(mpr_dev_get_time(NativePtr));
+        set => mpr_dev_set_time(NativePtr, value.data.ntp);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -66,7 +66,7 @@ public class Device : MapperObject
                 }
             }
             
-            mpr_dev_free(_obj);
+            mpr_dev_free(NativePtr);
         }
             
     }
@@ -92,7 +92,7 @@ public class Device : MapperObject
     /// <returns></returns>
     public int Poll(int blockMs = 0)
     {
-        return mpr_dev_poll(_obj, blockMs);
+        return mpr_dev_poll(NativePtr, blockMs);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -100,7 +100,7 @@ public class Device : MapperObject
 
     public Device UpdateMaps()
     {
-        mpr_dev_update_maps(_obj);
+        mpr_dev_update_maps(NativePtr);
         return this;
     }
 
@@ -122,7 +122,7 @@ public class Device : MapperObject
                 instPtr = new IntPtr(&numInstances);
             }
 
-        var sigptr = mpr_sig_new(_obj, (int)direction, name, length, (int)mapperType, unit,
+        var sigptr = mpr_sig_new(NativePtr, (int)direction, name, length, (int)mapperType, unit,
             IntPtr.Zero, IntPtr.Zero, instPtr, IntPtr.Zero, 0);
         return new Signal(sigptr);
     }
@@ -132,8 +132,8 @@ public class Device : MapperObject
 
     public Device RemoveSignal(Signal signal)
     {
-        mpr_sig_free(signal._obj);
-        signal._obj = IntPtr.Zero;
+        mpr_sig_free(signal.NativePtr);
+        signal.NativePtr = IntPtr.Zero;
         return this;
     }
 
@@ -160,7 +160,7 @@ public class Device : MapperObject
 
     public MapperList<Signal> GetSignals(Signal.Direction direction = Signal.Direction.Any)
     {
-        return new MapperList<Signal>(mpr_dev_get_sigs(_obj, (int)direction), MapperType.Signal);
+        return new MapperList<Signal>(mpr_dev_get_sigs(NativePtr, (int)direction), MapperType.Signal);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -173,7 +173,7 @@ public class Device : MapperObject
     /// <returns></returns>
     public MapperList<Map> GetMaps(Signal.Direction direction)
     {
-        return new MapperList<Map>(mpr_dev_get_maps(_obj, (int)direction), MapperType.Map);
+        return new MapperList<Map>(mpr_dev_get_maps(NativePtr, (int)direction), MapperType.Map);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]

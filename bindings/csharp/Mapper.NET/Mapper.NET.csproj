@@ -10,9 +10,11 @@
         <PackageIcon>libmapper_logo_black_512px.png</PackageIcon>
         <RepositoryUrl>https://github.com/libmapper/libmapper</RepositoryUrl>
         <NeutralLanguage>en</NeutralLanguage>
-        <Version>2.4.6</Version>
-        <TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>
+        <Version>2.4.6.3</Version>
+        <TargetFrameworks>net8.0;netstandard2.1;net6.0;net7.0</TargetFrameworks>
         <LangVersion>latest</LangVersion>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -24,9 +26,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <None Update="Assets\libmapper_logo_black_512px.png">
-        <Pack>True</Pack>
-        <PackagePath>libmapper_logo_black_512px.png</PackagePath>
+      <None Include="Assets\libmapper_logo_black_512px.png" PackagePath="libmapper_logo_black_512px.png">
+        <Pack>true</Pack>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 

@@ -15,18 +15,23 @@ public abstract class MapperObject
         Any = 0xFF
     }
 
-    internal IntPtr _obj;
+    public IntPtr NativePtr { get; internal set; }
     internal bool _owned;
+
+    /// <summary>
+    /// Get the unique graph ID for this object.
+    /// </summary>
+    public long Id => (long)GetProperty(Property.Id);
 
     public MapperObject()
     {
-        _obj = IntPtr.Zero;
+        NativePtr = IntPtr.Zero;
         _owned = false;
     }
 
-    protected MapperObject(IntPtr obj)
+    protected MapperObject(IntPtr nativePtr)
     {
-        _obj = obj;
+        NativePtr = nativePtr;
         _owned = false;
     }
 
@@ -35,7 +40,7 @@ public abstract class MapperObject
 
     public new MapperType GetType()
     {
-        return (MapperType)mpr_obj_get_type(_obj);
+        return (MapperType)mpr_obj_get_type(NativePtr);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -43,7 +48,7 @@ public abstract class MapperObject
 
     public int GetNumProperties()
     {
-        return mpr_obj_get_num_props(_obj);
+        return mpr_obj_get_num_props(NativePtr);
     }
 
     internal unsafe object? BuildValue(int len, int type, void* value, int property)
@@ -176,7 +181,7 @@ public abstract class MapperObject
         var type = 0;
         void* val = null;
         var pub = 0;
-        var idx = mpr_obj_get_prop_by_idx(_obj, index, ref key, ref len,
+        var idx = mpr_obj_get_prop_by_idx(NativePtr, index, ref key, ref len,
             ref type, ref val, ref pub);
         if (0 == idx || 0 == len)
             return (new string("unknown"), null);
@@ -190,7 +195,7 @@ public abstract class MapperObject
         var type = 0;
         void* val = null;
         var pub = 0;
-        var idx = mpr_obj_get_prop_by_idx(_obj, (int)property, ref key, ref len,
+        var idx = mpr_obj_get_prop_by_idx(NativePtr, (int)property, ref key, ref len,
             ref type, ref val, ref pub);
         if (0 == idx || 0 == len)
             return null;
@@ -210,7 +215,7 @@ public abstract class MapperObject
         void* val = null;
         var pub = 0;
         int idx;
-        idx = mpr_obj_get_prop_by_key(_obj, key, &len, &type, &val, &pub);
+        idx = mpr_obj_get_prop_by_key(NativePtr, key, &len, &type, &val, &pub);
         if (0 == idx || 0 == len)
             return null;
         return BuildValue(len, type, val, idx);
@@ -246,28 +251,28 @@ public abstract class MapperObject
         switch (value)
         {
             case int i:
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.Int32, &i, _pub);
+                mpr_obj_set_prop(NativePtr, _prop, _key, 1, (int)MapperType.Int32, &i, _pub);
                 break;
             case float f:
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.Float, &f, _pub);
+                mpr_obj_set_prop(NativePtr, _prop, _key, 1, (int)MapperType.Float, &f, _pub);
                 break;
             case double d:
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.Double, &d, _pub);
+                mpr_obj_set_prop(NativePtr, _prop, _key, 1, (int)MapperType.Double, &d, _pub);
                 break;
             case bool b:
             {
                 var i = Convert.ToInt32(b);
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.Boolean, &i, _pub);
+                mpr_obj_set_prop(NativePtr, _prop, _key, 1, (int)MapperType.Boolean, &i, _pub);
             }
                 break;
             case string s:
-                mpr_obj_set_prop(_obj, _prop, _key, 1, (int)MapperType.String, (void*)Marshal.StringToHGlobalAnsi(s), _pub);
+                mpr_obj_set_prop(NativePtr, _prop, _key, 1, (int)MapperType.String, (void*)Marshal.StringToHGlobalAnsi(s), _pub);
                 break;
             case int[] i:
                 fixed (int* temp = &i[0])
                 {
                     var intPtr = new IntPtr(temp);
-                    mpr_obj_set_prop(_obj, _prop, _key, i.Length, (int)MapperType.Int32, (void*)intPtr, _pub);
+                    mpr_obj_set_prop(NativePtr, _prop, _key, i.Length, (int)MapperType.Int32, (void*)intPtr, _pub);
                 }
 
                 break;
@@ -275,7 +280,7 @@ public abstract class MapperObject
                 fixed (float* temp = &f[0])
                 {
                     var intPtr = new IntPtr(temp);
-                    mpr_obj_set_prop(_obj, _prop, _key, f.Length, (int)MapperType.Float, (void*)intPtr, _pub);
+                    mpr_obj_set_prop(NativePtr, _prop, _key, f.Length, (int)MapperType.Float, (void*)intPtr, _pub);
                 }
 
                 break;
@@ -283,7 +288,7 @@ public abstract class MapperObject
                 fixed (double* temp = &d[0])
                 {
                     var intPtr = new IntPtr(temp);
-                    mpr_obj_set_prop(_obj, _prop, _key, d.Length, (int)MapperType.Double, (void*)intPtr, _pub);
+                    mpr_obj_set_prop(NativePtr, _prop, _key, d.Length, (int)MapperType.Double, (void*)intPtr, _pub);
                 }
 
                 break;
@@ -322,7 +327,7 @@ public abstract class MapperObject
                 return false;
         }
 
-        return 0 != mpr_obj_remove_prop(_obj, _prop, _key);
+        return 0 != mpr_obj_remove_prop(NativePtr, _prop, _key);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -330,7 +335,7 @@ public abstract class MapperObject
 
     public object Push()
     {
-        mpr_obj_push(_obj);
+        mpr_obj_push(NativePtr);
         return this;
     }
 
@@ -339,6 +344,6 @@ public abstract class MapperObject
 
     public Graph GetGraph()
     {
-        return new Graph(mpr_obj_get_graph(_obj));
+        return new Graph(mpr_obj_get_graph(NativePtr));
     }
 }
