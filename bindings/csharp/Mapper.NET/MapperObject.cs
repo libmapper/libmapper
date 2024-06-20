@@ -20,6 +20,7 @@ public abstract class MapperObject
 
     /// <summary>
     /// Get the unique graph ID for this object.
+    /// Note that the top 32 bits might not be populated for a few seconds after creation.
     /// </summary>
     public long Id => (long)GetProperty(Property.Id);
 
