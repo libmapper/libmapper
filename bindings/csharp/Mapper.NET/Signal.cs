@@ -12,6 +12,15 @@ namespace Mapper;
 /// </summary>
 public class Signal : MapperObject
 {
+    [Flags]
+    public enum StatusFlags
+    {
+        SetRemote = 0x10,
+        SetLocal = 0x20,
+        HasValue = 0x40,
+        IsActive = 0x80
+    }
+    
     public enum Direction
     {
         /// <summary>
