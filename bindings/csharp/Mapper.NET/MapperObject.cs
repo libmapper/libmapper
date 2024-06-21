@@ -4,7 +4,7 @@ namespace Mapper;
 
 public abstract class MapperObject
 {
-    public enum Status
+    public enum ObjectStatus
     {
         Expired = 0x01,
         Staged = 0x02,
@@ -73,7 +73,7 @@ public abstract class MapperObject
                         case (int)Property.Protocol:
                             return (Map.Protocol)i;
                         case (int)Property.Status:
-                            return (Status)i;
+                            return (ObjectStatus)i;
                         case (int)Property.Stealing:
                             return (Signal.Stealing)i;
                         case (int)Property.Type:
