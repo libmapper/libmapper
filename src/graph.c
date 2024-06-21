@@ -927,36 +927,36 @@ void mpr_graph_housekeeping(mpr_graph g)
 int mpr_graph_poll(mpr_graph g, int block_ms)
 {
     mpr_net n = g->net;
-    int count = 0, status[2], left_ms, elapsed, checked_admin = 0;
+    int count = 0, status[2], left_ms, elapsed_ms, admin_elapsed_ms = 0;
     double then;
     lo_server *servers = mpr_net_get_servers(n);
 
     mpr_net_poll(n, 0);
 
-    if (!block_ms) {
-        if (lo_servers_recv_noblock(servers, status, 2, 0)) {
-            count = (status[0] > 0) + (status[1] > 0);
-        }
-        return count;
-    }
-
     then = mpr_get_current_time();
-    left_ms = block_ms;
-    while (left_ms > 0) {
+    left_ms = block_ms >= 0 ? block_ms : 0;
+    do {
+        register int recvd = 0;
         if (left_ms > 100)
             left_ms = 100;
 
-        if (lo_servers_recv_noblock(servers, status, 2, left_ms))
+        if (lo_servers_recv_noblock(servers, status, 2, left_ms)) {
             count += (status[0] > 0) + (status[1] > 0);
-
-        elapsed = (mpr_get_current_time() - then) * 1000;
-        if ((elapsed - checked_admin) > 100) {
-            mpr_net_poll(n, 0);
-            checked_admin = elapsed;
+            recvd = 1;
         }
 
-        left_ms = block_ms - elapsed;
-    }
+        elapsed_ms = (mpr_get_current_time() - then) * 1000;
+        if ((elapsed_ms - admin_elapsed_ms) > 100) {
+            mpr_net_poll(n, 0);
+            admin_elapsed_ms = elapsed_ms;
+        }
+
+        if (block_ms > 0)
+            left_ms = block_ms - elapsed_ms;
+        else if (!recvd)
+            break;
+    } while (left_ms > 0 || block_ms < 0);
+
     return count;
 }
 
@@ -986,7 +986,7 @@ static unsigned __stdcall graph_thread_func(void *data)
 }
 #endif
 
-int mpr_graph_start_polling(mpr_graph g)
+int mpr_graph_start_polling(mpr_graph g, int block_ms)
 {
     mpr_thread_data td;
     int result = 0;
@@ -994,6 +994,7 @@ int mpr_graph_start_polling(mpr_graph g)
 
     td = (mpr_thread_data)malloc(sizeof(mpr_thread_data_t));
     td->object = (mpr_obj)g;
+    td->block_ms = block_ms != 0 ? block_ms : 1;
     td->is_active = 1;
 
 

@@ -538,7 +538,7 @@ static int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
 
 int mpr_dev_poll(mpr_dev dev, int block_ms)
 {
-    int admin_count = 0, device_count = 0, status[4];
+    int admin_count = 0, device_count = 0, status[4], left_ms, elapsed_ms, admin_elapsed_ms = 0;
     mpr_local_dev ldev = (mpr_local_dev)dev;
     mpr_net net;
     double then;
@@ -556,70 +556,67 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
         ldev->polling = 0;
     }
 
-    if (!block_ms) {
+    /* Desired behavour here:
+     * If block_ms == 0, check for incoming messages once and continue
+     * If block_ms > 0, block for block_ms while waiting on servers
+     * If block_ms < 0, loop over lo_servers_recv until no messages remain
+     */
+
+    left_ms = block_ms >= 0 ? block_ms : 0;
+    do {
+        register int recvd = 0;
+        /* set timeout to a maximum of 100ms */
+        if (left_ms > 100)
+            left_ms = 100;
         if (ldev->registered) {
-            if (lo_servers_recv_noblock(ldev->servers, status, 4, 0)) {
-                admin_count = (status[0] > 0) + (status[1] > 0);
-                device_count = (status[2] > 0) + (status[3] > 0);
-            }
-        }
-        else {
-            if (lo_servers_recv_noblock(ldev->servers + 2, status, 2, 0)) {
-                admin_count = (status[0] > 0) + (status[1] > 0);
-            }
-            return admin_count;
-        }
-    }
-    else {
-        int left_ms = block_ms, elapsed_ms, admin_elapsed_ms = 0;
-        while (left_ms > 0) {
-            /* set timeout to a maximum of 100ms */
-            if (left_ms > 100)
-                left_ms = 100;
-            if (ldev->registered) {
-                ldev->polling = 1;
-                if (lo_servers_recv_noblock(ldev->servers, status, 4, left_ms)) {
-                    admin_count += (status[0] > 0) + (status[1] > 0);
-                    device_count += (status[2] > 0) + (status[3] > 0);
-                }
+            ldev->polling = 1;
+            if (lo_servers_recv_noblock(ldev->servers, status, 4, left_ms)) {
+                admin_count += (status[0] > 0) + (status[1] > 0);
+                device_count += (status[2] > 0) + (status[3] > 0);
+                recvd = 1;
 
                 /* check if any signal update bundles need to be sent */
                 process_incoming_maps(ldev);
-                process_outgoing_maps(ldev);
-                ldev->polling = 0;
             }
-            else {
-                if (lo_servers_recv_noblock(ldev->servers + 2, status, 2, left_ms)) {
-                    admin_count = (status[0] > 0) + (status[1] > 0);
-                }
-            }
-
-            /* Only run mpr_net_poll() again if more than 100ms have elapsed. */
-            elapsed_ms = (mpr_get_current_time() - then) * 1000;
-            if ((elapsed_ms - admin_elapsed_ms) > 100) {
-                mpr_net_poll(net, 0);
-                admin_elapsed_ms = elapsed_ms;
-            }
-
-            left_ms = block_ms - elapsed_ms;
+            process_outgoing_maps(ldev);
+            ldev->polling = 0;
         }
-    }
+        else {
+            if (lo_servers_recv_noblock(ldev->servers + 2, status, 2, left_ms)) {
+                admin_count = (status[0] > 0) + (status[1] > 0);
+                recvd = 1;
+            }
+        }
+
+        /* Only run mpr_net_poll() again if more than 100ms have elapsed. */
+        elapsed_ms = (mpr_get_current_time() - then) * 1000;
+        if ((elapsed_ms - admin_elapsed_ms) > 100) {
+            mpr_net_poll(net, 0);
+            admin_elapsed_ms = elapsed_ms;
+        }
+
+        if (block_ms > 0)
+            left_ms = block_ms - elapsed_ms;
+        else if (!recvd)
+            break;
+    } while (block_ms < 0 || left_ms > 0);
 
     if (!ldev->registered)
         return admin_count;
 
-    /* When done, or if non-blocking, check for remaining messages up to a
-     * proportion of the number of input signals. Arbitrarily choosing 1 for
-     * now, but perhaps could be a heuristic based on a recent number of
-     * messages per channel per poll. */
-    while (device_count < (dev->num_inputs + ldev->n_output_callbacks)*1
-           && (lo_servers_recv_noblock(ldev->servers, &status[2], 2, 0)))
-        device_count += (status[2] > 0) + (status[3] > 0);
+    if (block_ms >= 0) {
+        /* When done, or if non-blocking, check for remaining messages up to a proportion of the
+         * number of input signals. Arbitrarily choosing 1 for now, but perhaps could be a
+         * heuristic based on a recent number of messages per channel per poll. */
+        while (device_count < (dev->num_inputs + ldev->n_output_callbacks)*1
+               && (lo_servers_recv_noblock(ldev->servers, &status[2], 2, 0)))
+            device_count += (status[2] > 0) + (status[3] > 0);
 
-    /* process incoming maps */
-    ldev->polling = 1;
-    process_incoming_maps(ldev);
-    ldev->polling = 0;
+        /* process incoming maps */
+        ldev->polling = 1;
+        process_incoming_maps(ldev);
+        ldev->polling = 0;
+    }
 
     if (mpr_tbl_get_is_dirty(dev->obj.props.synced) && mpr_dev_get_is_ready(dev) && ldev->subscribers) {
         /* inform device subscribers of changed properties */
@@ -639,7 +636,7 @@ static void *device_thread_func(void *data)
 {
     mpr_thread_data td = (mpr_thread_data)data;
     while (td->is_active) {
-        mpr_dev_poll((mpr_dev)td->object, 100);
+        mpr_dev_poll((mpr_dev)td->object, td->block_ms);
     }
     td->is_done = 1;
     pthread_exit(NULL);
@@ -652,7 +649,7 @@ static unsigned __stdcall device_thread_func(void *data)
 {
     mpr_thread_data td = (mpr_thread_data)data;
     while (td->is_active) {
-        mpr_dev_poll((mpr_dev)td->object, 100);
+        mpr_dev_poll((mpr_dev)td->object, td->block_ms);
     }
     td->is_done = 1;
     _endthread();
@@ -660,7 +657,7 @@ static unsigned __stdcall device_thread_func(void *data)
 }
 #endif
 
-int mpr_dev_start_polling(mpr_dev dev)
+int mpr_dev_start_polling(mpr_dev dev, int block_ms)
 {
     mpr_thread_data td;
     int result = 0;
@@ -670,6 +667,7 @@ int mpr_dev_start_polling(mpr_dev dev)
 
     td = (mpr_thread_data)malloc(sizeof(mpr_thread_data_t));
     td->object = (mpr_obj)dev;
+    td->block_ms = block_ms != 0 ? block_ms : 1;
     td->is_active = 1;
 
 

@@ -232,14 +232,17 @@ mpr_list mpr_dev_get_maps(mpr_dev device, mpr_dir direction);
  *  is call this function for each of them with `block_ms=0`, and add your own sleep if necessary.
  *  \param device       The device to check messages for.
  *  \param block_ms     Number of milliseconds to block waiting for messages, or `0` for
- *                      non-blocking behaviour.
+ *                      non-blocking behaviour. Setting `block_ms<0` will process all queued
+ *                      messages and then return immediately.
  *  \return             The number of handled messages. May be zero if there was nothing to do. */
 int mpr_dev_poll(mpr_dev device, int block_ms);
 
 /*! Start automatically polling this device for new messages in a separate thread.
  *  \param device       The device to check messages for.
+ *  \param block_ms     Number of milliseconds to block waiting for messages on each iteration,
+ *                      or `<0` to process all incoming messages.
  *  \return             Zero if successful, less than zero otherwise. */
-int mpr_dev_start_polling(mpr_dev device);
+int mpr_dev_start_polling(mpr_dev device, int block_ms);
 
 /*! Stop automatically polling this device for new messages in a separate thread.
  *  \param device       The device to check messages for.
@@ -659,14 +662,18 @@ const char *mpr_graph_get_address(mpr_graph graph);
 
 /*! Synchronize a local graph copy with the distributed graph.
  *  \param graph        The graph to update.
- *  \param block_ms     The number of milliseconds to block, or `0` for non-blocking behaviour.
+ *  \param block_ms     Number of milliseconds to block waiting for messages, or `0` for
+ *                      non-blocking behaviour. Setting `block_ms<0` will process all queued
+ *                      messages and then return immediately.
  *  \return             The number of handled messages. */
 int mpr_graph_poll(mpr_graph graph, int block_ms);
 
 /*! Start automatically synchronizing a local graph copy in a separate thread.
  *  \param graph        The graph to update.
+ *  \param block_ms     The number of milliseconds to block on each iteration,
+ *                      or `<0` to process all incoming messages.
  *  \return             Zero if successful, less than zero otherwise. */
-int mpr_graph_start_polling(mpr_graph graph);
+int mpr_graph_start_polling(mpr_graph graph, int block_ms);
 
 /*! Stop automatically synchronizing a local graph copy in a separate thread.
  *  \param graph        The graph to update.

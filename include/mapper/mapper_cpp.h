@@ -1472,8 +1472,8 @@ namespace mapper {
 
         /*! Start automatically polling this Device for new messages in a separate thread.
          *  \return   Self. */
-        Device& start()
-            { mpr_dev_start_polling(_obj); RETURN_SELF }
+        Device& start(int block_ms=100)
+            { mpr_dev_start_polling(_obj, block_ms); RETURN_SELF }
 
         /*! Stop automatically polling this Device for new messages in a separate thread.
          *  \return   Self. */
@@ -1702,8 +1702,8 @@ namespace mapper {
 
         /*! Start automatically synchronizing a Graph object in a separate thread.
          *  \return   Self. */
-        Graph& start()
-            { mpr_graph_start_polling(_obj); RETURN_SELF }
+        Graph& start(int block_ms=100)
+            { mpr_graph_start_polling(_obj, block_ms); RETURN_SELF }
 
         /*! Stop automatically synchronizing a Graph object in a separate thread.
          *  \return   Self. */

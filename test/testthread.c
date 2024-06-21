@@ -229,7 +229,7 @@ void loop1(void)
 void loop2(void)
 {
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
-    mpr_dev_start_polling(dst);
+    mpr_dev_start_polling(dst, 100);
 
     while ((!terminate || sent < 100) && !done) {
         eprintf("Updating signal %s to %d\n", name, sent);

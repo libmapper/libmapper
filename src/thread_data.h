@@ -21,6 +21,7 @@ typedef struct _mpr_thread_data {
     HANDLE thread;
 #endif
 #endif
+    int block_ms;
     volatile int is_active;
     volatile int is_done;
 } mpr_thread_data_t, *mpr_thread_data;

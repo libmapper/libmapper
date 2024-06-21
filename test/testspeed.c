@@ -346,8 +346,8 @@ int main(int argc, char **argv)
     times[0] = mpr_get_current_time();
     mpr_sig_set_value(sendsig, counter, 1, MPR_FLT, &(expected[counter]));
     while (!done) {
-        mpr_dev_poll(src, 0);
-        mpr_dev_poll(dst, 0);
+        mpr_dev_poll(src, -1);
+        mpr_dev_poll(dst, -1);
     }
 
     if (matched != iterations * numModes * numTrials) {
