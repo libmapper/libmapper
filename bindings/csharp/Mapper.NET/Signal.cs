@@ -272,6 +272,18 @@ public class Signal : MapperObject
         return this;
     }
 
+    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+    private static extern int mpr_sig_get_inst_status(IntPtr sig, long id = 0);
+    
+    
+    /// <summary>
+    /// Gets and then clears status flags attached to this signal.
+    /// The returned value can be used to see if the signal has been updated remotely.a
+    /// <param name="id">Instance id to get status for, default 0</param>
+    /// </summary>
+    /// <returns>Status flags</returns>
+    public StatusFlags FetchStatus(long id = 0) => (StatusFlags)mpr_sig_get_inst_status(NativePtr, id);
+
     /// <summary>
     /// Reserve a single instance, with a specific id.
     /// </summary>
