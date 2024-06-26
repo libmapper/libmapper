@@ -45,32 +45,86 @@ public class Signal : MapperObject
         /// <summary>
         ///     New instance created
         /// </summary>
-        New = 0x01,
+        New = 0x02,
 
         /// <summary>
         ///     Instance was released upstream
         /// </summary>
-        UpstreamRelease = 0x02,
+        UpstreamRelease = 0x20,
 
         /// <summary>
         ///     Instance was released downstream
         /// </summary>
-        DownstreamRelease = 0x04,
+        DownstreamRelease = 0x01,
 
         /// <summary>
         ///     No local instances left
         /// </summary>
-        Overflow = 0x08,
+        Overflow = 0x10,
 
         /// <summary>
         ///     Instance value updated
         /// </summary>
-        Update = 0x10,
+        Update = 0x80,
 
         /// <summary>
         ///     All events
         /// </summary>
         All = 0x1F
+    }
+
+    [Flags]
+    public enum Status
+    {
+        /// <summary>
+        ///     Instance is reserved but not active
+        /// </summary>
+        Reserved = 0x04,
+
+        /// <summary>
+        ///     Instance is active
+        /// </summary>
+        Active = 0x10,
+
+        /// <summary>
+        ///     Instance has a value
+        /// </summary>
+        HasValue = 0x08,
+
+        /// <summary>
+        ///     Instance was newly created since last check
+        /// </summary>
+        New = 0x02,
+
+        /// <summary>
+        ///     Instance was updated locally since last check
+        /// </summary>
+        LocalUpdate = 0x40,
+
+        /// <summary>
+        ///     Instance was updated remotely since last check
+        /// </summary>
+        RemoteUpdate = 0x80,
+
+        /// <summary>
+        ///     Instance was released upstream
+        /// </summary>
+        UpstreamRelease = 0x20,
+
+        /// <summary>
+        ///     Instance was released downstream
+        /// </summary>
+        DownstreamRelease = 0x01,
+
+        /// <summary>
+        ///     No local instances left
+        /// </summary>
+        Overflow = 0x10,
+
+        /// <summary>
+        ///     All events
+        /// </summary>
+        Any = 0xFF
     }
 
     public enum Stealing

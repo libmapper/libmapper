@@ -1425,7 +1425,7 @@ static void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
 
     if (MPR_LOC_BOTH == mpr_map_get_locality((mpr_map)map) && mpr_local_map_get_expr(map)) {
         trace_dev(dev, "map references only local signals... activating.\n");
-        mpr_map_set_status((mpr_map)map, MPR_STATUS_ACTIVE);
+        mpr_obj_set_status((mpr_obj)map, MPR_STATUS_ACTIVE, MPR_STATUS_RESERVED);
 
         /* Inform subscribers */
         if (mpr_local_dev_has_subscribers(dev)) {
@@ -1493,7 +1493,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
 #endif
 
     props = mpr_msg_parse_props(ac, types, av);
-    if (mpr_map_get_status((mpr_map)map) == MPR_STATUS_ACTIVE) {
+    if (mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE) {
         mpr_loc loc = mpr_local_map_get_process_loc_from_msg(map, props);
         if (MPR_LOC_DST == loc) {
             /* Forward to local handler_map_mod(). */
@@ -1528,18 +1528,21 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
     mpr_graph gph = (mpr_graph)user;
     mpr_net net = mpr_graph_get_net(gph);
     mpr_local_map map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, ADD | UPDATE);
+    int status;
 
     trace_net(net);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
 
-    if (mpr_map_get_status((mpr_map)map) < MPR_STATUS_ACTIVE) {
+    status = mpr_obj_get_status((mpr_obj)map);
+    if (!(status & MPR_STATUS_ACTIVE)) {
         /* Set map properties. */
         mpr_msg props = mpr_msg_parse_props(ac, types, av);
         mpr_map_set_from_msg((mpr_map)map, props);
         mpr_msg_free(props);
+        status = mpr_obj_get_status((mpr_obj)map);
     }
 
-    if (mpr_map_get_status((mpr_map)map) >= MPR_STATUS_READY) {
+    if (status & MPR_MAP_STATUS_READY) {
         int i, num_src = mpr_map_get_num_src((mpr_map)map);
         mpr_slot slot = mpr_map_get_dst_slot((mpr_map)map);
         if (MPR_DIR_OUT == mpr_slot_get_dir(slot)) {
@@ -1634,13 +1637,13 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     mpr_msg_free(props);
 
     if (mpr_obj_get_is_local((mpr_obj)map)) {
-        int status = mpr_map_get_status(map);
-        RETURN_ARG_UNLESS(status >= MPR_STATUS_READY, 0);
-        if (MPR_STATUS_ACTIVE > status) {
+        int status = mpr_obj_get_status((mpr_obj)map);
+        RETURN_ARG_UNLESS(MPR_MAP_STATUS_READY & status, 0);
+        if (!(MPR_STATUS_ACTIVE & status)) {
             int i, num_src = mpr_map_get_num_src(map);
             mpr_sig sig;
             mpr_slot slot = mpr_map_get_dst_slot(map);
-            mpr_map_set_status(map, MPR_STATUS_ACTIVE);
+            mpr_obj_set_status((mpr_obj)map, MPR_STATUS_ACTIVE, MPR_STATUS_STAGED);
             rc = 1;
 
             if (MPR_DIR_OUT == mpr_slot_get_dir(slot)) {
@@ -1724,7 +1727,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
 
     map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
-    RETURN_ARG_UNLESS(mpr_map_get_status((mpr_map)map) == MPR_STATUS_ACTIVE, 0);
+    RETURN_ARG_UNLESS(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE, 0);
 
     props = mpr_msg_parse_props(ac, types, av);
     TRACE_RETURN_UNLESS(props, 0, "  ignoring /map/modify, no properties.\n");

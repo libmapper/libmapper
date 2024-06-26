@@ -318,7 +318,7 @@ void mpr_slot_set_causes_update(mpr_slot slot, int causes_update)
 
 int mpr_slot_get_status(mpr_local_slot slot)
 {
-    char status = 0;
+    int status = 0;
     mpr_sig sig = slot->sig;
     if (mpr_dev_get_is_registered(mpr_sig_get_dev(slot->sig)))
         status |= MPR_SLOT_DEV_KNOWN;

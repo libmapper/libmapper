@@ -721,17 +721,16 @@ class List:
 class Object:
     """Objects provide a generic representation of Graphs, Devices, Signals, and Maps."""
 
-    @unique
-    class Status(Enum):
+    class Status(IntFlag):
         """Describes the possible statuses for a libmapper object."""
 
         UNDEFINED   = 0x00
         EXPIRED     = 0x01
-        STAGED      = 0x02
-        WAITING     = 0x0E
-        READY       = 0x36
-        ACTIVE      = 0X7E
-        RESERVED    = 0X80
+        NEW         = 0x02
+        MODIFIED    = 0x04
+        STAGED      = 0x08
+        ACTIVE      = 0x10
+        REMOVED     = 0x20
         ANY         = 0xFF
 
         def __repr__(self):
@@ -1176,15 +1175,39 @@ class Signal(Object):
         """The set of possible signal events, used to register and inform callbacks."""
 
         NONE        = 0x00
-        INST_NEW    = 0x01
-        REL_UPSTRM  = 0x02
-        REL_DNSTRM  = 0x04
-        INST_OFLW   = 0x08
-        UPDATE      = 0x10
-        ALL         = 0x1F
+        INST_NEW    = 0x02
+        REL_UPSTRM  = 0x20
+        REL_DNSTRM  = 0x01
+        INST_OFLW   = 0x10
+        UPDATE      = 0x80
+        ALL         = 0xFF
 
         def __repr__(self):
             return 'libmapper.Signal.Event.' + self.name
+
+    class InstanceStatus(IntFlag):
+        """The set of possible status flags for a signal instance."""
+
+        UNDEFINED           = 0x00
+        RESERVED            = 0x04
+        ACTIVE              = 0x10
+        HAS_VALUE           = 0x08
+        NEW                 = 0x02
+        UPDATE_LOC          = 0x40
+        UPDATE_REM          = 0x80
+        REL_UPSTRM          = 0x20
+        REL_DWNSTRM         = 0x01
+        OVERFLOW            = 0x10
+        ANY                 = 0xFF
+
+        def __str__(self):
+            if self._name_ is not None:
+                return self._name_
+            members, uncovered = _decompose(self.__cls__, self._value_)
+            return '|'.join([str(m._name_ or m._value_) for m in members])
+
+        def __repr__(self):
+            return 'libmapper.Signal.InstanceStatus(' + str(self) + ')'
 
     @unique
     class Stealing(Enum):
@@ -1374,32 +1397,40 @@ class Signal(Object):
         mpr.mpr_sig_release_inst.restype = None
         mpr.mpr_sig_release_inst(self._obj, self.id)
 
-    def num_instances(self, status=Object.Status.ANY):
+    def get_status(self):
+        """Get the status of this signal instance."""
+
+        mpr.mpr_sig_get_inst_status.argtypes = [c_void_p, c_longlong]
+        mpr.mpr_sig_get_inst_status.restype = c_int
+        return Signal.InstanceStatus(mpr.mpr_sig_get_inst_status(self._obj, self.id))
+
+    def num_instances(self, status=InstanceStatus.ANY):
         """
         Get the number of instances for this Signal.
 
         Args:
-            status (libmapper.Object.Status): The status of the instances to search for. Should be
-                set to `ACTIVE`, `RESERVED`, or both (`ACTIVE | RESERVED`).
+            status (libmapper.Signal.InstanceStatus): The status of the instances to search for.
+                Should be set to `ACTIVE`, `RESERVED`, or both (`ACTIVE | RESERVED`).
 
         Returns:
              The number of allocated signal instances matching the specified status.
         """
 
         mpr.mpr_sig_get_num_inst.argtypes = [c_void_p, c_int]
-        if not isinstance(status, Object.Status):
-            status = Object.Status(status)
+        mpr.mpr_sig_get_num_inst.restype = c_int
+        if not isinstance(status, Signal.InstanceStatus):
+            status = Signal.InstanceStatus(status)
         return mpr.mpr_sig_get_num_inst(self._obj, status.value)
 
-    def instance_id(self, idx, status=Object.Status.ANY):
+    def instance_id(self, idx, status=InstanceStatus.ANY):
         """
         Get a Signal Instance's identifier by its index.
 
         Args:
             idx (int): The numerical index of the instance to retrieve.  Should be between zero
                 and the number of instances.
-            status (libmapper.Object.Status): The status of the instances to search for. Should be
-                set to `ACTIVE`, `RESERVED`, or both (`ACTIVE | RESERVED`).
+            status (libmapper.Signal.InstanceStatus): The status of the instances to search for.
+                Should be set to `ACTIVE`, `RESERVED`, or both (`ACTIVE | RESERVED`).
 
         Returns:
             The instance identifier associated with the given index, or `0` if unsuccessful.
@@ -1407,8 +1438,8 @@ class Signal(Object):
 
         mpr.mpr_sig_get_inst_id.argtypes = [c_void_p, c_int, c_int]
         mpr.mpr_sig_get_inst_id.restype = c_longlong
-        if not isinstance(status, Object.Status):
-            status = Object.Status(status)
+        if not isinstance(status, Signal.InstanceStatus):
+            status = Signal.InstanceStatus(status)
         return mpr.mpr_sig_get_inst_id(self._obj, idx, status.value)
 
     def device(self):
@@ -1681,10 +1712,10 @@ class Graph(Object):
     @unique
     class Event(Enum):
         """The set of possible graph events, used to inform callbacks."""
-        NEW      = 0
-        MODIFIED = 1
-        REMOVED  = 2
-        EXPIRED  = 3
+        NEW      = 0x02
+        MODIFIED = 0x04
+        REMOVED  = 0x20
+        EXPIRED  = 0x01
 
         def __repr__(self):
             return 'libmapper.Graph.Event.' + self.name

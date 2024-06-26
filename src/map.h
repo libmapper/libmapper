@@ -15,6 +15,9 @@ typedef struct _mpr_local_map *mpr_local_map;
 #include "mpr_signal.h"
 #include "slot.h"
 
+#define MPR_MAP_STATUS_READY    0x0400
+#define MPR_MAP_STATUS_PUSHED   0x0800
+
 size_t mpr_map_get_struct_size(int is_local);
 
 void mpr_map_alloc_values(mpr_local_map map, int quiet);
@@ -52,10 +55,6 @@ int mpr_map_get_has_dev(mpr_map map, mpr_id dev_id, mpr_dir dir);
 int mpr_map_get_has_link_id(mpr_map map, mpr_id link_id);
 
 int mpr_map_get_has_sig(mpr_map map, mpr_sig sig, mpr_dir dir);
-
-int mpr_map_get_status(mpr_map map);
-
-void mpr_map_set_status(mpr_map map, int status);
 
 mpr_sig mpr_map_get_dst_sig(mpr_map map);
 

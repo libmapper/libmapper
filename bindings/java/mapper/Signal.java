@@ -4,7 +4,8 @@ package mapper;
 import mapper.Map;
 import mapper.signal.*;
 import mapper.Device;
-import java.util.Set;
+import mapper.Status;
+import java.util.EnumSet;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
@@ -49,7 +50,7 @@ public class Signal extends AbstractObject
         _setListener(l, event.value());
         return this;
     }
-    public Signal setListener(Listener l, Set<Event> events) {
+    public Signal setListener(Listener l, EnumSet<Event> events) {
         int flags = 0;
         for (Event e : Event.values()) {
             if (events.contains(e))
@@ -137,7 +138,6 @@ public class Signal extends AbstractObject
 
         public Signal signal() { return Signal.this; }
 
-        public native int isActive();
         public long id() { return _id; }
 
         public boolean hasValue() { return Signal.this.hasValue(_id); }
@@ -152,11 +152,13 @@ public class Signal extends AbstractObject
         public Object getValue() { return Signal.this.getValue(_id); }
 
         /* userObject */
-        public native java.lang.Object userReference();
+        public native java.lang.Object getUserReference();
         public native Instance setUserReference(java.lang.Object obj);
 
         /* properties */
         // TODO: filter for instance-specific properties like id, value, time
+
+        public native int getStatus();
 
         private long _id;
     }

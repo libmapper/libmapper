@@ -46,7 +46,6 @@ extern const char* net_msg_strings[NUM_MSG_STRINGS];
     int num_maps_in;    /*!< Number of associated incoming maps. */     \
     int num_maps_out;   /*!< Number of associated outgoing maps. */     \
     int num_linked;     /*!< Number of linked devices. */               \
-    int status;                                                         \
     uint8_t subscribed;
 
 /*! A record that keeps information about a device. */
@@ -139,7 +138,7 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
     mpr_list qry;
 
     dev->obj.is_local = is_local;
-    dev->status = MPR_STATUS_STAGED;
+    dev->obj.status = MPR_STATUS_STAGED;
     if (name) {
         assert(!dev->name);
         dev->name = strdup(name);
@@ -171,7 +170,7 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
                                   "hi", dev->obj.id, MPR_DIR_ANY);
         mpr_tbl_link_value(tbl, PROP(SIG), 1, MPR_LIST, qry, MOD_NONE | PROP_OWNED);
     }
-    mpr_tbl_link_value(tbl, PROP(STATUS), 1, MPR_INT32, &dev->status, mod | LOCAL_ACCESS);
+    mpr_tbl_link_value(tbl, PROP(STATUS), 1, MPR_INT32, &dev->obj.status, mod | LOCAL_ACCESS);
     mpr_tbl_link_value(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, mod | LOCAL_ACCESS);
     mpr_tbl_link_value(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, mod);
 
@@ -340,7 +339,7 @@ static void on_registered(mpr_local_dev dev)
     free(dev->name);
     dev->name = name;
 
-    dev->status = MPR_STATUS_READY;
+    dev->obj.status |= MPR_STATUS_ACTIVE;
 
     mpr_dev_get_name((mpr_dev)dev);
 
@@ -1053,7 +1052,7 @@ const char *mpr_dev_get_name(mpr_dev dev)
 
 int mpr_dev_get_is_ready(mpr_dev dev)
 {
-    return dev ? dev->status >= MPR_STATUS_READY : 0;
+    return dev && dev->obj.status & MPR_STATUS_ACTIVE ? 1 : 0;
 }
 
 mpr_id mpr_dev_generate_unique_id(mpr_dev dev)

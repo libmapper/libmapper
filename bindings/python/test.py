@@ -30,7 +30,7 @@ def setup(d):
     d.set_properties({"testInt":5, "testFloat":12.7, "testString":["test","foo"],
                       "removed1":"shouldn't see this"})
     d['testInt'] = 7
-#    d.set_properties({"removed1":None, "removed2":"test"})
+    d.set_properties({"removed1":None, "removed2":"test"})
     d.remove_property("removed1")
 
     print('Printing', d.num_properties, 'properties:')
@@ -74,13 +74,11 @@ def setup(d):
     sig = d.add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 4, mpr.Type.FLOAT)
     print('signal properties:', sig.properties)
 
-#    # try adding a signal with the same name
-#    sig = d.add_signal(mpr.Signal.Direction.INCOMING, "outsig", 4, mpr.Type.FLOAT)
+    # try adding a signal with the same name
+    sig = d.add_signal(mpr.Signal.Direction.INCOMING, "outsig", 4, mpr.Type.FLOAT)
 
     print('setup done!')
 
-#check libmapper version
-#print('using libmapper version', mpr.version)
 dev1 = mpr.Device("py.test1")
 setup(dev1)
 dev2 = mpr.Device("py.test2")

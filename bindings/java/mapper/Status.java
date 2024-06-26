@@ -5,11 +5,11 @@ package mapper;
 public enum Status {
     UNDEFINED   (0x00),
     EXPIRED     (0x01),
-    STAGED      (0x02),
-    WAITING     (0x0E),
-    READY       (0x36),
-    ACTIVE      (0X7E),
-    RESERVED    (0X80),
+    NEW         (0x02),
+    MODIFIED    (0x04),
+    STAGED      (0x08),
+    ACTIVE      (0x10),
+    REMOVED     (0x20),
     ANY         (0xFF);
 
     Status(int value) {

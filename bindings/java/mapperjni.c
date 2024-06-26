@@ -291,13 +291,20 @@ static jobject get_jobject_from_graph_evt(JNIEnv *env, mpr_graph_evt evt)
     jobject obj = 0;
     jclass cls = (*env)->FindClass(env, "mapper/graph/Event");
     if (cls) {
+        switch (evt) {
+            case MPR_STATUS_EXPIRED:    evt = 1;    break;
+            case MPR_STATUS_NEW:        evt = 2;    break;
+            case MPR_STATUS_MODIFIED:   evt = 3;    break;
+            case MPR_STATUS_REMOVED:    evt = 4;    break;
+            default:                    evt = 0;    break;
+        }
         jfieldID fid = (*env)->GetStaticFieldID(env, cls, graph_evt_strings[evt],
                                                 "Lmapper/graph/Event;");
         if (fid) {
             obj = (*env)->GetStaticObjectField(env, cls, fid);
         }
         else {
-            printf("Error looking up graph/Event field '%s'.\n", graph_evt_strings[evt]);
+            printf("Error looking up graph/Event field [%d].\n", evt);
             exit(1);
         }
     }
@@ -421,24 +428,6 @@ static jobject build_value_object(JNIEnv *env, mpr_prop prop, const int len,
                         cls = (*env)->FindClass(env, "mapper/signal/Stealing");
                         jfieldID fid = (*env)->GetStaticFieldID(env, cls, stealing_strings[ival],
                                                                 "Lmapper/signal/Stealing;");
-                        return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
-                    }
-                    case MPR_PROP_STATUS: {
-                        cls = (*env)->FindClass(env, "mapper/Status");
-                        // remap status values to string index
-                        switch (ival) {
-                            case MPR_STATUS_UNDEFINED:  ival = 0;   break;
-                            case MPR_STATUS_EXPIRED:    ival = 1;   break;
-                            case MPR_STATUS_STAGED:     ival = 2;   break;
-                            case MPR_STATUS_READY:      ival = 3;   break;
-                            case MPR_STATUS_ACTIVE:     ival = 4;   break;
-                            case MPR_STATUS_RESERVED:   ival = 5;   break;
-                            case MPR_STATUS_ANY:        ival = 6;   break;
-                            default:
-                                printf("error! invalid object status\n");
-                        }
-                        jfieldID fid = (*env)->GetStaticFieldID(env, cls, status_strings[ival],
-                                                                "Lmapper/Status;");
                         return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
                     }
                     default:
@@ -1838,15 +1827,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
     return id;
 }
 
-JNIEXPORT jint JNICALL Java_mapper_Signal_00024Instance_isActive
-  (JNIEnv *env, jobject obj)
-{
-    mpr_id id;
-    mpr_sig sig = get_inst_from_jobject(env, obj, &id);
-    return sig ? mpr_sig_get_inst_is_active(sig, id) : 0;
-}
-
-JNIEXPORT jobject JNICALL Java_mapper_Signal_00024Instance_userReference
+JNIEXPORT jobject JNICALL Java_mapper_Signal_00024Instance_getUserReference
   (JNIEnv *env, jobject obj)
 {
     mpr_id id;
@@ -1871,6 +1852,16 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_00024Instance_setUserReference
         ctx->user_ref = userObj ? (*env)->NewGlobalRef(env, userObj) : 0;
     }
     return obj;
+}
+
+JNIEXPORT jint JNICALL Java_mapper_Signal_00024Instance__getStatus
+  (JNIEnv *env, jobject obj)
+{
+    mpr_id id;
+    mpr_sig sig = get_inst_from_jobject(env, obj, &id);
+    if (!sig)
+        return 0;
+    return mpr_sig_get_inst_status(sig, id);
 }
 
 /**** mpr_Signal.h ****/

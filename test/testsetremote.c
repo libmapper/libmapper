@@ -56,6 +56,8 @@ void on_sig(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
         case MPR_OBJ_EXP:
             signal_detected = 0;
             break;
+        default:
+            break;
     }
 }
 

@@ -277,15 +277,17 @@ void mpr_obj_push(mpr_obj o)
         }
     }
     else if (o->type & MPR_MAP) {
+        int status = o->status;
         mpr_map m = (mpr_map)o;
-        int status = mpr_map_get_status(m);
         mpr_net_use_bus(n);
-        if (status == MPR_STATUS_ACTIVE)
+        if (status & MPR_STATUS_ACTIVE)
             mpr_map_send_state(m, -1, MSG_MAP_MOD);
         else if (o->is_local) {
             status = mpr_local_map_update_status((mpr_local_map)m);
             if (status & MPR_SLOT_DEV_KNOWN)
                 mpr_map_send_state(m, -1, MSG_MAP);
+            else
+                printf("didn't send /map message\n");
         }
         else
             mpr_map_send_state(m, -1, MSG_MAP);

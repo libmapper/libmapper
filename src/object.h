@@ -21,6 +21,7 @@ typedef struct _mpr_obj
     struct _mpr_dict props;         /*!< Properties associated with this signal. */
     int is_local;
     int version;                    /*!< Version number. */
+    uint16_t status;
     mpr_type type;                  /*!< Object type. */
 } mpr_obj_t;
 
@@ -39,6 +40,12 @@ MPR_INLINE static mpr_id mpr_obj_get_id(mpr_obj obj)
 
 MPR_INLINE static void mpr_obj_set_id(mpr_obj obj, mpr_id id)
     { obj->id = id; }
+
+MPR_INLINE static int mpr_obj_get_status(mpr_obj obj)
+    { return obj->status; }
+
+MPR_INLINE static void mpr_obj_set_status(mpr_obj obj, int add, int remove)
+    { obj->status = (obj->status | add) & ~remove; }
 
 MPR_INLINE static int mpr_obj_get_is_local(mpr_obj obj)
     { return obj->is_local; }

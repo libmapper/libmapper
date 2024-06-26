@@ -397,11 +397,14 @@ void mpr_sig_release_inst(mpr_sig signal, mpr_id instance);
  *  \param instance     The identifier of the instance to suspend. */
 void mpr_sig_remove_inst(mpr_sig signal, mpr_id instance);
 
-/*! Return whether a given signal instance is currently active.
- *  \param signal       The signal to operate on.
+/*! Get the status of a signal instance as a set of bitflags.
+ *  \param signal       The signal to check.
  *  \param instance     The identifier of the instance to check.
- *  \return             Non-zero if the instance is active, zero otherwise. */
-int mpr_sig_get_inst_is_active(mpr_sig signal, mpr_id instance);
+ *  \return             The status of the signal instance returned as bitflags. Test the return
+ *                      value against the constants defined in the enum `mpr_status`.
+ *                      Each time this function is called it will reset the bitflags for `NEW`,
+ *                      `SET_*`, and `REL_*`. */
+int mpr_sig_get_inst_status(mpr_sig signal, mpr_id instance);
 
 /*! Activate a specific signal instance without setting it's value. In general it is not necessary
  *  to use this function, since signal instances will be automatically activated as necessary when
@@ -450,13 +453,6 @@ void *mpr_sig_get_inst_data(mpr_sig signal, mpr_id instance);
  *                      `MPR_STATUS_RESERVED`, or both (`MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED`).
  *  \return             The number of allocated signal instances matching the specified status. */
 int mpr_sig_get_num_inst(mpr_sig signal, mpr_status status);
-
-/*! Get the status of a signal instance.
- *  \param signal       The signal to check.
- *  \param instance     The identifier of the instance to check.
- *  \return             The status of the signal instance returned as bitflags. Test the return
- *                      value against the constants defined in the enum `mpr_sig_inst_status` */
-int mpr_sig_get_inst_status(mpr_sig, mpr_id instance);
 
 /** @} */ /* end of group Instances */
 

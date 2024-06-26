@@ -23,6 +23,7 @@ Classes and subclasses:
     Signal: A named datastream; an input or output for a Device.
         Direction (IntFlag): The set of possible Signal directions, used for querying.
         Event (IntFlag): The set of possible signal events.
+        InstanceStatus (IntFlag): The set of possible status flags for a signal instance.
         Stealing (Enum): The set of possible instance-stealing modes.
 
     Map: A dataflow configuration defined between a set of signals.

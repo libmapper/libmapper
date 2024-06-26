@@ -26,19 +26,17 @@
 #endif
 
 #define MAX_LEN           1024
-#define MPR_STATUS_PUSHED 0x08
 #define METADATA_OK       (MPR_SLOT_DEV_KNOWN | MPR_SLOT_SIG_KNOWN | MPR_SLOT_LINK_KNOWN)
 
-/* Documentation of status bitflags
- * 'reserved'          1000 0000 only used for signal instances
- * 'active'            0111 1110 received 'mapped' from peer
- * 'ready'             0011 0110 all metadata known, devices registered
- * 'slot_link_known'   0010 0000
- * 'slot_sig_known'    0001 0000
- * 'waiting'           0000 1110 map pushed, waiting for sig & link
- * 'slot_dev_known'    0000 0100
- * 'staged'            0000 0010 waiting for registration of local devices
- * 'expired'           0000 0001
+/* Documentation of status bitflags for maps
+ * 'expired'           xxxxxxxx 000000x1
+ * 'staged'            xxxxx000 00001xx0 waiting for registration of local devices
+ * 'ready'             xxxxx111 x1xxxxxx all metadata known, devices registered
+ * 'active'            xxxxx111 xxx1xxx0 received 'mapped' from peer
+ * 'slot_link_known'   xxxxx1xx xxxxxxxx
+ * 'slot_sig_known'    xxxxxx1x xxxxxxxx
+ * 'slot_dev_known'    xxxxxxx1 xxxxxxxx
+ * 'waiting'           xxxx1xxx xxxxxxxx map pushed, waiting for sig & link
  */
 
 #define MPR_MAP_STRUCT_ITEMS                                                    \
@@ -49,7 +47,6 @@
     int num_scopes;                                                             \
     int num_src;                                                                \
     mpr_loc process_loc;                                                        \
-    int status;                                                                 \
     int protocol;                   /*!< Data transport protocol. */            \
     int use_inst;                   /*!< 1 if using instances, 0 otherwise. */  \
     int bundle;
@@ -192,7 +189,7 @@ static void mpr_local_map_init(mpr_local_map map)
         /* TODO: revise this hackery */
         map->protocol = mpr_link_get_dev_dir(link, dev) ? MPR_PROTO_TCP : MPR_PROTO_UDP;
         map->locality = MPR_LOC_BOTH;
-        map->status |= MPR_STATUS_PUSHED;
+        map->obj.status |= MPR_MAP_STATUS_PUSHED;
     }
 
     /* Default to processing at source device unless the maps has heterogeneous sources. */
@@ -240,12 +237,12 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
     mpr_tbl_link_value_no_default(t, PROP(PROTOCOL), 1, MPR_INT32, &m->protocol, MOD_REMOTE);
     mpr_tbl_link_value(t, PROP(SCOPE), 1, MPR_LIST, q, MOD_NONE | PROP_OWNED);
     /* TODO: should we be sharing the status property? Try hiding it from protocol & interface */
-    mpr_tbl_link_value(t, PROP(STATUS), 1, MPR_INT32, &m->status, MOD_NONE);
+    mpr_tbl_link_value(t, PROP(STATUS), 1, MPR_INT32, &m->obj.status, MOD_NONE);
     mpr_tbl_link_value_no_default(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, MOD_REMOTE);
     mpr_tbl_link_value(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, MOD_REMOTE);
 
     mpr_tbl_add_record(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local, LOCAL_ACCESS | MOD_NONE);
-    m->status = MPR_STATUS_STAGED;
+    m->obj.status = MPR_STATUS_NEW | MPR_STATUS_STAGED;
     m->protocol = MPR_PROTO_UDP;
 
     if (is_local)
@@ -489,7 +486,7 @@ int mpr_map_get_sig_idx(mpr_map map, mpr_sig sig)
 
 int mpr_map_get_is_ready(mpr_map m)
 {
-    return m ? (MPR_STATUS_ACTIVE == m->status) : 0;
+    return m ? (MPR_STATUS_ACTIVE & m->obj.status) : 0;
 }
 
 /* Here we do not edit the "scope" property directly – instead we stage the
@@ -1392,7 +1389,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
     else {
         if (!m->expr) {
             /* no previous expression, abort map */
-            m->status = MPR_STATUS_EXPIRED;
+            m->obj.status = MPR_STATUS_EXPIRED;
         }
         /* expression unchanged */
         ret = 1;
@@ -1407,7 +1404,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
         /* call handler if it exists */
         mpr_time now;
         mpr_time_set(&now, MPR_NOW);
-        mpr_sig_call_handler((mpr_local_sig)dst_sig, MPR_SIG_UPDATE, 0, -1,
+        mpr_sig_call_handler((mpr_local_sig)dst_sig, MPR_STATUS_UPDATE_REM, 0, -1,
                              mpr_slot_get_value(m->dst), now, 0);
     }
 
@@ -1423,7 +1420,7 @@ done:
 int mpr_local_map_update_status(mpr_local_map map)
 {
     int i, status = METADATA_OK;
-    RETURN_ARG_UNLESS((map->status & MPR_STATUS_READY) != MPR_STATUS_READY, map->status);
+    RETURN_ARG_UNLESS(!(map->obj.status & MPR_MAP_STATUS_READY), map->obj.status);
 
     trace("checking map status...\n");
     trace("checking slots...\n");
@@ -1433,9 +1430,9 @@ int mpr_local_map_update_status(mpr_local_map map)
     }
     trace("  dst:    ");
     status &= mpr_slot_get_status(map->dst);
-    map->status |= status;
+    map->obj.status |= status;
 
-    if (map->status >= MPR_STATUS_READY) {
+    if ((map->obj.status & METADATA_OK) == METADATA_OK) {
         mpr_tbl tbl = mpr_obj_get_prop_tbl((mpr_obj)map);
         mpr_sig sig;
         int use_inst;
@@ -1443,6 +1440,7 @@ int mpr_local_map_update_status(mpr_local_map map)
         trace("  map metadata OK, status is now READY\n");
         mpr_map_alloc_values(map, 1);
         set_expr(map, map->expr_str);
+        map->obj.status |= MPR_MAP_STATUS_READY;
 
         /* add map to signals */
         sig = mpr_slot_get_sig((mpr_slot)map->dst);
@@ -1467,7 +1465,7 @@ int mpr_local_map_update_status(mpr_local_map map)
             mpr_tbl_set_prop_is_set(tbl, MPR_PROP_PROTOCOL);
         }
     }
-    return map->status;
+    return map->obj.status;
 }
 
 /* TODO: currently we could send 2 modify messages (process at src; process at dst) at the same time
@@ -1503,7 +1501,7 @@ int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
             m->process_loc = orig_loc;
     }
 
-    if ((expr_str || m->process_loc != orig_loc) && m->status > MPR_STATUS_READY) {
+    if ((expr_str || m->process_loc != orig_loc) && m->obj.status & MPR_MAP_STATUS_READY) {
         int e = set_expr(m, expr_str);
         if (-1 == e) {
             /* restore original process location */
@@ -1703,7 +1701,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
         }
     }
 done:
-    if (m->obj.is_local && m->status < MPR_STATUS_READY) {
+    if (m->obj.is_local && !(m->obj.status & MPR_MAP_STATUS_READY)) {
         /* check if mapping is now "ready" */
         mpr_local_map_update_status((mpr_local_map)m);
     }
@@ -1721,7 +1719,7 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
     mpr_link link;
     mpr_dir dst_dir = mpr_slot_get_dir(m->dst);
 
-    if (MSG_MAPPED == cmd && m->status < MPR_STATUS_READY)
+    if (MSG_MAPPED == cmd && !(m->obj.status & MPR_MAP_STATUS_READY))
         return slot_idx;
     msg = lo_message_new();
     if (!msg) {
@@ -1730,7 +1728,7 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
     }
 
     /* Update status to indicate map has been pushed */
-    m->status |= MPR_STATUS_PUSHED;
+    m->obj.status |= MPR_MAP_STATUS_PUSHED;
 
     if (MPR_DIR_IN == dst_dir) {
         /* add mapping destination */
@@ -1775,7 +1773,8 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
     mpr_obj_add_props_to_msg((mpr_obj)m, msg);
 
     /* add slot id */
-    if (MPR_DIR_IN == dst_dir && ((m->status <= MPR_STATUS_READY && !staged) || MSG_MAP_TO == cmd)) {
+    if (MPR_DIR_IN == dst_dir && (   MSG_MAP_TO == cmd
+                                  || ((!staged && !(m->obj.status & MPR_MAP_STATUS_READY))))) {
         lo_message_add_string(msg, mpr_prop_as_str(PROP(SLOT), 0));
         i = (slot_idx >= 0) ? slot_idx : 0;
         link = mpr_slot_get_is_local(m->src[i]) ? mpr_slot_get_link(m->src[i]) : 0;
@@ -2173,16 +2172,6 @@ mpr_slot mpr_map_get_src_slot_by_id(mpr_map map, int id)
     return 0;
 }
 
-int mpr_map_get_status(mpr_map map)
-{
-    return map->status;
-}
-
-void mpr_map_set_status(mpr_map map, int status)
-{
-    map->status = status;
-}
-
 void mpr_local_map_set_updated(mpr_local_map map, int inst_idx)
 {
     mpr_bitflags_set(map->updated_inst, inst_idx);
@@ -2196,5 +2185,9 @@ int mpr_map_get_use_inst(mpr_map map)
 
 void mpr_map_status_decr(mpr_map map)
 {
-    map->status >>= 2;
+    /* use the metadata flags as a 3 bit timeout */
+    if (map->obj.status & METADATA_OK)
+        map->obj.status &= (map->obj.status >> 1 | 0x00FF);
+    else
+        map->obj.status |= MPR_STATUS_EXPIRED;
 }

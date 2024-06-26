@@ -376,7 +376,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         result = 1;
         goto free;
     }
-    else if (status & MPR_SIG_UPDATE) {
+    else if (status & EXPR_UPDATE) {
         ++update_count;
         memcpy(&updated_types, out_types, sizeof(mpr_type) * DST_ARRAY_LEN);
     }
@@ -405,7 +405,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
             }
         }
         status = mpr_expr_eval(eval_stk, e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
-        if (status & MPR_SIG_UPDATE) {
+        if (status & EXPR_UPDATE) {
             ++update_count;
             memcpy(&updated_types, out_types, sizeof(mpr_type) * DST_ARRAY_LEN);
         }

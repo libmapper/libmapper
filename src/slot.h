@@ -10,9 +10,9 @@ typedef struct _mpr_local_slot *mpr_local_slot;
 #include "mpr_signal.h"
 #include "value.h"
 
-#define MPR_SLOT_DEV_KNOWN  0x04 /* bitflag 0000 0100 */
-#define MPR_SLOT_SIG_KNOWN  0x10 /* bitflag 0001 0000 */
-#define MPR_SLOT_LINK_KNOWN 0x20 /* bitflag 0010 0000 */
+#define MPR_SLOT_DEV_KNOWN  0x0100 /* bitflag 0000 0001 0000 0000 */
+#define MPR_SLOT_SIG_KNOWN  0x0200 /* bitflag 0000 0010 0000 0000 */
+#define MPR_SLOT_LINK_KNOWN 0x0400 /* bitflag 0000 0100 0000 0000 */
 
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir, unsigned char is_local,
                       unsigned char is_src);

@@ -513,10 +513,11 @@ namespace mapper {
         {
             UNDEFINED   = MPR_STATUS_UNDEFINED, /*!< Object status is undefined. */
             EXPIRED     = MPR_STATUS_EXPIRED,   /*!< Object record has expired. */
+            NEW         = MPR_STATUS_NEW,       /*!< Object record is new. */
+            MODIFIED    = MPR_STATUS_MODIFIED,  /*!< Object properties have changed. */
             STAGED      = MPR_STATUS_STAGED,    /*!< Object has been staged. */
-            WAITING     = MPR_STATUS_WAITING,   /*!< Object is waiting for metadata. */
-            READY       = MPR_STATUS_READY,     /*!< Object is ready. */
             ACTIVE      = MPR_STATUS_ACTIVE,    /*!< Object is active. */
+            REMOVED     = MPR_STATUS_REMOVED    /*!< Object was removed. */
         };
 
         Object() { _obj = NULL; _owned = 0; _refcount_ptr = 0; }
@@ -677,7 +678,7 @@ namespace mapper {
         /*! Create a Map between a pair of Signals. If a matching map already exists in the graph,
          *  the new Map object will refer to the existing map, otherwise a new map will be created.
          *  Changes to the Map will not take effect until it has been added to the distributed
-         *  graph using push().
+         *  graph using `push()`.
          *  \param src  Source Signal.
          *  \param dst  Destination Signal object. */
         Map(signal_type src, signal_type dst) : Object(NULL)
@@ -687,10 +688,11 @@ namespace mapper {
         }
 
         /*! Create a map between a set of signals using an expression string containing embedded
-         *  format specifiers that are replaced by mpr_sig values specified in subsequent additional
-         *  arguments. If a matching map already exists in the graph, the new Map object will refer
-         *  to the existing map, otherwise a new map will be created. Changes to the Map will not
-         *  take effect until it has been added to the distributed graph using push().
+         *  format specifiers that are replaced by `mpr_sig` values specified in subsequent
+         *  additional arguments. If a matching map already exists in the graph, the new Map object
+         *  will refer to the existing map, otherwise a new map will be created. Changes to the Map
+         *  will not take effect until it has been added to the distributed graph using
+         *  `push()`.
          *  \param expression   A string specifying the map expression to use when mapping source to
          *                      destination signals. The format specifier "%x" is used to specify
          *                      source signals and the "%y" is used to specify the destination
@@ -703,7 +705,7 @@ namespace mapper {
         /*! Create a map between a set of Signals. If a matching map already exists in the graph,
          *  the new Map object will refer to the existing map, otherwise a new map will be created.
          *  Changes to the Map will not take effect until it has been added to the distributed
-         *  graph using push().
+         *  graph using `push()`.
          *  \param num_srcs The number of source signals in this map.
          *  \param srcs     Array of source Signal objects.
          *  \param num_dsts The number of destination signals in this map, currently restricted to 1.
@@ -720,7 +722,7 @@ namespace mapper {
         /*! Create a map between a set of Signals. If a matching map already exists in the graph,
          *  the new Map object will refer to the existing map, otherwise a new map will be created.
          *  Changes to the Map will not take effect until it has been added to the distributed
-         *  graph using push().
+         *  graph using `push()`.
          *  \param srcs std::array of source Signal objects.
          *  \param dsts std::array of destination Signal objects. */
         template <size_t N, size_t M>
@@ -741,7 +743,7 @@ namespace mapper {
         /*! Create a map between a set of Signals. If a matching map already exists in the graph,
          *  the new Map object will refer to the existing map, otherwise a new map will be created.
          *  Changes to the Map will not take effect until it has been added to the distributed
-         *  graph using push().
+         *  graph using `push()`.
          *  \param srcs std::vector of source Signal objects.
          *  \param dsts std::vector of destination Signal objects. */
         Map(std::vector<signal_type>& srcs, std::vector<signal_type>& dsts) : Object(NULL)
@@ -781,7 +783,7 @@ namespace mapper {
 
         /*! Add a scope to this Map. Map scopes configure the propagation of Signal updates across
          *  the Map. Changes will not take effect until synchronized with the distributed graph
-         *  using push().
+         *  using `push()`.
          *  \param dev      Device to add as a scope for this Map. After taking effect, this
          *                  setting will cause instance updates originating from the specified
          *                  Device to be propagated across the Map.
@@ -790,7 +792,7 @@ namespace mapper {
 
         /*! Remove a scope from this Map. Map scopes configure the propagation of Signal updates
          *  across the Map. Changes will not take effect until synchronized with the distributed
-         *  graph using push().
+         *  graph using `push()`.
          *  \param dev      Device to remove as a scope for this Map. After taking effect, this
          *                  setting will cause instance updates originating from the specified
          *                  Device to be blocked from propagating across the Map.
@@ -804,8 +806,8 @@ namespace mapper {
             { return mpr_map_get_sig_idx(_obj, (mpr_sig)sig); }
 
         /*! Retrieve a list of connected Signals for this Map.
-         *  \param loc      MPR_LOC_SRC for source signals for this Map,
-         *                  MPR_LOC_DST for destinations, or MPR_LOC_ANY for both.
+         *  \param loc      `MPR_LOC_SRC` for source signals for this Map,
+         *                  `MPR_LOC_DST` for destinations, or `MPR_LOC_ANY` for both.
          *  \return         A List of Signals. */
         List<Signal> signals(Location loc = Location::ANY) const
             { return List<Signal>(mpr_map_get_sigs(_obj, static_cast<mpr_loc>(loc))); }
@@ -838,12 +840,27 @@ namespace mapper {
         enum class Event
         {
             NONE        = 0,
-            INST_NEW    = MPR_SIG_INST_NEW,     /*!< New instance has been created. */
-            REL_UPSTRM  = MPR_SIG_REL_UPSTRM,   /*!< Instance was released upstream. */
-            REL_DNSTRM  = MPR_SIG_REL_DNSTRM,   /*!< Instance was released downstream. */
-            INST_OFLW   = MPR_SIG_INST_OFLW,    /*!< No local instances left. */
-            UPDATE      = MPR_SIG_UPDATE,       /*!< Instance value has been updated. */
-            ALL         = MPR_SIG_ALL
+            INST_NEW    = MPR_STATUS_NEW,           /*!< New instance has been created. */
+            UPDATE      = MPR_STATUS_UPDATE_REM,    /*!< Instance value has been set remotely. */
+            REL_UPSTRM  = MPR_STATUS_REL_UPSTRM,    /*!< Instance was released upstream. */
+            REL_DNSTRM  = MPR_STATUS_REL_DNSTRM,    /*!< Instance was released downstream. */
+            INST_OFLW   = MPR_STATUS_OVERFLOW,      /*!< No local instances left. */
+            ALL         = MPR_STATUS_ANY
+        };
+
+        /*! The set of possible voice-stealing modes for instances. */
+        enum class InstanceStatus
+        {
+            RESERVED    = MPR_STATUS_RESERVED,      /*!< Instance is reserved but not active. */
+            ACTIVE      = MPR_STATUS_ACTIVE,        /*!< Instance is active. */
+            HAS_VALUE   = MPR_STATUS_HAS_VALUE,     /*!< Instance has a value. */
+            NEW         = MPR_STATUS_NEW,           /*!< Instance is new since last check. */
+            UPDATE_LOC  = MPR_STATUS_UPDATE_LOC,    /*!< Value was set locally since last check. */
+            UPDATE_REM  = MPR_STATUS_UPDATE_REM,    /*!< Value was set remotely since last check. */
+            REL_UPSTRM  = MPR_STATUS_REL_UPSTRM,    /*!< Released upstream since last check. */
+            REL_DNSTRM  = MPR_STATUS_REL_DNSTRM,    /*!< Released downstream since last check. */
+            INST_OFLW   = MPR_STATUS_OVERFLOW,      /*!< No local instances left. */
+            ANY         = MPR_STATUS_ANY
         };
 
         /*! The set of possible voice-stealing modes for instances. */
@@ -865,7 +882,7 @@ namespace mapper {
 
         /*! Get a list of Maps involving this Signal.
          *  \param dir      The directionality of the Maps (with reference to the Signal) to
-         *                  include in the list. Use Direction::ANY to include all Maps.
+         *                  include in the list. Use `Direction::ANY` to include all Maps.
          *  \return         A List of Maps. */
         List<Map> maps(Direction dir = Direction::ANY) const
             { return List<Map>(mpr_sig_get_maps(_obj, static_cast<mpr_dir>(dir))); }
@@ -896,8 +913,8 @@ namespace mapper {
             { return set_value(&val[0], (int)val.size()); }
     public:
         /*! Set the current value for this Signal.
-         *  \param vals     The value to set. Can be scalar, array, std::array, or std::vector of
-         *                  int, float, or double
+         *  \param vals     The value to set. Can be scalar, array, `std::array`, or `std::vector`
+         *                  of `int`, `float`, or `double`
          *  \return         Self. */
         template <typename... Values>
         Signal& set_value(Values... vals)
@@ -914,13 +931,6 @@ namespace mapper {
          *  of actual detected blobs. */
         class Instance {
         public:
-            /*! The set of possible statuses for a Signal Instance. */
-            enum class Status
-            {
-                ACTIVE      = MPR_STATUS_ACTIVE,    /*!< Instance is active. */
-                RESERVED    = MPR_STATUS_RESERVED   /*!< Instance is reserved by inactive. */
-            };
-
             Instance(mpr_sig sig, Id id)
                 { _sig = sig; _id = id; }
             bool operator == (Instance i) const
@@ -931,10 +941,13 @@ namespace mapper {
             operator Id() const
                 { return _id; }
 
-            /*! Return whether this Instance is currently active.
-             *  \return         True or False. */
-            bool is_active() const
-                { return mpr_sig_get_inst_is_active(_sig, _id); }
+            /*! Return the current status for this Instance.
+             *  \return         The status of the signal instance returned as bitflags. Test the
+             *                  return value against the constants defined in the `Signal::Status`
+             *                  enum class. Each time this function is called it will reset the
+             *                  bitflags for `NEW`, `SET_*`, and `REL_*`. */
+            int status() const
+                { return mpr_sig_get_inst_status(_sig, _id); }
 
         private:
             Instance& _set_value(const int *val, unsigned int len)
@@ -961,8 +974,8 @@ namespace mapper {
                 { return set_value(&val[0], val.size()); }
         public:
             /*! Set the current value for this Instance.
-             *  \param vals     The value to set. Can be scalar, array, std::array, or std::vector
-             *                  of int, float, or double
+             *  \param vals     The value to set. Can be scalar, array, `std::array`, or
+             *                  `std::vector` of `int`, `float`, or `double`.
              *  \return         Self. */
             template <typename... Values>
             Instance& set_value(Values... vals)
@@ -978,14 +991,14 @@ namespace mapper {
             Id id() const
                 { return _id; }
 
-            /*! Set the user_data pointer associated with this Instance.
-             *  \param data     A user_data pointer to store.
+            /*! Set the `user_data` pointer associated with this Instance.
+             *  \param data     A `user_data` pointer to store.
              *  \return         Self. */
             Instance& set_data(void *data)
                 { mpr_sig_set_inst_data(_sig, _id, data); RETURN_SELF }
 
-            /*! Get the user_data pointer associated with this Instance.
-             *  \return         The user_data pointer. */
+            /*! Get the `user_data` pointer associated with this Instance.
+             *  \return         The `user_data` pointer. */
             void *data() const
                 { return mpr_sig_get_inst_data(_sig, _id); }
 
@@ -1266,7 +1279,7 @@ namespace mapper {
         Signal& reserve_instances(int num, mpr_id *ids)
             { mpr_sig_reserve_inst(_obj, num, ids, NULL); RETURN_SELF }
 
-        /*! Reserve a number of Instances with provided ids and user_data.
+        /*! Reserve a number of Instances with provided ids and `user_data`.
          *  \param num      The number of Instances to reserve.
          *  \param ids      An array of num ids to associate with the reserved Instances.
          *                  Must be NULL or have size num.
@@ -1287,7 +1300,7 @@ namespace mapper {
         Signal& reserve_instance(mpr_id id)
             { mpr_sig_reserve_inst(_obj, 1, &id, NULL); RETURN_SELF }
 
-        /*! Reserve a single Instance with the provided id and user_data.
+        /*! Reserve a single Instance with the provided id and `user_data`.
          *  \param id       The id to associate with the Instance.
          *  \param data     User data to associate with the Instance.
          *  \return         Self. */
@@ -1296,9 +1309,9 @@ namespace mapper {
 
         /*! Retrieve an Instance from the pool using an index and status.
          *  \param idx      The index of the Instance to retrieve.
-         *  \param status   The status pool to query: ACTIVE, RESERVED, or ALL.
+         *  \param status   The status pool to query: `ACTIVE`, `RESERVED`, or `ANY`.
          *  \return         An Instance. */
-        Instance instance(int idx, Instance::Status status) const
+        Instance instance(int idx, InstanceStatus status = InstanceStatus::ANY) const
             { return Instance(_obj, mpr_sig_get_inst_id(_obj, idx, static_cast<mpr_status>(status))); }
 
         /*! Remove an Instance and free its resources.
@@ -1318,9 +1331,9 @@ namespace mapper {
             { return Instance(_obj, mpr_sig_get_newest_inst_id(_obj)); }
 
         /*! Retrieve the number of Instances belonging to this Signal.
-         *  \param status   The status of the Instance to count: Instance::Status::ACTIVE, RESERVED, or ALL.
+         *  \param status   The status of the Instance to count: `ACTIVE`, `RESERVED`, or `ALL`.
          *  \return         The number of Instances with the given status. */
-        int num_instances(Instance::Status status = Instance::Status::ACTIVE) const
+        int num_instances(Status status = Status::ACTIVE) const
             { return mpr_sig_get_num_inst(_obj, static_cast<mpr_status>(status)); }
 
         OBJ_METHODS(Signal);
@@ -1463,15 +1476,17 @@ namespace mapper {
             { return List<Map>(mpr_dev_get_maps(_obj, static_cast<mpr_dir>(dir))); }
 
         /*! Poll this device for new messages.  Note, if you have multiple devices, the right thing
-         *  to do is call this function for each of them with block_ms=0, and add your own sleep if
-         *  necessary.
-         *  \param block_ms     The number of milliseconds to block, or 0 for non-blocking behavior.
-         *  \return             The number of handled messages. */
+         *  to do is call this function for each of them with `block_ms`=0, and add your own sleep
+         *  if necessary.
+         *  \param block_ms The number of milliseconds to block, or 0 for non-blocking behavior.
+         *  \return         The number of handled messages. */
         int poll(int block_ms=0) const
             { return mpr_dev_poll(_obj, block_ms); }
 
         /*! Start automatically polling this Device for new messages in a separate thread.
-         *  \return   Self. */
+         *  \param block_ms The number of milliseconds to block on each iteration,
+         *                  or `<0` to process all incoming messages.
+         *  \return         Self. */
         Device& start(int block_ms=100)
             { mpr_dev_start_polling(_obj, block_ms); RETURN_SELF }
 
@@ -1669,13 +1684,13 @@ namespace mapper {
             { return _obj; }
 
         /*! Specify the network interface to use.
-         *  \param iface        A string specifying the name of the network interface to use.
-         *  \return             Self. */
+         *  \param iface    A string specifying the name of the network interface to use.
+         *  \return         Self. */
         Graph& set_iface(const str_type &iface)
             { mpr_graph_set_interface(_obj, iface); RETURN_SELF }
 
         /*! Return a string indicating the name of the network interface in use.
-         *  \return     A string containing the name of the network interface.*/
+         *  \return         A string containing the name of the network interface.*/
         std::string iface() const
         {
             const char *iface = mpr_graph_get_interface(_obj);
@@ -1690,23 +1705,25 @@ namespace mapper {
             { mpr_graph_set_address(_obj, group, port); RETURN_SELF }
 
         /*! Retrieve the multicast url currently in use.
-         *  \return     A string specifying the multicast url in use. */
+         *  \return         A string specifying the multicast url in use. */
         std::string address() const
             { return std::string(mpr_graph_get_address(_obj)); }
 
         /*! Synchronize a Graph object with the distributed graph.
-         *  \param block_ms     The number of milliseconds to block, or 0 for non-blocking behavior.
-         *  \return             The number of handled messages. */
+         *  \param block_ms The number of milliseconds to block, or 0 for non-blocking behavior.
+         *  \return         The number of handled messages. */
         int poll(int block_ms=0) const
             { return mpr_graph_poll(_obj, block_ms); }
 
         /*! Start automatically synchronizing a Graph object in a separate thread.
-         *  \return   Self. */
+         *  \param block_ms The number of milliseconds to block on each iteration,
+         *                  or `<0` to process all incoming messages.
+         *  \return         Self. */
         Graph& start(int block_ms=100)
             { mpr_graph_start_polling(_obj, block_ms); RETURN_SELF }
 
         /*! Stop automatically synchronizing a Graph object in a separate thread.
-         *  \return   Self. */
+         *  \return         Self. */
         Graph& stop()
             { mpr_graph_stop_polling(_obj); RETURN_SELF }
 
@@ -2472,11 +2489,12 @@ namespace mapper {
     {
         switch (s) {
             case Object::Status::UNDEFINED: os << "UNDEFINED";  break;
-            case Object::Status::EXPIRED:   os << "EXPIRED";    break;
             case Object::Status::STAGED:    os << "STAGED";     break;
-            case Object::Status::WAITING:   os << "WAITING";    break;
-            case Object::Status::READY:     os << "READY";      break;
             case Object::Status::ACTIVE:    os << "ACTIVE";     break;
+            case Object::Status::NEW:       os << "NEW";        break;
+            case Object::Status::MODIFIED:  os << "MODIFIED";   break;
+            case Object::Status::REMOVED:   os << "REMOVED";    break;
+            case Object::Status::EXPIRED:   os << "EXPIRED";    break;
         }
         return os;
     }

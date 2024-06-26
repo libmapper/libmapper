@@ -141,8 +141,7 @@ int set_map_protocol(mpr_proto proto)
     if (!map)
         return 1;
 
-    if (!mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROTOCOL, NULL, 1, MPR_INT32,
-                          &proto, 1)) {
+    if (!mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROTOCOL, NULL, 1, MPR_INT32, &proto, 1)) {
         /* protocol not changed, exit */
         return 1;
     }

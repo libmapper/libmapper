@@ -4,14 +4,15 @@ namespace Mapper;
 
 public abstract class MapperObject
 {
+    [Flags]
     public enum Status
     {
         Expired = 0x01,
-        Staged = 0x02,
-        Waiting = 0x0E,
-        Ready = 0x36,
-        Active = 0x7E,
-        Reserved = 0x80,
+        New = 0x02,
+        Modified = 0x04,
+        Staged = 0x08,
+        Active = 0x10,
+        Removed = 0x04,
         Any = 0xFF
     }
 

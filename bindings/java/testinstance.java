@@ -68,7 +68,7 @@ class testinstance {
             public void onEvent(Signal.Instance inst, mapper.signal.Event evt, int val, Time time) {
                 System.out.println(evt + " for " + inst.properties().get("name")
                                    + " instance " + inst.id() + ": " + evt);
-                java.lang.Object userObject = inst.userReference();
+                java.lang.Object userObject = inst.getUserReference();
                 if (userObject != null) {
                     System.out.println("userObject.class = "+userObject.getClass());
                     if (userObject.getClass().equals(int[].class)) {
@@ -81,7 +81,7 @@ class testinstance {
         inp1.setListener(new mapper.signal.Listener() {
             public void onEvent(Signal.Instance inst, mapper.signal.Event evt, int val, Time time) {
                 System.out.println(evt + " for " + inst.properties().get("name")
-                                   + " instance " + inst.id() + ": " + inst.userReference()
+                                   + " instance " + inst.id() + ": " + inst.getUserReference()
                                    + ", val= " + val);
             }});
 
