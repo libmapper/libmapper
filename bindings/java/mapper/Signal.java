@@ -4,7 +4,6 @@ package mapper;
 import mapper.Map;
 import mapper.signal.*;
 import mapper.Device;
-import mapper.Status;
 import java.util.EnumSet;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -88,7 +87,7 @@ public class Signal extends AbstractObject
     public native Instance oldestActiveInstance();
     public native Instance newestActiveInstance();
 
-    public native int numInstances(Status status);
+    public native int numInstances(InstanceStatus status);
     public native int numReservedInstances();
 
     /* set value */
