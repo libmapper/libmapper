@@ -73,8 +73,8 @@ typedef struct _mpr_sig_inst
     void *value;                /*!< The current value of this signal instance. */
     mpr_time time;              /*!< The time associated with the current value. */
 
+    uint16_t status;            /*!< Status of this instance. */
     uint8_t idx;                /*!< Index for accessing value history. */
-    uint8_t status;             /*!< Status of this instance. */
 } mpr_sig_inst_t;
 
 /* plan: remove inst, add map/slot resource index (is this the same for all source signals?) */
@@ -542,19 +542,21 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     for (; id_map_idx < sig->num_id_maps; id_map_idx++) {
         /* check if instance is active */
         if ((si = sig->id_maps[id_map_idx].inst) && (si->status & MPR_STATUS_ACTIVE)) {
+            uint16_t status = 0;
             id_map = sig->id_maps[id_map_idx].id_map;
             for (i = 0; i < sig->len; i++) {
                 if (types[i] == MPR_NULL)
                     continue;
-                memcpy((char*)si->value + i * size, argv[i], size);
+                if (memcmp((char*)si->value + i * size, argv[i], size)) {
+                    memcpy((char*)si->value + i * size, argv[i], size);
+                    status = MPR_STATUS_NEW_VALUE;
+                }
                 mpr_bitflags_set(si->has_value_flags, i);
             }
-            if (!mpr_bitflags_compare(si->has_value_flags, sig->vec_known, sig->len))
-                si->status |= MPR_STATUS_HAS_VALUE;
-            if (si->status & MPR_STATUS_HAS_VALUE) {
+            if (!mpr_bitflags_compare(si->has_value_flags, sig->vec_known, sig->len)) {
+                si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM | status);
                 memcpy(&si->time, &time, sizeof(mpr_time));
                 mpr_bitflags_unset(sig->updated_inst, si->idx);
-                si->status |= MPR_STATUS_UPDATE_REM;
                 mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, id_map->LID, sig->len, si->value, time, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */
                 if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
@@ -1286,7 +1288,7 @@ done:
 void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const void *val)
 {
     mpr_time time;
-    int id_map_idx;
+    int id_map_idx, status = MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_LOC;
     mpr_local_sig lsig = (mpr_local_sig)sig;
     mpr_sig_inst si;
     RETURN_UNLESS(sig);
@@ -1326,11 +1328,15 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     memcpy(&si->time, &time, sizeof(mpr_time));
 
     /* update value */
-    if (type != lsig->type || len < lsig->len)
-        mpr_set_coerced(lsig->len, type, val, lsig->len, lsig->type, si->value);
-    else
+    if (type != lsig->type || len < lsig->len) {
+        if (!mpr_set_coerced(lsig->len, type, val, lsig->len, lsig->type, si->value))
+            status |= MPR_STATUS_NEW_VALUE;
+    }
+    else if (memcpy(si->value, (void*)val, get_value_size(lsig))) {
         memcpy(si->value, (void*)val, get_value_size(lsig));
-    si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_LOC);
+        status |= MPR_STATUS_NEW_VALUE;
+    }
+    si->status |= status;
 
     /* mark instance as updated */
     mpr_local_sig_set_updated(lsig, si->idx);
@@ -1451,11 +1457,10 @@ int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
     int i, j;
     RETURN_ARG_UNLESS(sig, 0);
     RETURN_ARG_UNLESS(sig->obj.is_local && sig->ephemeral, sig->num_inst);
-    if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED)) == (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED))
+    if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_STAGED)) == (MPR_STATUS_ACTIVE | MPR_STATUS_STAGED))
         return sig->num_inst;
-    status = status & MPR_STATUS_ACTIVE ? (int)MPR_STATUS_ACTIVE : 0;
     for (i = 0, j = 0; i < sig->num_inst; i++) {
-        if ((((mpr_local_sig)sig)->inst[i]->status & MPR_STATUS_ACTIVE) == status)
+        if (((mpr_local_sig)sig)->inst[i]->status & status)
             ++j;
     }
     return j;
@@ -1467,11 +1472,10 @@ mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status)
     mpr_local_sig lsig = (mpr_local_sig)sig;
     RETURN_ARG_UNLESS(sig && sig->obj.is_local && sig->use_inst, 0);
     RETURN_ARG_UNLESS(idx >= 0 && idx < sig->num_inst, 0);
-    if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED)) == (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED))
+    if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_STAGED)) == (MPR_STATUS_ACTIVE | MPR_STATUS_STAGED))
         return lsig->inst[idx]->id;
-    status = status & MPR_STATUS_ACTIVE ? (int)MPR_STATUS_ACTIVE : 0;
     for (i = 0, j = -1; i < lsig->num_inst; i++) {
-        if ((lsig->inst[i]->status & MPR_STATUS_ACTIVE) != status)
+        if (!(lsig->inst[i]->status & status))
             continue;
         if (++j == idx)
             return lsig->inst[i]->id;
@@ -1518,7 +1522,7 @@ int mpr_sig_get_inst_status(mpr_sig sig, mpr_id id)
             si->status &= (MPR_STATUS_HAS_VALUE | MPR_STATUS_ACTIVE);
         }
         else
-            status = MPR_STATUS_RESERVED;
+            status = MPR_STATUS_STAGED;
     }
     return status;
 }
@@ -1801,9 +1805,12 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, void *value, int inst_idx, 
  */
 
         /* copy to signal value and call handler */
-        memcpy(si->value, value, get_value_size(sig));
-        memcpy(&si->time, &time, sizeof(mpr_time));
         si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM);
+        if (memcmp(value, si->value, get_value_size(sig))) {
+            si->status |= MPR_STATUS_NEW_VALUE;
+            memcpy(si->value, value, get_value_size(sig));
+        }
+        memcpy(&si->time, &time, sizeof(mpr_time));
 
         mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, si->id, -1, value, time, diff);
 

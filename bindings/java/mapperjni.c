@@ -38,10 +38,10 @@ const char *graph_evt_strings[] = {
 
 const char *signal_evt_strings[] = {
     "NEW_INSTANCE",
+    "UPDATE",
     "UPSTREAM_RELEASE",
     "DOWNSTREAM_RELEASE",
     "OVERFLOW",
-    "UPDATE",
     "ALL"
 };
 
@@ -74,11 +74,12 @@ const char *stealing_strings[] = {
 
 const char *status_strings[] = {
     "UNDEFINED",
+    "NEW",
+    "MODIFIED",
+    "REMOVED",
     "EXPIRED",
     "STAGED",
-    "READY",
     "ACTIVE",
-    "RESERVED",
     "ANY"
 };
 
@@ -292,10 +293,10 @@ static jobject get_jobject_from_graph_evt(JNIEnv *env, mpr_graph_evt evt)
     jclass cls = (*env)->FindClass(env, "mapper/graph/Event");
     if (cls) {
         switch (evt) {
-            case MPR_STATUS_EXPIRED:    evt = 1;    break;
-            case MPR_STATUS_NEW:        evt = 2;    break;
-            case MPR_STATUS_MODIFIED:   evt = 3;    break;
-            case MPR_STATUS_REMOVED:    evt = 4;    break;
+            case MPR_STATUS_NEW:        evt = 1;    break;
+            case MPR_STATUS_MODIFIED:   evt = 2;    break;
+            case MPR_STATUS_REMOVED:    evt = 3;    break;
+            case MPR_STATUS_EXPIRED:    evt = 4;    break;
             default:                    evt = 0;    break;
         }
         jfieldID fid = (*env)->GetStaticFieldID(env, cls, graph_evt_strings[evt],
@@ -318,10 +319,10 @@ static jobject get_jobject_from_signal_evt(JNIEnv *env, mpr_sig_evt evt)
     const char *evt_str;
     switch (evt) {
         case MPR_SIG_INST_NEW:      evt_str = signal_evt_strings[0];    break;
-        case MPR_SIG_REL_UPSTRM:    evt_str = signal_evt_strings[1];    break;
-        case MPR_SIG_REL_DNSTRM:    evt_str = signal_evt_strings[2];    break;
-        case MPR_SIG_INST_OFLW:     evt_str = signal_evt_strings[3];    break;
-        case MPR_SIG_UPDATE:        evt_str = signal_evt_strings[4];    break;
+        case MPR_SIG_UPDATE:        evt_str = signal_evt_strings[1];    break;
+        case MPR_SIG_REL_UPSTRM:    evt_str = signal_evt_strings[2];    break;
+        case MPR_SIG_REL_DNSTRM:    evt_str = signal_evt_strings[3];    break;
+        case MPR_SIG_INST_OFLW:     evt_str = signal_evt_strings[4];    break;
         default:
             printf("Error looking up signal event %d.\n", evt);
             exit(1);
@@ -1424,9 +1425,9 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceFree
         // do not call instance event callbacks
         mpr_sig_set_cb(temp, 0, 0);
         // check if we have active instances
-        int i, n = mpr_sig_get_num_inst(temp, MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED);
+        int i, n = mpr_sig_get_num_inst(temp, MPR_STATUS_ACTIVE | MPR_STATUS_STAGED);
         for (i = 0; i < n; i++) {
-            mpr_id id = mpr_sig_get_inst_id(temp, i, MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED);
+            mpr_id id = mpr_sig_get_inst_id(temp, i, MPR_STATUS_ACTIVE | MPR_STATUS_STAGED);
             if (!id)
                 continue;
             inst_jni_context ictx = mpr_sig_get_inst_data(temp, id);
@@ -1528,9 +1529,9 @@ JNIEXPORT void JNICALL Java_mapper_Device_remove_1signal
     mpr_sig_set_cb(sig, 0, 0);
 
     // check if we have active instances
-    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED);
+    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ACTIVE | MPR_STATUS_STAGED);
     for (i = 0; i < n; i++) {
-        mpr_id id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED);
+        mpr_id id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ACTIVE | MPR_STATUS_STAGED);
         if (!id)
             continue;
         inst_jni_context ictx;
@@ -1795,9 +1796,9 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
 
     if (has_id)
         id = jid;
-    else if (mpr_sig_get_num_inst(sig, MPR_STATUS_RESERVED)) {
+    else if (mpr_sig_get_num_inst(sig, MPR_STATUS_STAGED)) {
         // retrieve id from a reserved signal instance
-        id = mpr_sig_get_inst_id(sig, 0, MPR_STATUS_RESERVED);
+        id = mpr_sig_get_inst_id(sig, 0, MPR_STATUS_STAGED);
         mpr_sig_activate_inst(sig, id);
     }
     else {
@@ -1986,7 +1987,7 @@ JNIEXPORT jint JNICALL Java_mapper_Signal_numReservedInstances
   (JNIEnv *env, jobject obj)
 {
     mpr_sig sig = (mpr_sig)get_mpr_obj_from_jobject(env, obj);
-    return sig ? mpr_sig_get_num_inst(sig, MPR_STATUS_RESERVED) : 0;
+    return sig ? mpr_sig_get_num_inst(sig, MPR_STATUS_STAGED) : 0;
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Signal_setValue

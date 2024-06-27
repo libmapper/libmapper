@@ -45,86 +45,91 @@ public class Signal : MapperObject
         /// <summary>
         ///     New instance created
         /// </summary>
-        New = 0x02,
-
-        /// <summary>
-        ///     Instance was released upstream
-        /// </summary>
-        UpstreamRelease = 0x20,
-
-        /// <summary>
-        ///     Instance was released downstream
-        /// </summary>
-        DownstreamRelease = 0x01,
-
-        /// <summary>
-        ///     No local instances left
-        /// </summary>
-        Overflow = 0x10,
+        New = 0x0001,
 
         /// <summary>
         ///     Instance value updated
         /// </summary>
-        Update = 0x80,
+        Update = 0x0200,
+
+        /// <summary>
+        ///     Instance was released upstream
+        /// </summary>
+        UpstreamRelease = 0x0400,
+
+        /// <summary>
+        ///     Instance was released downstream
+        /// </summary>
+        DownstreamRelease = 0x0800,
+
+        /// <summary>
+        ///     No local instances left
+        /// </summary>
+        Overflow = 0x1000,
 
         /// <summary>
         ///     All events
         /// </summary>
-        All = 0x1F
+        All = 0x1FFF
     }
 
     [Flags]
     public enum Status
     {
         /// <summary>
+        ///     Instance was newly created since last check
+        /// </summary>
+        New = 0x0001,
+
+        /// <summary>
         ///     Instance is reserved but not active
         /// </summary>
-        Reserved = 0x04,
+        Staged = 0x0010,
 
         /// <summary>
         ///     Instance is active
         /// </summary>
-        Active = 0x10,
+        Active = 0x0020,
 
         /// <summary>
         ///     Instance has a value
         /// </summary>
-        HasValue = 0x08,
+        HasValue = 0x0040,
 
         /// <summary>
-        ///     Instance was newly created since last check
+        ///     Instance value has changed since last check
         /// </summary>
-        New = 0x02,
+        NewValue = 0x0080,
 
         /// <summary>
         ///     Instance was updated locally since last check
         /// </summary>
-        LocalUpdate = 0x40,
+        LocalUpdate = 0x0100,
 
         /// <summary>
         ///     Instance was updated remotely since last check
         /// </summary>
-        RemoteUpdate = 0x80,
+        RemoteUpdate = 0x0200,
 
         /// <summary>
-        ///     Instance was released upstream
+        ///     Instance was released upstream since last check
         /// </summary>
-        UpstreamRelease = 0x20,
+        UpstreamRelease = 0x0400,
 
         /// <summary>
-        ///     Instance was released downstream
+        ///     Instance was released downstream since last check
         /// </summary>
-        DownstreamRelease = 0x01,
+        DownstreamRelease = 0x0800,
 
         /// <summary>
         ///     No local instances left
         /// </summary>
-        Overflow = 0x10,
+        Overflow = 0x1000,
 
         /// <summary>
         ///     All events
         /// </summary>
-        Any = 0xFF
+        Any = 0x1FFF
     }
 
     public enum Stealing

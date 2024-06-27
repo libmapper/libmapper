@@ -15,8 +15,9 @@ typedef struct _mpr_local_map *mpr_local_map;
 #include "mpr_signal.h"
 #include "slot.h"
 
-#define MPR_MAP_STATUS_READY    0x0400
-#define MPR_MAP_STATUS_PUSHED   0x0800
+#define MPR_MAP_STATUS_PUSHED   0x2000
+#define MPR_MAP_STATUS_READY    0xC000
+
 
 size_t mpr_map_get_struct_size(int is_local);
 

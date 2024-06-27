@@ -7,12 +7,12 @@ public abstract class MapperObject
     [Flags]
     public enum Status
     {
-        Expired = 0x01,
-        New = 0x02,
-        Modified = 0x04,
-        Staged = 0x08,
-        Active = 0x10,
+        New = 0x01,
+        Modified = 0x02,
         Removed = 0x04,
+        Expired = 0x08,
+        Staged = 0x10,
+        Active = 0x20,
         Any = 0xFF
     }
 

@@ -3,17 +3,18 @@ package mapper.signal;
 
 /*! Describes possible statuses for a libmapper signal instance. */
 public enum InstanceStatus {
-    UNDEFINED   (0x00),
-    RESERVED    (0x04),
-    ACTIVE      (0x10),
-    HAS_VALUE   (0x08),
-    NEW         (0x02),
-    UPDATE_LOC  (0x40),
-    UPDATE_REM  (0x80),
-    REL_UPSTRM  (0x20),
-    REL_DNSTRM  (0x01),
-    OVERFLOW    (0x10),
-    ANY         (0xFF);
+    UNDEFINED   (0x0000),
+    NEW         (0x0001),
+    STAGED      (0x0010),
+    ACTIVE      (0x0020),
+    HAS_VALUE   (0x0040),
+    NEW_VALUE   (0x0080),
+    UPDATE_LOC  (0x0100),
+    UPDATE_REM  (0x0200),
+    REL_UPSTRM  (0x0400),
+    REL_DNSTRM  (0x0800),
+    OVERFLOW    (0x1000),
+    ANY         (0x1FFF);
 
     InstanceStatus(int value) {
         this._value = value;

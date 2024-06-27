@@ -851,10 +851,11 @@ namespace mapper {
         /*! The set of possible voice-stealing modes for instances. */
         enum class InstanceStatus
         {
-            RESERVED    = MPR_STATUS_RESERVED,      /*!< Instance is reserved but not active. */
+            NEW         = MPR_STATUS_NEW,           /*!< Instance is new since last check. */
+            STAGED      = MPR_STATUS_STAGED,        /*!< Instance is reserved but not active. */
             ACTIVE      = MPR_STATUS_ACTIVE,        /*!< Instance is active. */
             HAS_VALUE   = MPR_STATUS_HAS_VALUE,     /*!< Instance has a value. */
-            NEW         = MPR_STATUS_NEW,           /*!< Instance is new since last check. */
+            NEW_VALUE   = MPR_STATUS_NEW_VALUE,     /*!< Value has changed since last check. */
             UPDATE_LOC  = MPR_STATUS_UPDATE_LOC,    /*!< Value was set locally since last check. */
             UPDATE_REM  = MPR_STATUS_UPDATE_REM,    /*!< Value was set remotely since last check. */
             REL_UPSTRM  = MPR_STATUS_REL_UPSTRM,    /*!< Released upstream since last check. */

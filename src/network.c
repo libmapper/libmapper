@@ -1425,7 +1425,7 @@ static void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
 
     if (MPR_LOC_BOTH == mpr_map_get_locality((mpr_map)map) && mpr_local_map_get_expr(map)) {
         trace_dev(dev, "map references only local signals... activating.\n");
-        mpr_obj_set_status((mpr_obj)map, MPR_STATUS_ACTIVE, MPR_STATUS_RESERVED);
+        mpr_obj_set_status((mpr_obj)map, MPR_STATUS_ACTIVE, MPR_STATUS_STAGED);
 
         /* Inform subscribers */
         if (mpr_local_dev_has_subscribers(dev)) {

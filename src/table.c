@@ -361,8 +361,8 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, 
     return updated != 0;
 }
 
-int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
-                 mpr_type type, const void *val, int flags)
+static int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
+                        mpr_type type, const void *val, int flags)
 {
     int updated = 0;
     mpr_tbl_record rec = mpr_tbl_get_record(t, prop, key);
@@ -377,7 +377,7 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
         if (   (rec->flags & INDIRECT || rec->prop != MPR_PROP_EXTRA)
             && (type != rec->type || len != rec->len)) {
             void *coerced = malloc(mpr_type_get_size(rec->type) * rec->len);
-            if (!mpr_set_coerced(len, type, val, rec->len, rec->type, coerced))
+            if (0 <= mpr_set_coerced(len, type, val, rec->len, rec->type, coerced))
                 updated = t->dirty = update_elements(rec, rec->len, rec->type, coerced);
             free(coerced);
         }

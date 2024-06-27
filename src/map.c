@@ -29,14 +29,14 @@
 #define METADATA_OK       (MPR_SLOT_DEV_KNOWN | MPR_SLOT_SIG_KNOWN | MPR_SLOT_LINK_KNOWN)
 
 /* Documentation of status bitflags for maps
- * 'expired'           xxxxxxxx 000000x1
- * 'staged'            xxxxx000 00001xx0 waiting for registration of local devices
- * 'ready'             xxxxx111 x1xxxxxx all metadata known, devices registered
- * 'active'            xxxxx111 xxx1xxx0 received 'mapped' from peer
- * 'slot_link_known'   xxxxx1xx xxxxxxxx
- * 'slot_sig_known'    xxxxxx1x xxxxxxxx
- * 'slot_dev_known'    xxxxxxx1 xxxxxxxx
- * 'waiting'           xxxx1xxx xxxxxxxx map pushed, waiting for sig & link
+ * 'expired'           timeout waiting for map handshake or link heartbeat
+ * 'staged'            waiting for registration of local devices
+ * 'ready'             all metadata known, devices registered
+ * 'active'            received 'mapped' from peer
+ * 'slot_link_known'   active link to remote device exists or slot is for local signal
+ * 'slot_sig_known'    signal vector length and data type are known
+ * 'slot_dev_known'    device owning slot signal is registered
+ * 'pushed'            map pushed, waiting for sig & link
  */
 
 #define MPR_MAP_STRUCT_ITEMS                                                    \
@@ -46,7 +46,7 @@
     int muted;                      /*!< 1 to mute mapping, 0 to unmute */      \
     int num_scopes;                                                             \
     int num_src;                                                                \
-    mpr_loc process_loc;                                                        \
+    mpr_loc process_loc;            /*!< Processing location. */                \
     int protocol;                   /*!< Data transport protocol. */            \
     int use_inst;                   /*!< 1 if using instances, 0 otherwise. */  \
     int bundle;
@@ -1430,9 +1430,8 @@ int mpr_local_map_update_status(mpr_local_map map)
     }
     trace("  dst:    ");
     status &= mpr_slot_get_status(map->dst);
-    map->obj.status |= status;
 
-    if ((map->obj.status & METADATA_OK) == METADATA_OK) {
+    if (status == METADATA_OK) {
         mpr_tbl tbl = mpr_obj_get_prop_tbl((mpr_obj)map);
         mpr_sig sig;
         int use_inst;
@@ -2185,9 +2184,9 @@ int mpr_map_get_use_inst(mpr_map map)
 
 void mpr_map_status_decr(mpr_map map)
 {
-    /* use the metadata flags as a 3 bit timeout */
-    if (map->obj.status & METADATA_OK)
-        map->obj.status &= (map->obj.status >> 1 | 0x00FF);
+    /* MPR_MAP_STATUS_READY acts as a 2 bit timeout */
+    if (map->obj.status & MPR_MAP_STATUS_READY)
+        map->obj.status &= (map->obj.status >> 1 | 0x3FFF);
     else
         map->obj.status |= MPR_STATUS_EXPIRED;
 }

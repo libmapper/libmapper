@@ -181,16 +181,16 @@ void loop(void)
 
         f = i * 2;
         for (j = 0; j < num_inst; j++) {
-            mpr_time time;
-            const void *value = mpr_sig_get_value(recvsig, j, &time);
-            if (!value || mpr_time_cmp(time, timetags[j]) <= 0) {
+            int status = mpr_sig_get_inst_status(recvsig, j);
+            if (status & MPR_STATUS_UPDATE_REM) {
+                const void *value = mpr_sig_get_value(recvsig, j, NULL);
+                eprintf("Signal %s.%d updated remotely to %g\n", recvsig_name, j, *(float*)value);
+                ++received;
+            }
+            else {
                 eprintf("Updating signal %s.%d to %g\n", recvsig_name, j, f);
                 mpr_sig_set_value(recvsig, j, 1, MPR_FLT, &f);
                 ++local_updates;
-            }
-            else {
-                eprintf("Signal %s.%d updated remotely to %g\n", recvsig_name, j, *(float*)value);
-                ++received;
             }
 
             timetags[j] = mpr_dev_get_time(dst);

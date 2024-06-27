@@ -5,10 +5,10 @@ package mapper.graph;
 public enum Event
 {
     UNDEDFINED  (0x00),
-    EXPIRED     (0x01),
-    NEW         (0x02),
-    MODIFIED    (0x04),
-    REMOVED     (0x20);
+    NEW         (0x01),
+    MODIFIED    (0x02),
+    REMOVED     (0x04),
+    EXPIRED     (0x08);
 
     Event(int value) {
         this._value = value;

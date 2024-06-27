@@ -5,23 +5,26 @@
 int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
                     int dst_len, mpr_type dst_type, void *dst_val)
 {
-    int i, j, min_len = src_len < dst_len ? src_len : dst_len;
+    int i, j, min_len = src_len < dst_len ? src_len : dst_len, modified = 0;
 
     if (src_type == dst_type) {
         int size = mpr_type_get_size(src_type);
         do {
-            memcpy(dst_val, src_val, size * min_len);
+            if (memcmp(dst_val, src_val, size * min_len)) {
+                memcpy(dst_val, src_val, size * min_len);
+                modified = 1;
+            }
             dst_len -= min_len;
             dst_val = (void*)((char*)dst_val + size * min_len);
             if (dst_len < min_len)
                 min_len = dst_len;
         } while (dst_len > 0);
-        return 0;
+        return !modified;
     }
 
     switch (dst_type) {
         case MPR_FLT:{
-            float *dstf = (float*)dst_val;
+            float *dstf = (float*)dst_val, tempf;
             switch (src_type) {
                 case MPR_BOOL:
                 case MPR_INT32: {
@@ -29,7 +32,11 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
                             j = 0;
-                        dstf[i] = (float)srci[j];
+                        tempf = (float)srci[j];
+                        if (tempf != dstf[i]) {
+                            modified = 1;
+                            dstf[i] = tempf;
+                        }
                     }
                     break;
                 }
@@ -38,7 +45,11 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
                             j = 0;
-                        dstf[i] = (float)srcd[j];
+                        tempf = (float)srcd[j];
+                        if (tempf != dstf[i]) {
+                            dstf[i] = tempf;
+                            modified = 1;
+                        }
                     }
                     break;
                 }
@@ -48,14 +59,18 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
             break;
         }
         case MPR_INT32: {
-            int *dsti = (int*)dst_val;
+            int *dsti = (int*)dst_val, tempi;
             switch (src_type) {
                 case MPR_FLT: {
                     float *srcf = (float*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
                             j = 0;
-                        dsti[i] = (int)srcf[j];
+                        tempi = (int)srcf[j];
+                        if (tempi != dsti[i]) {
+                            dsti[i] = tempi;
+                            modified = 1;
+                        }
                     }
                     break;
                 }
@@ -64,7 +79,11 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
                             j = 0;
-                        dsti[i] = (int)srcd[j];
+                        tempi = (int)srcd[j];
+                        if (tempi != dsti[i]) {
+                            dsti[i] = tempi;
+                            modified = 1;
+                        }
                     }
                     break;
                 }
@@ -74,14 +93,18 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
             break;
         }
         case MPR_DBL: {
-            double *dstd = (double*)dst_val;
+            double *dstd = (double*)dst_val, tempd;
             switch (src_type) {
                 case MPR_INT32: {
                     int *srci = (int*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
                             j = 0;
-                        dstd[i] = (float)srci[j];
+                        tempd = (float)srci[j];
+                        if (tempd != dstd[i]) {
+                            dstd[i] = tempd;
+                            modified = 1;
+                        }
                     }
                     break;
                 }
@@ -90,7 +113,11 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
                             j = 0;
-                        dstd[i] = (double)srcf[j];
+                        tempd = (double)srcf[j];
+                        if (tempd != dstd[i]) {
+                            dstd[i] = tempd;
+                            modified = 1;
+                        }
                     }
                     break;
                 }
@@ -100,14 +127,18 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
             break;
         }
         case MPR_BOOL: {
-            int *dstb = (int*)dst_val;
+            int *dstb = (int*)dst_val, tempb;
             switch (src_type) {
                 case MPR_INT32: {
                     int *srci = (int*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
                             j = 0;
-                        dstb[i] = srci[j] != 0;
+                        tempb = srci[j] != 0;
+                        if (tempb != dstb[i]) {
+                            dstb[i] = tempb;
+                            modified = 1;
+                        }
                     }
                     break;
                 }
@@ -116,7 +147,11 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
                             j = 0;
-                        dstb[i] = (int)srcf[j] != 0;
+                        tempb = (int)srcf[j] != 0;
+                        if (tempb != dstb[i]) {
+                            dstb[i] = tempb;
+                            modified = 1;
+                        }
                     }
                     break;
                 }
@@ -125,23 +160,35 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
                             j = 0;
-                        dstb[i] = (int)srcd[j] != 0;
+                        tempb = (int)srcd[j] != 0;
+                        if (tempb != dstb[i]) {
+                            dstb[i] = tempb;
+                            modified = 1;
+                        }
                     }
                     break;
                 }
                 case MPR_STR: {
                     if (src_len == 1) {
                         const char *srcs = (const char*)src_val;
-                        dstb[0] = srcs[0] == 'T' || srcs[0] == 't';
-                        for (i = 1; i < dst_len; i++)
-                            dstb[i] = dstb[0];
+                        tempb = srcs[0] == 'T' || srcs[0] == 't';
+                        for (i = 0; i < dst_len; i++) {
+                            if (tempb != dstb[i]) {
+                                dstb[i] = tempb;
+                                modified = 1;
+                            }
+                        }
                     }
                     else {
                         const char **srcs = (const char**)src_val;
                         for (i = 0, j = 0; i < dst_len; i++, j++) {
                             if (j >= src_len)
                                 j = 0;
-                            dstb[i] = (srcs[j][0] == 'T' || srcs[j][0] == 't');
+                            tempb = (srcs[j][0] == 'T' || srcs[j][0] == 't');
+                            if (tempb != dstb[i]) {
+                                dstb[i] = tempb;
+                                modified = 1;
+                            }
                         }
                     }
                     break;
@@ -152,5 +199,5 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
         default:
             return -1;
     }
-    return 0;
+    return !modified;
 }

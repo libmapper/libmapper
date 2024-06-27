@@ -152,29 +152,28 @@ typedef enum {
 */
 
 typedef enum {                      /*| obj   | dev   | sig   | inst  | sig cb | map   | gph cb |*/
-    MPR_STATUS_UNDEFINED    = 0x00,
+    MPR_STATUS_UNDEFINED    = 0x0000,
 
-    MPR_STATUS_EXPIRED      = 0x01, /*!< The graph has lost contact with the remote entity. */
-    MPR_STATUS_REL_DNSTRM   = 0x01, /*!< Signal instance was released downstream. */
+    MPR_STATUS_NEW          = 0x0001,   /*!< New object. */
+    MPR_STATUS_MODIFIED     = 0x0002,   /*!< Existing object has been modified. */
+    MPR_STATUS_REMOVED      = 0x0004,   /*!< Existing object has been removed. */
+    MPR_STATUS_EXPIRED      = 0x0008,   /*!< The graph has lost contact with the remote entity. */
 
-    MPR_STATUS_NEW          = 0x02, /*!< New object. */
+    MPR_STATUS_STAGED       = 0x0010,   /*!< Object has been staged and is waiting. */
+    MPR_STATUS_ACTIVE       = 0x0020,   /*!< Object is active. */
 
-    MPR_STATUS_MODIFIED     = 0x04, /*!< Existing object has been modified. */
-    MPR_STATUS_RESERVED     = 0x04, /*!< Object memory has been allocated bit it is not active. */
+    MPR_STATUS_HAS_VALUE    = 0x0040,   /*!< Signal/instance has a value. */
+    MPR_STATUS_NEW_VALUE    = 0x0080,   /*!< Signal/instance value has changed since last checked. */
 
-    MPR_STATUS_STAGED       = 0x08, /*!< Object has been staged and is waiting for peer handshakes. */
-    MPR_STATUS_HAS_VALUE    = 0x08, /*!< Signal/instance has a value. */
+    MPR_STATUS_UPDATE_LOC   = 0x0100,   /*!< Signal/instance value was updated locally. */
+    MPR_STATUS_UPDATE_REM   = 0x0200,   /*!< Signal/instance value was updated remotely/through a map. */
 
-    MPR_STATUS_ACTIVE       = 0x10, /*!< Object is active. */
-    MPR_STATUS_OVERFLOW     = 0x10, /*!< No local objects available for activation. */
+    MPR_STATUS_REL_UPSTRM   = 0x0400,   /*!< Instance was released upstream. */
+    MPR_STATUS_REL_DNSTRM   = 0x0800,   /*!< Signal instance was released downstream. */
 
-    MPR_STATUS_REMOVED      = 0x20, /*!< Existing object has been removed. */
-    MPR_STATUS_REL_UPSTRM   = 0x20, /*!< Instance was released upstream. */
+    MPR_STATUS_OVERFLOW     = 0x1000,   /*!< No local objects available for activation. */
 
-    MPR_STATUS_UPDATE_LOC   = 0x40, /*!< Signal/instance value was updated locally. */
-
-    MPR_STATUS_UPDATE_REM   = 0x80, /*!< Signal/instance value was updated remotely/through a map. */
-    MPR_STATUS_ANY          = 0xFF
+    MPR_STATUS_ANY          = 0x1FFF
 } mpr_status;
 
 /* deprecated constants */

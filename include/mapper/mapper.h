@@ -31,6 +31,15 @@ to get started with libmapper concepts.
  *  \return             The `mpr_graph` used by this object. */
 mpr_graph mpr_obj_get_graph(mpr_obj object);
 
+/*! Return the status bitflags used by an object.
+ *  \param object       The object to query.
+ *  \return             The status bitflags used by this object. */
+int mpr_obj_get_status(mpr_obj object);
+
+/*! Reset the volatile status bitflags used by an object.
+ *  \param object       The object to reset. */
+void mpr_obj_reset_status(mpr_obj object);
+
 /*! Return the specific type of an object.
  *  \param object       The object to query.
  *  \return             The object type. */

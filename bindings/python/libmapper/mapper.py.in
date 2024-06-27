@@ -725,12 +725,12 @@ class Object:
         """Describes the possible statuses for a libmapper object."""
 
         UNDEFINED   = 0x00
-        EXPIRED     = 0x01
-        NEW         = 0x02
-        MODIFIED    = 0x04
-        STAGED      = 0x08
-        ACTIVE      = 0x10
-        REMOVED     = 0x20
+        NEW         = 0x01
+        MODIFIED    = 0x02
+        REMOVED     = 0x04
+        EXPIRED     = 0x08
+        STAGED      = 0x10
+        ACTIVE      = 0x20
         ANY         = 0xFF
 
         def __repr__(self):
@@ -1174,12 +1174,12 @@ class Signal(Object):
     class Event(IntFlag):
         """The set of possible signal events, used to register and inform callbacks."""
 
-        NONE        = 0x00
-        INST_NEW    = 0x02
-        REL_UPSTRM  = 0x20
-        REL_DNSTRM  = 0x01
-        INST_OFLW   = 0x10
-        UPDATE      = 0x80
+        NONE        = 0x0000
+        INST_NEW    = 0x0001
+        UPDATE      = 0x0200
+        REL_UPSTRM  = 0x0400
+        REL_DNSTRM  = 0x0800
+        INST_OFLW   = 0x1000
         ALL         = 0xFF
 
         def __repr__(self):
@@ -1188,17 +1188,21 @@ class Signal(Object):
     class InstanceStatus(IntFlag):
         """The set of possible status flags for a signal instance."""
 
-        UNDEFINED           = 0x00
-        RESERVED            = 0x04
-        ACTIVE              = 0x10
-        HAS_VALUE           = 0x08
-        NEW                 = 0x02
-        UPDATE_LOC          = 0x40
-        UPDATE_REM          = 0x80
-        REL_UPSTRM          = 0x20
-        REL_DWNSTRM         = 0x01
-        OVERFLOW            = 0x10
-        ANY                 = 0xFF
+        UNDEFINED           = 0x0000
+        NEW                 = 0x0001
+
+        STAGED              = 0x0010
+        ACTIVE              = 0x0020
+
+        HAS_VALUE           = 0x0040
+        NEW_VALUE           = 0x0080
+
+        UPDATE_LOC          = 0x0100
+        UPDATE_REM          = 0x0200
+        REL_UPSTRM          = 0x0400
+        REL_DWNSTRM         = 0x0800
+        OVERFLOW            = 0x1000
+        ANY                 = 0x1FFF
 
         def __str__(self):
             if self._name_ is not None:
@@ -1410,7 +1414,7 @@ class Signal(Object):
 
         Args:
             status (libmapper.Signal.InstanceStatus): The status of the instances to search for.
-                Should be set to `ACTIVE`, `RESERVED`, or both (`ACTIVE | RESERVED`).
+                Should be set to `ACTIVE`, `STAGED`, or both (`ACTIVE | STAGED`).
 
         Returns:
              The number of allocated signal instances matching the specified status.
@@ -1430,7 +1434,7 @@ class Signal(Object):
             idx (int): The numerical index of the instance to retrieve.  Should be between zero
                 and the number of instances.
             status (libmapper.Signal.InstanceStatus): The status of the instances to search for.
-                Should be set to `ACTIVE`, `RESERVED`, or both (`ACTIVE | RESERVED`).
+                Should be set to `ACTIVE`, `STAGED`, or both (`ACTIVE | STAGED`).
 
         Returns:
             The instance identifier associated with the given index, or `0` if unsuccessful.
@@ -1712,10 +1716,10 @@ class Graph(Object):
     @unique
     class Event(Enum):
         """The set of possible graph events, used to inform callbacks."""
-        NEW      = 0x02
-        MODIFIED = 0x04
-        REMOVED  = 0x20
-        EXPIRED  = 0x01
+        NEW      = 0x01
+        MODIFIED = 0x02
+        REMOVED  = 0x04
+        EXPIRED  = 0x08
 
         def __repr__(self):
             return 'libmapper.Graph.Event.' + self.name
