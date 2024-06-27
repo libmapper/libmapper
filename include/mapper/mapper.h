@@ -494,6 +494,7 @@ mpr_map mpr_map_new(int num_sources, mpr_sig *sources, int num_destinations, mpr
  *  \param expression   A string specifying the map expression to use when mapping source to
  *                      destination signals. The format specifier "%x" is used to specify source
  *                      signals and the "%y" is used to specify the destination signal.
+ *                      Please refer to the expression syntax documentation for more information.
  *  \param ...          A sequence of additional `mpr_sig` arguments, one for each format specifier
  *                      in the format string
  *  \return             A map data structure – either loaded from the graph (if the map already
