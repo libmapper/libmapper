@@ -28,13 +28,6 @@ class testspeed {
                     }
             });
 
-        Listener l = new Listener() {
-            public void onEvent(Signal sig, mapper.signal.Event e, float v, Time time) {
-                if (e == mapper.signal.Event.UPDATE)
-                    testspeed.updated = true;
-            }
-        };
-
         Signal out = dev1.addSignal(mapper.signal.Direction.OUTGOING, "outsig", 1, Type.INT32,
                                     "Hz", null, null, null, null);
 

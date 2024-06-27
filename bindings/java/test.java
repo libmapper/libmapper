@@ -109,7 +109,7 @@ class test {
 
         System.out.println("  height: " + out1.properties().get("height"));
         System.out.println("  width: " + Arrays.toString((int[])out1.properties().get("width")));
-        System.out.println("  depth: " + out1.properties().get("depth"));
+        System.out.println("  depth: " + Arrays.toString((String[])out1.properties().get("depth")));
         System.out.println("  deletethis: " + out1.properties().get("deletethis")
                            + " (should be null)");
         System.out.println("  minimum: " + out1.properties().get("minimum"));

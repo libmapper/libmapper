@@ -1167,6 +1167,18 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1put
             (*env)->ReleaseDoubleArrayElements(env, jval, vals, JNI_ABORT);
         }
     }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "[Ljava/lang/String;"))) {
+        int len = (*env)->GetArrayLength(env, jval);
+        jstring jstrs[len];
+        const char *cstrs[len];
+        for (int i = 0; i < len; i++) {
+            jstrs[i] = (jstring) (*env)->GetObjectArrayElement(env, (jobjectArray)jval, i);
+            cstrs[i] = (*env)->GetStringUTFChars(env, jstrs[i], 0);
+        }
+        mpr_obj_set_prop(mobj, id, ckey, len, MPR_STR, cstrs, publish);
+        for (int i = 0; i < len; i++)
+            (*env)->ReleaseStringUTFChars(env, jstrs[i], cstrs[i]);
+    }
     // TODO: handle arrays of other types: bool, byte, char, long, short, string
 
     if (jkey && ckey)
