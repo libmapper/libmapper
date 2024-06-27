@@ -341,15 +341,6 @@ void mpr_link_remove_map(mpr_link link, mpr_map map)
         mpr_time_set(&link->clock.rcvd.time, MPR_NOW);
 }
 
-void mpr_link_send(mpr_link link, net_msg_t cmd)
-{
-    NEW_LO_MSG(msg, return);
-    lo_message_add_string(msg, mpr_dev_get_name(link->devs[0]));
-    lo_message_add_string(msg, "<->");
-    lo_message_add_string(msg, mpr_dev_get_name(link->devs[1]));
-    mpr_net_add_msg(mpr_graph_get_net(link->obj.graph), 0, cmd, msg);
-}
-
 void mpr_link_update_clock(mpr_link link, mpr_time then, mpr_time now,
                            int msg_id, int sent_id, double elapsed_remote)
 {
