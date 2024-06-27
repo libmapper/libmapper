@@ -508,14 +508,16 @@ void mpr_dev_update_maps(mpr_dev dev) {
     ((mpr_local_dev)dev)->time_is_stale = 1;
 }
 
-static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir, int dirty_only)
+static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir, int force)
 {
     mpr_list list = mpr_dev_get_sigs((mpr_dev)dev, dir);
     int sent = 0;
     while (list) {
         mpr_sig sig = (mpr_sig)*list;
-        if (!dirty_only || mpr_tbl_get_is_dirty(((mpr_obj)sig)->props.synced)) {
+        if (force || mpr_tbl_get_is_dirty(((mpr_obj)sig)->props.synced)) {
             mpr_sig_send_state(sig, MSG_SIG);
+            if (!force)
+                mpr_tbl_set_is_dirty(((mpr_obj)sig)->props.synced, 0);
             ++sent;
         }
         list = mpr_list_get_next(list);
@@ -624,7 +626,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     }
     /* TODO: add sig_dirty flag to device */
     mpr_net_use_subscribers(net, ldev, MPR_SIG);
-    mpr_dev_send_sigs(ldev, MPR_DIR_ANY, 1);
+    mpr_dev_send_sigs(ldev, MPR_DIR_ANY, 0);
 
     ldev->time_is_stale = 1;
     return admin_count + device_count;
@@ -1290,7 +1292,7 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
         if (flags & MPR_SIG_OUT)
             dir |= MPR_DIR_OUT;
         mpr_net_use_mesh(net, addr);
-        mpr_dev_send_sigs(dev, dir, 0);
+        mpr_dev_send_sigs(dev, dir, 1);
         mpr_net_send(net);
     }
     if (flags & MPR_MAP) {
