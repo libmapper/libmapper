@@ -102,7 +102,7 @@ void cleanup_devs(void)
     eprintf("\n");
 }
 
-int wait_local_devs(int *cancel)
+int wait_ready(int *cancel)
 {
     int i, j = 0, k = 0, keep_waiting = 1, highest = 0, result = 0;
 
@@ -240,8 +240,11 @@ int main(int argc, char *argv[])
         goto done;
     }
 
-    if (wait_local_devs(&done))
+    if (wait_ready(&done)) {
+        eprintf("Device registration aborted.\n");
         result = 1;
+    }
+
     now = mpr_get_current_time() - now;
     eprintf("Allocated %d devices in %f seconds.\n", num_devs, now);
     if (result)

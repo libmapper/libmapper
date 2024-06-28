@@ -116,12 +116,13 @@ void cleanup_devs(void)
     }
 }
 
-void wait_local_devs(void)
+int wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(devices[0]) && mpr_dev_get_is_ready(devices[1]))) {
         mpr_dev_poll(devices[0], 25);
         mpr_dev_poll(devices[1], 25);
     }
+    return done;
 }
 
 void loop(void)
@@ -236,7 +237,11 @@ int main(int argc, char ** argv)
         goto done;
     }
 
-    wait_local_devs();
+    if (wait_ready()) {
+        eprintf("Device registration aborted.\n");
+        result = 1;
+        goto done;
+    }
 
     loop();
 

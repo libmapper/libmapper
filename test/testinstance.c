@@ -301,12 +301,13 @@ void cleanup_dst(void)
     }
 }
 
-void wait_devs(void)
+int wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
         mpr_dev_poll(dst, 25);
     }
+    return done;
 }
 
 void print_instance_ids(mpr_sig sig)
@@ -735,12 +736,18 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
+
     if (setup_src(g, iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
     }
-    wait_devs();
+
+    if (wait_ready()) {
+        eprintf("Device registration aborted.\n");
+        result = 1;
+        goto done;
+    }
 
     eprintf("Key:\n");
     eprintf("  *\t denotes processing location\n");

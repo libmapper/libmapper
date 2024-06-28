@@ -84,7 +84,7 @@ void cleanup_dev(void)
     }
 }
 
-void wait_for_registration_and_sync(void)
+int wait_for_registration_and_sync(void)
 {
     int i = 10;
     while (!done && !mpr_dev_get_is_ready(dev)) {
@@ -96,6 +96,7 @@ void wait_for_registration_and_sync(void)
         mpr_dev_poll(dev, 100);
         mpr_graph_poll(graph, 100);
     }
+    return done;
 }
 
 int filter(mpr_graph graph, mpr_prop prop, const char *key, int len, mpr_type type, void *value,
@@ -192,13 +193,16 @@ int main(int argc, char ** argv)
         goto done;
     }
 
-    wait_for_registration_and_sync();
+    if (wait_for_registration_and_sync()) {
+        eprintf("Device registration aborted.\n");
+        result = 1;
+        goto done;
+    }
 
     result = (   filter(graph, 0, "session", 0, 0,       0,              MPR_OP_NEX,             1)
               || filter(graph, 0, "session", 0, 0,       0,              MPR_OP_EX,              4)
               || filter(graph, 0, "session", 1, MPR_STR, (void*)tags[0], MPR_OP_EQ,              1)
               || filter(graph, 0, "session", 1, MPR_STR, (void*)tags[0], MPR_OP_EQ | MPR_OP_ANY, 3));
-
 
     /* TODO: add this test once vector filter matching is implemented */
     /* result |= filter(graph, 0, "session", 2, MPR_STR, (void*)tags,    MPR_OP_EQ,              1); */

@@ -178,7 +178,6 @@ int wait_ready(void)
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
     }
-
     return done;
 }
 
@@ -274,7 +273,7 @@ int main(int argc, char **argv)
     }
 
     if (wait_ready()) {
-        eprintf("Error waiting for device registration.\n");
+        eprintf("Device registration aborted.\n");
         result = 1;
         goto done;
     }

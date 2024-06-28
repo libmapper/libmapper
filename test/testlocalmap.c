@@ -159,11 +159,12 @@ int setup_loop_test(void)
     return 0;
 }
 
-void wait_ready(void)
+int wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(dev))) {
         mpr_dev_poll(dev, 25);
     }
+    return done;
 }
 
 void loop(void)
@@ -247,7 +248,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    wait_ready();
+    if (wait_ready()) {
+        eprintf("Device registration aborted.\n");
+        result = 1;
+        goto done;
+    }
 
     if (autoconnect && setup_maps()) {
         eprintf("Error initializing maps.\n");

@@ -136,14 +136,13 @@ void cleanup_dev(void)
     }
 }
 
-void wait_ready(void)
+int wait_ready(void)
 {
     while (!done && (!mpr_dev_get_is_ready(dev) || !signal_detected)) {
         mpr_dev_poll(dev, 25);
         mpr_graph_poll(graph, 25);
     }
-    mpr_dev_poll(dev, 25);
-    mpr_graph_poll(graph, 25);
+    return done;
 }
 
 void loop(void)
@@ -243,7 +242,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    wait_ready();
+    if (wait_ready()) {
+        eprintf("Device registration aborted.\n");
+        result = 1;
+        goto done;
+    }
 
     loop();
 

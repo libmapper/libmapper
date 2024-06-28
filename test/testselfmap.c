@@ -128,14 +128,13 @@ int setup_maps(void)
     return 0;
 }
 
-void wait_ready(void)
+int wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
         mpr_dev_poll(dst, 25);
     }
-    mpr_dev_poll(src, 25);
-    mpr_dev_poll(dst, 25);
+    return done;
 }
 
 void segv(int sig)
@@ -221,7 +220,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    wait_ready();
+    if (wait_ready()) {
+        eprintf("Device registration aborted.\n");
+        result = 1;
+        goto done;
+    }
 
     /* try creating maps again now that devices are initialized */
     if (autoconnect && setup_maps()) {

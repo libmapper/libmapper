@@ -298,22 +298,23 @@ int setup_maps(void)
     return 0;
 }
 
-void wait_ready(int *cancel)
+int wait_ready(int *cancel)
 {
-    int i, keep_waiting = 1;
-    while (keep_waiting && !*cancel) {
-        keep_waiting = 0;
+    int i, ready = 0;
+    while (!ready && !*cancel) {
+        ready = 1;
 
         for (i = 0; i < num_sources; i++) {
             mpr_dev_poll(srcs[i], 50);
             if (!mpr_dev_get_is_ready(srcs[i])) {
-                keep_waiting = 1;
+                ready = 0;
             }
         }
         mpr_dev_poll(dst, 50);
         if (!mpr_dev_get_is_ready(dst))
-            keep_waiting = 1;
+            ready = 0;
     }
+    return *cancel;
 }
 
 void loop(void)
@@ -439,7 +440,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    wait_ready(&done);
+    if (wait_ready(&done)) {
+        eprintf("Device registration aborted.\n");
+        result = 1;
+        goto done;
+    }
 
     if (autoconnect) {
         for (i = 0; i < num_configs; i++) {

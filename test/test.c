@@ -177,12 +177,13 @@ void cleanup_dst(void)
 
 
 
-void wait_local_devs(void)
+int wait_ready(void)
 {
     while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
         mpr_dev_poll(dst, 25);
     }
+    return done;
 }
 
 void loop(void)
@@ -320,7 +321,11 @@ int main(int argc, char ** argv)
         goto done;
     }
 
-    wait_local_devs();
+    if (wait_ready()) {
+        eprintf("Device registration aborted.\n");
+        result = 1;
+        goto done;
+    }
 
     loop();
 

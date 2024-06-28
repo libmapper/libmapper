@@ -116,7 +116,7 @@ int setup_maps(void)
     return 0;
 }
 
-void wait_ready(int iterations)
+int wait_ready(int iterations)
 {
     while (!done && !(   mpr_dev_get_is_ready(devs[0])
                       && mpr_dev_get_is_ready(devs[1])
@@ -130,9 +130,10 @@ void wait_ready(int iterations)
         mpr_dev_poll(devs[1], 25);
         mpr_dev_poll(devs[2], 25);
     }
+    return done;
 }
 
-void loop(void)
+int loop(void)
 {
     int i = 0;
     const char *devname = mpr_obj_get_prop_as_str((mpr_obj)devs[0], MPR_PROP_NAME, NULL);
@@ -155,6 +156,8 @@ void loop(void)
     mpr_dev_poll(devs[0], period);
     mpr_dev_poll(devs[1], period);
     mpr_dev_poll(devs[2], period);
+
+    return done;
 }
 
 void segv(int sig)
@@ -352,7 +355,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    wait_ready(0);
+    if (wait_ready(0)) {
+        eprintf("Device registration aborted.\n");
+        result = 1;
+        goto done;
+    }
 
     if (autoconnect && setup_maps()) {
         eprintf("Error initializing maps.\n");
@@ -366,7 +373,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    loop();
+    if (loop()) {
+        eprintf("Test aborted\n");
+        result = 1;
+        goto done;
+    }
 
     if (received[1] != sent[0]) {
         eprintf("Error: %s received %d messages but should have received %d\n",
@@ -395,7 +406,11 @@ int main(int argc, char **argv)
     for (i = 0; i < 3; i++)
         sent[i] = received[i] = 0;
 
-    loop();
+    if (loop()) {
+        eprintf("Test aborted\n");
+        result = 1;
+        goto done;
+    }
 
     if (received[1] != sent[0]) {
         eprintf("Error: %s received %d messages but should have received %d\n",
@@ -424,7 +439,11 @@ int main(int argc, char **argv)
     for (i = 0; i < 3; i++)
         sent[i] = received[i] = 0;
 
-    loop();
+    if (loop()) {
+        eprintf("Test aborted\n");
+        result = 1;
+        goto done;
+    }
 
     if (received[1]) {
         eprintf("Error: %s received %d messages but should have received 0\n",
