@@ -19,14 +19,14 @@ INST=$TMP/inst
 
 (
     echo === Building liblo
-    TAR=$PWD/liblo-0.31.tar.gz
-    if ! (echo '14378c1e74c58e777fbb4fcf33ac5315  liblo-0.31.tar.gz'  | md5sum -c -); then
-        curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz
-        echo '14378c1e74c58e777fbb4fcf33ac5315  liblo-0.31.tar.gz' | md5sum -c -
+    TAR=$PWD/liblo-0.32.tar.gz
+    if ! (echo 'a93a7a9da084e6a0937bde6fc324a52a  liblo-0.32.tar.gz'  | md5sum -c -); then
+        curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.32/liblo-0.32.tar.gz
+        echo 'a93a7a9da084e6a0937bde6fc324a52a  liblo-0.32.tar.gz' | md5sum -c -
     fi
     cd $TMP
     tar -xzf $TAR
-    cd liblo-0.31
+    cd liblo-0.32
     ./configure --host=$HOST --prefix=$INST --disable-tests --disable-tools --disable-examples \
         || (cat config.log; echo "Error."; false)
     make clean
