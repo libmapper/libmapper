@@ -1,6 +1,7 @@
 #include "config.h"
 
 #include <lo/lo.h>
+#include <lo/lo_lowlevel.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
