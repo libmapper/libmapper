@@ -186,6 +186,7 @@ void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time 
 int mpr_link_process_bundles(mpr_link link, mpr_time t)
 {
     int num_msg = 0;
+    mpr_net net = mpr_graph_get_net(link->obj.graph);
     uint8_t idx = link->bundle_idx;
     mpr_bundle mb = &link->bundles[idx];
     lo_bundle lb;
@@ -198,7 +199,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t)
         if ((lb = mb->udp)) {
             mb->udp = 0;
             if ((num_msg = lo_bundle_count(lb))) {
-                lo_send_bundle_from(link->addr.udp, mpr_local_dev_get_server(ldev, SERVER_UDP), lb);
+                lo_send_bundle_from(link->addr.udp, mpr_net_get_dev_server(net, ldev, SERVER_UDP), lb);
             }
             lo_bundle_free_recursive(lb);
         }
@@ -207,7 +208,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t)
             int count;
             if ((count = lo_bundle_count(lb))) {
                 num_msg += count;
-                lo_send_bundle_from(link->addr.tcp, mpr_local_dev_get_server(ldev, SERVER_TCP), lb);
+                lo_send_bundle_from(link->addr.tcp, mpr_net_get_dev_server(net, ldev, SERVER_TCP), lb);
             }
             lo_bundle_free_recursive(lb);
         }

@@ -11,6 +11,11 @@ typedef struct _mpr_net *mpr_net;
 #include "mpr_time.h"
 #include "util/mpr_inline.h"
 
+typedef enum {
+    SERVER_UDP = 0,
+    SERVER_TCP = 1
+} dev_server_t;
+
 mpr_net mpr_net_new(mpr_graph g);
 
 int mpr_net_bundle_start(lo_timetag t, void *data);
@@ -29,7 +34,14 @@ void mpr_net_remove_dev(mpr_net n, mpr_local_dev d);
 
 int mpr_net_get_num_devs(mpr_net net);
 
-void mpr_net_poll(mpr_net n, int force_ping);
+lo_server mpr_net_get_dev_server(mpr_net net, mpr_local_dev dev, dev_server_t idx);
+
+void mpr_net_add_dev_server_method(mpr_net net, mpr_local_dev dev, const char *path,
+                                   lo_method_handler h, void *data);
+
+void mpr_net_remove_dev_server_method(mpr_net net, mpr_local_dev dev, const char *path);
+
+int mpr_net_poll(mpr_net n, int block_ms);
 
 int mpr_net_init(mpr_net n, const char *iface, const char *group, int port);
 

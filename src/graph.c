@@ -926,38 +926,7 @@ void mpr_graph_housekeeping(mpr_graph g)
 
 int mpr_graph_poll(mpr_graph g, int block_ms)
 {
-    mpr_net n = g->net;
-    int count = 0, status[2], left_ms, elapsed_ms, admin_elapsed_ms = 0;
-    double then;
-    lo_server *servers = mpr_net_get_servers(n);
-
-    mpr_net_poll(n, 0);
-
-    then = mpr_get_current_time();
-    left_ms = block_ms >= 0 ? block_ms : 0;
-    do {
-        register int recvd = 0;
-        if (left_ms > 100)
-            left_ms = 100;
-
-        if (lo_servers_recv_noblock(servers, status, 2, left_ms)) {
-            count += (status[0] > 0) + (status[1] > 0);
-            recvd = 1;
-        }
-
-        elapsed_ms = (mpr_get_current_time() - then) * 1000;
-        if ((elapsed_ms - admin_elapsed_ms) > 100) {
-            mpr_net_poll(n, 0);
-            admin_elapsed_ms = elapsed_ms;
-        }
-
-        if (block_ms > 0)
-            left_ms = block_ms - elapsed_ms;
-        else if (!recvd)
-            break;
-    } while (left_ms > 0 || block_ms < 0);
-
-    return count;
+    return mpr_net_poll(g->net, block_ms);
 }
 
 #ifdef HAVE_LIBPTHREAD

@@ -172,14 +172,20 @@ int wait_ready(void)
 void loop(void)
 {
     int i = 0;
+    mpr_graph g = mpr_obj_get_graph((mpr_obj)src);
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
     while ((!terminate || i < 50) && !done) {
         eprintf("Updating signal %s to %d\n", name, i);
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i);
         expected = i * M + B;
         sent++;
-        mpr_dev_poll(src, 0);
-        mpr_dev_poll(dst, period);
+        if (shared_graph) {
+            mpr_graph_poll(g, 0);
+        }
+        else {
+            mpr_dev_poll(src, 0);
+            mpr_dev_poll(dst, period);
+        }
         i++;
 
         if (!verbose) {

@@ -36,7 +36,6 @@
 #include "slot.h"
 #include "util/mpr_debug.h"
 
-#include "config.h"
 #include <mapper/mapper.h>
 
 extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
@@ -56,7 +55,7 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 typedef struct _mpr_net {
     mpr_graph graph;
 
-    lo_server servers[2];
+    lo_server *servers;
 
     struct {
         lo_address bus;             /*!< LibLo address for the multicast bus. */
@@ -82,10 +81,12 @@ typedef struct _mpr_net {
     int random_id;                  /*!< Random id for allocation speedup. */
     int msg_type;
     int num_devs;
+    int num_servers;
     uint32_t next_bus_ping;
     uint32_t next_sub_ping;
     uint8_t generic_dev_methods_added;
     uint8_t registered;
+    uint8_t force_next_ping;
 } mpr_net_t;
 
 static int is_alphabetical(int num, lo_arg **names)
@@ -402,30 +403,84 @@ void mpr_net_add_dev_methods(mpr_net net, mpr_local_dev dev)
 }
 
 /*! Add an uninitialized device to this network. */
+/* TODO: consider sorting net->devs array for faster lookup */
 void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
 {
-    int i, found = 0;
+    int dev_idx, server_idx, port;
+    char port_str[10], *host, *url;
+    lo_server_config config = {sizeof(lo_server_config), NULL, NULL, net->iface.name, NULL, LO_UDP, handler_error, NULL};
+    lo_server temp, temp2;
     RETURN_UNLESS(dev);
 
     /* Check if device was already added. */
-    for (i = 0; i < net->num_devs; i++) {
-        if (net->devs[i] == dev) {
-            found = 1;
+    for (dev_idx = 0; dev_idx < net->num_devs; dev_idx++) {
+        if (net->devs[dev_idx] == dev)
             break;
-        }
     }
-    if (found) {
-        /* reset registered flag */
-        mpr_local_dev_restart_registration(dev, i);
-    }
-    else {
+    if (dev_idx >= net->num_devs) {
         /* Initialize data structures */
         net->devs = realloc(net->devs, (net->num_devs + 1) * sizeof(mpr_local_dev));
         net->devs[net->num_devs] = dev;
         ++net->num_devs;
-        mpr_local_dev_restart_registration(dev, net->num_devs);
-        net->registered = 0;
+
+        if ((net->num_servers - 2) < (net->num_devs * 2)) {
+            net->servers = realloc(net->servers, (net->num_devs * 2 + 2) * sizeof(lo_server));
+        }
+        net->servers[net->num_devs * 2] = net->servers[net->num_devs * 2 + 1] = 0;
     }
+
+    server_idx = dev_idx * 2 + 2;
+
+    /* (re)create device UDP server */
+    while (!(temp = lo_server_new_from_config(&config))) {
+        ;
+    }
+    /* Disable liblo message queueing */
+    lo_server_enable_queue(temp, 0, 1);
+    /* Add bundle handlers */
+    lo_server_add_bundle_handlers(temp, mpr_net_bundle_start, NULL, (void*)net);
+
+    /* Swap and free old server structure if necessary */
+    temp2 = net->servers[server_idx];
+    net->servers[server_idx] = temp;
+    FUNC_IF(lo_server_free, temp2);
+
+    /* (re)create device TCP server with the same port */
+    port = lo_server_get_port(temp);
+    snprintf(port_str, 10, "%d", port);
+    config.port = port_str;
+    config.proto = LO_TCP;
+    while (!(temp = lo_server_new_from_config(&config))) {
+        ;
+    }
+    /* Disable liblo message queueing */
+    lo_server_enable_queue(temp, 0, 1);
+    /* Add bundle handlers */
+    lo_server_add_bundle_handlers(temp, mpr_net_bundle_start, NULL, (void*)net);
+
+    /* Swap and free old server structure if necessary */
+    temp2 = net->servers[server_idx + 1];
+    net->servers[server_idx + 1] = temp;
+    FUNC_IF(lo_server_free, temp2);
+
+    trace_dev(dev, "bound to UDP port %i\n", lo_server_get_port(net->servers[server_idx]));
+    trace_dev(dev, "bound to TCP port %i\n", lo_server_get_port(net->servers[server_idx + 1]));
+
+    /* Update device port and host properties */
+    mpr_obj_set_prop((mpr_obj)dev, MPR_PROP_PORT, NULL, 1, MPR_INT32, &port, 1);
+    url = lo_server_get_url(net->servers[server_idx]);
+    host = lo_url_get_hostname(url);
+    mpr_obj_set_prop((mpr_obj)dev, MPR_PROP_HOST, NULL, 1, MPR_STR, host, 1);
+    // TODO: check this on windows!
+    free(host);
+
+#ifndef WIN32
+    /* For some reason Windows thinks return of lo_address_get_url() should not be freed */
+    free(url);
+#endif /* WIN32 */
+
+    mpr_local_dev_restart_registration(dev, net->num_devs);
+    net->registered = 0;
 
     if (1 == net->num_devs) {
         /* Seed the random number generator. */
@@ -443,7 +498,7 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
     }
 
     /* Probe potential name. */
-    mpr_local_dev_probe_name(dev, net);
+    mpr_local_dev_probe_name(dev, dev_idx + 1, net);
 }
 
 void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
@@ -460,9 +515,18 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
         return;
     }
     --net->num_devs;
-    for (; i < net->num_devs; i++)
+
+    /* free device servers */
+    lo_server_free(net->servers[i * 2 + 2]); /* UDP server */
+    lo_server_free(net->servers[i * 2 + 3]); /* TCP server */
+
+    for (; i < net->num_devs; i++) {
         net->devs[i] = net->devs[i + 1];
+        net->servers[i * 2 + 2] = net->servers[i * 2 + 4];
+        net->servers[i * 2 + 3] = net->servers[i * 2 + 5];
+    }
     net->devs = realloc(net->devs, net->num_devs * sizeof(mpr_local_dev));
+    net->servers = realloc(net->servers, (net->num_devs * 2 + 2) * sizeof(mpr_local_dev));
 
     for (i = 0; i < NUM_DEV_HANDLERS_SPECIFIC; i++) {
         snprintf(path, 256, net_msg_strings[dev_handlers_specific[i].str_idx],
@@ -496,6 +560,39 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
 int mpr_net_get_num_devs(mpr_net net)
 {
     return net->num_devs;
+}
+
+lo_server mpr_net_get_dev_server(mpr_net net, mpr_local_dev dev, dev_server_t idx)
+{
+    int i;
+    for (i = 0; i < net->num_devs; i++) {
+        if (dev == net->devs[i])
+            return net->servers[i * 2 + 2 + idx];
+    }
+    return 0;
+}
+
+void mpr_net_add_dev_server_method(mpr_net net, mpr_local_dev dev, const char *path,
+                                   lo_method_handler h, void *data)
+{
+    int i;
+    for (i = 0; i < net->num_devs; i++) {
+        if (dev != net->devs[i])
+            continue;
+        lo_server_add_method(net->servers[i * 2 + 2], path, NULL, h, data);
+        lo_server_add_method(net->servers[i * 2 + 3], path, NULL, h, data);
+    }
+}
+
+void mpr_net_remove_dev_server_method(mpr_net net, mpr_local_dev dev, const char *path)
+{
+    int i;
+    for (i = 0; i < net->num_devs; i++) {
+        if (dev != net->devs[i])
+            continue;
+        lo_server_del_method(net->servers[i * 2 + 2], path, NULL);
+        lo_server_del_method(net->servers[i * 2 + 3], path, NULL);
+    }
 }
 
 static void mpr_net_add_graph_methods(mpr_net net, lo_server server)
@@ -573,6 +670,11 @@ int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     net->addr.bus = temp_addr1;
     FUNC_IF(lo_address_free, temp_addr2);
 
+    /* Allocate server array */
+    if (!net->servers) {
+        net->servers = (lo_server*) calloc(1, (net->num_devs * 2 + 2) * sizeof(lo_server));
+    }
+
     /* Open server for multicast */
     temp_server1 = lo_server_new_multicast_iface(net->multicast.group, s_port,
                                                  net->iface.name, 0, handler_error);
@@ -594,7 +696,9 @@ int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 
     /* Also open address/server for mesh-style communications */
     /* TODO: use TCP instead? */
-    while (!(temp_server1 = lo_server_new(0, handler_error))) {}
+    /* Use lo_server_new_from_config() so we can specify the network interface */
+    lo_server_config config = {sizeof(lo_server_config), NULL, NULL, net->iface.name, NULL, LO_UDP, handler_error, NULL};
+    while (!(temp_server1 = lo_server_new_from_config(&config))) {}
 
     /* Disable liblo message queueing and add methods. */
     lo_server_enable_queue(temp_server1, 0, 1);
@@ -607,7 +711,6 @@ int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 
     for (i = 0; i < net->num_devs; i++) {
         mpr_net_add_dev(net, net->devs[i]);
-        mpr_dev_set_net_servers(net->devs[i], net->servers);
     }
 
     return 0;
@@ -709,17 +812,23 @@ void mpr_net_free_msgs(mpr_net net)
  *  \param net      A network structure handle. */
 void mpr_net_free(mpr_net net)
 {
+    int i, num_servers = net->num_devs * 2 + 2;
+
     /* send out any cached messages */
     mpr_net_send(net);
     FUNC_IF(free, net->iface.name);
     FUNC_IF(free, net->multicast.group);
-    FUNC_IF(lo_server_free, net->servers[SERVER_BUS]);
-    FUNC_IF(lo_server_free, net->servers[SERVER_MESH]);
+
+    for (i = 0; i < num_servers; i++)
+        FUNC_IF(lo_server_free, net->servers[i]);
+    free(net->servers);
+
     FUNC_IF(lo_address_free, net->addr.bus);
 #ifndef WIN32
     /* For some reason Windows thinks return of lo_address_get_url() should not be freed */
     FUNC_IF(free, net->addr.url);
 #endif /* WIN32 */
+
     free(net);
 }
 
@@ -739,6 +848,11 @@ static void send_device_sync(mpr_net net, mpr_local_dev dev)
     lo_message_add_string(msg, mpr_dev_get_name((mpr_dev)dev));
     lo_message_add_int32(msg, mpr_obj_get_version((mpr_obj)dev));
     mpr_net_add_msg(net, 0, MSG_SYNC, msg);
+}
+
+void mpr_net_send_ping(mpr_net net)
+{
+    net->force_next_ping = 1;
 }
 
 /* TODO: rename to mpr_dev...? */
@@ -798,7 +912,7 @@ void mpr_net_maybe_send_ping(mpr_net net, int force)
 
 /*! This is the main function to be called once in a while from a program so
  *  that the libmapper bus can be automatically managed. */
-void mpr_net_poll(mpr_net net, int force_ping)
+static void mpr_net_housekeeping(mpr_net net, int force_ping)
 {
     int i, num_devs = net->num_devs, registered = 0;
 
@@ -809,7 +923,10 @@ void mpr_net_poll(mpr_net net, int force_ping)
         if (net->registered < num_devs) {
             for (i = 0; i < net->num_devs; i++)
                 registered += mpr_dev_get_is_registered((mpr_dev)net->devs[i]);
-            net->registered = registered;
+            if (registered != net->registered) {
+                net->registered = registered;
+                force_ping = 1;
+            }
         }
 
         if (net->registered) {
@@ -823,6 +940,64 @@ void mpr_net_poll(mpr_net net, int force_ping)
 
     mpr_graph_housekeeping(net->graph);
     return;
+}
+
+int mpr_net_poll(mpr_net net, int block_ms)
+{
+    int i, j, count = 0, left_ms, elapsed_ms, admin_elapsed_ms = 0;
+    int num_servers = net->num_devs * 2 + 2, status[num_servers];
+    double then = mpr_get_current_time();
+
+    mpr_net_housekeeping(net, 0);
+
+    for (i = 0; i < net->num_devs; i++) {
+        mpr_dev_update_maps((mpr_dev)net->devs[i]);
+    }
+
+    /* Desired behavour here:
+     * If block_ms == 0, check for incoming messages once and continue
+     * If block_ms > 0, block for block_ms while waiting on servers
+     * If block_ms < 0, loop over lo_servers_recv until no messages remain
+     */
+
+    left_ms = block_ms >= 0 ? block_ms : 0;
+    do {
+        register int recvd = 0;
+        /* set timeout to a maximum of 100ms */
+        if (left_ms > 100)
+            left_ms = 100;
+
+        if (lo_servers_recv_noblock(net->servers, status, num_servers, left_ms)) {
+            count = (status[0] > 0) + (status[1] > 0);
+            for (i = 0, j = 2; j < num_servers; i++, j += 2) {
+                int dev_count = (status[j] > 0) || (status[j+1] > 0);
+                if (dev_count) {
+                    mpr_dev_process_incoming_maps(net->devs[i]);
+                    count += dev_count;
+                }
+            }
+        }
+        for (i = 0; i < net->num_devs; i++) {
+            mpr_dev_update_maps((mpr_dev)net->devs[i]);
+        }
+
+        /* Only run mpr_net_housekeeping() again if more than 100ms have elapsed. */
+        elapsed_ms = (mpr_get_current_time() - then) * 1000;
+        if ((elapsed_ms - admin_elapsed_ms) > 100) {
+            mpr_net_housekeeping(net, 0);
+            admin_elapsed_ms = elapsed_ms;
+        }
+
+        if (block_ms > 0)
+            left_ms = block_ms - elapsed_ms;
+        else if (!recvd)
+            break;
+    } while (block_ms < 0 || left_ms > 0);
+
+    for (i = 0; i < net->num_devs; i++) {
+        mpr_dev_update_subscribers(net->devs[i]);
+    }
+    return count;
 }
 
 /**********************************/

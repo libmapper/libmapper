@@ -14,8 +14,8 @@
 int verbose = 1;
 int done = 0;
 
-const char *iface_names[] = { "en0", "lo0", "obviously wrong", "vEthernet (nat)" };
-#define NUM_IFACE_NAMES 4
+const char *iface_names[] = { "en0", "obviously wrong", "vEthernet (nat)" };
+#define NUM_IFACE_NAMES 3
 
 mpr_dev devs[NUM_IFACE_NAMES];
 
@@ -70,7 +70,6 @@ void wait_ready(void)
                 continue;
             mpr_dev_poll(dev, 25);
             ready &= mpr_dev_get_is_ready(dev);
-
         }
         if (ready)
             break;

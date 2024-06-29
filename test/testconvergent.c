@@ -164,6 +164,8 @@ int setup_maps(void)
             int offset = 2, len = num_sources * 5 + 5;
             char *expr;
 
+            eprintf("Configuration 0: combination function and muted sources\n");
+
             if (!(map = mpr_map_new(num_sources, sendsigs, 1, &recvsig))) {
                 eprintf("Failed to create map\n");
                 return 1;
@@ -193,6 +195,8 @@ int setup_maps(void)
             break;
         }
         case 1:
+            eprintf("Configuration 1: combination function and buddy logic\n");
+
             if (!(map = mpr_map_new(num_sources, sendsigs, 1, &recvsig))) {
                 eprintf("Failed to create map\n");
                 return 1;
@@ -205,6 +209,7 @@ int setup_maps(void)
             mpr_obj_push(map);
             break;
         case 2:
+            eprintf("Configuration 2: format string and signal arguments\n");
             /* create/modify map with format string and signal arguments */
             if (!(map = mpr_map_new_from_str("%y=%x-_%x+_%x", recvsig, sendsigs[0],
                                              sendsigs[1], sendsigs[2]))) {
@@ -214,6 +219,7 @@ int setup_maps(void)
             mpr_obj_push(map);
             break;
         case 3: {
+            eprintf("Configuration 3: create the map using a 3rd party graph\n");
             /* create the map using a 3rd party graph */
             g2 = mpr_graph_new(MPR_OBJ);
             mpr_sig *sendsigs2 = calloc(1, sizeof(mpr_sig) * num_sources);

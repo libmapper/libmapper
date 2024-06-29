@@ -15,11 +15,6 @@ typedef struct _mpr_local_dev *mpr_local_dev;
 #include "mpr_time.h"
 #include "network.h"
 
-typedef enum {
-    SERVER_UDP = 0,
-    SERVER_TCP = 1
-} dev_server_t;
-
 /**** Debug macros ****/
 
 /*! Debug tracer */
@@ -44,8 +39,6 @@ typedef enum {
 #endif /* __GNUC__ */
 
 void mpr_dev_free_mem(mpr_dev dev);
-
-void mpr_dev_set_net_servers(mpr_local_dev dev, lo_server *servers);
 
 int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg msg);
 
@@ -79,12 +72,11 @@ int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map id_map);
 
 void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id);
 
-void mpr_local_dev_add_server_method(mpr_local_dev dev, const char *path,
-                                     lo_method_handler h, void *data);
+void mpr_dev_process_incoming_maps(mpr_local_dev dev);
+
+void mpr_dev_update_subscribers(mpr_local_dev dev);
 
 void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig);
-
-void mpr_local_dev_remove_server_method(mpr_local_dev dev, const char *path);
 
 const char *mpr_dev_get_name(mpr_dev dev);
 
@@ -106,8 +98,6 @@ size_t mpr_dev_get_struct_size(void);
 
 int mpr_dev_get_is_registered(mpr_dev dev);
 
-lo_server mpr_local_dev_get_server(mpr_local_dev dev, dev_server_t idx);
-
 void mpr_local_dev_set_sending(mpr_local_dev dev);
 
 void mpr_local_dev_set_receiving(mpr_local_dev dev);
@@ -120,7 +110,7 @@ void mpr_local_dev_send_to_subscribers(mpr_local_dev dev, lo_bundle bundle, int 
 void mpr_local_dev_handler_name(mpr_local_dev dev, const char *name,
                                 int temp_id, int random_id, int hint);
 
-void mpr_local_dev_probe_name(mpr_local_dev dev, mpr_net net);
+void mpr_local_dev_probe_name(mpr_local_dev dev, int start_ordinal, mpr_net net);
 
 void mpr_local_dev_handler_name_probe(mpr_local_dev dev, char *name, int temp_id,
                                       int random_id, mpr_id id);

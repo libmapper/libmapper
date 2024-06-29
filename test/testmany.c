@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
     }
 
     if (wait_ready(&done)) {
-        eprintf("Device registration aborted.\n");
+        eprintf("Error registering devices.\n");
         result = 1;
     }
 

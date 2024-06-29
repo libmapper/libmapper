@@ -74,12 +74,8 @@ typedef struct _mpr_allocated_t {
 struct _mpr_local_dev {
     MPR_DEV_STRUCT_ITEMS
 
-    lo_server servers[4];
-
     mpr_allocated_t ordinal_allocator;  /*!< A unique ordinal for this device instance. */
     int registered;                     /*!< Non-zero if this device has been registered. */
-
-    int n_output_callbacks;
 
     mpr_subscriber subscribers;         /*!< Linked-list of subscribed peers. */
 
@@ -100,7 +96,6 @@ struct _mpr_local_dev {
 } mpr_local_dev_t;
 
 /* prototypes */
-static void mpr_dev_start_servers(mpr_local_dev dev);
 static void mpr_dev_remove_id_map(mpr_local_dev dev, int group, mpr_id_map rem);
 static int process_outgoing_maps(mpr_local_dev dev);
 static int check_registration(mpr_local_dev dev);
@@ -205,19 +200,14 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph graph)
     dev->prefix_len = strlen(name_prefix);
     dev->name = (char*)malloc(dev->prefix_len + 6);
     sprintf(dev->name, "%s.0", name_prefix);
-    mpr_dev_start_servers(dev);
-
-    if (!dev->servers[SERVER_UDP] || !dev->servers[SERVER_TCP]) {
-        mpr_dev_free((mpr_dev)dev);
-        return NULL;
-    }
 
     dev->ordinal_allocator.val = 1;
+    dev->ordinal_allocator.count_time = mpr_get_current_time();
+    mpr_net_add_dev(mpr_graph_get_net(g), dev);
     dev->id_maps.active = (mpr_id_map*) malloc(sizeof(mpr_id_map));
     dev->id_maps.active[0] = 0;
     dev->num_sig_groups = 1;
 
-    mpr_net_add_dev(mpr_graph_get_net(g), dev);
     return (mpr_dev)dev;
 }
 
@@ -301,9 +291,6 @@ void mpr_dev_free(mpr_dev dev)
         free(id_map);
     }
 
-    FUNC_IF(lo_server_free, ldev->servers[SERVER_UDP]);
-    FUNC_IF(lo_server_free, ldev->servers[SERVER_TCP]);
-
     mpr_graph_remove_dev(graph, dev, MPR_OBJ_REM);
     if (own_graph)
         mpr_graph_free(graph);
@@ -349,22 +336,7 @@ static void on_registered(mpr_local_dev dev)
 
 int mpr_dev_get_is_registered(mpr_dev dev)
 {
-    return !dev->obj.is_local || ((mpr_local_dev)dev)->registered;
-}
-
-void mpr_local_dev_add_server_method(mpr_local_dev dev, const char *path,
-                                     lo_method_handler h, void *data)
-{
-    lo_server_add_method(dev->servers[SERVER_UDP], path, NULL, h, data);
-    lo_server_add_method(dev->servers[SERVER_TCP], path, NULL, h, data);
-    ++dev->n_output_callbacks;
-}
-
-void mpr_local_dev_remove_server_method(mpr_local_dev dev, const char *path)
-{
-    lo_server_del_method(dev->servers[SERVER_UDP], path, NULL);
-    lo_server_del_method(dev->servers[SERVER_TCP], path, NULL);
-    --dev->n_output_callbacks;
+    return !dev->obj.is_local || check_registration((mpr_local_dev)dev);
 }
 
 void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig)
@@ -457,7 +429,7 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 }
 
 /* TODO: handle interrupt-driven updates that omit call to this function */
-static void process_incoming_maps(mpr_local_dev dev)
+void mpr_dev_process_incoming_maps(mpr_local_dev dev)
 {
     mpr_graph graph;
     mpr_list maps;
@@ -480,8 +452,9 @@ static int process_outgoing_maps(mpr_local_dev dev)
     int msgs = 0;
     mpr_list list;
     mpr_graph graph;
-    RETURN_ARG_UNLESS(dev->sending, 0);
+    RETURN_ARG_UNLESS(dev->sending && !dev->polling, 0);
 
+    dev->polling = 1;
     graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
@@ -498,6 +471,7 @@ static int process_outgoing_maps(mpr_local_dev dev)
         msgs += mpr_link_process_bundles((mpr_link)*list, dev->time);
         list = mpr_list_get_next(list);
     }
+    dev->polling = 0;
     return msgs ? 1 : 0;
 }
 
@@ -539,97 +513,7 @@ static int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
 
 int mpr_dev_poll(mpr_dev dev, int block_ms)
 {
-    int admin_count = 0, device_count = 0, status[4], left_ms, elapsed_ms, admin_elapsed_ms = 0;
-    mpr_local_dev ldev = (mpr_local_dev)dev;
-    mpr_net net;
-    double then;
-
-    RETURN_ARG_UNLESS(dev && dev->obj.is_local, 0);
-
-    then = mpr_get_current_time();
-    net = mpr_graph_get_net(dev->obj.graph);
-    mpr_net_poll(net, !ldev->registered && check_registration(ldev));
-
-    if (ldev->registered) {
-        ldev->polling = 1;
-        process_outgoing_maps(ldev);
-        ldev->time_is_stale = 1;
-        ldev->polling = 0;
-    }
-
-    /* Desired behavour here:
-     * If block_ms == 0, check for incoming messages once and continue
-     * If block_ms > 0, block for block_ms while waiting on servers
-     * If block_ms < 0, loop over lo_servers_recv until no messages remain
-     */
-
-    left_ms = block_ms >= 0 ? block_ms : 0;
-    do {
-        register int recvd = 0;
-        /* set timeout to a maximum of 100ms */
-        if (left_ms > 100)
-            left_ms = 100;
-        if (ldev->registered) {
-            ldev->polling = 1;
-            if (lo_servers_recv_noblock(ldev->servers, status, 4, left_ms)) {
-                admin_count += (status[0] > 0) + (status[1] > 0);
-                device_count += (status[2] > 0) + (status[3] > 0);
-                recvd = 1;
-
-                /* check if any signal update bundles need to be sent */
-                process_incoming_maps(ldev);
-            }
-            process_outgoing_maps(ldev);
-            ldev->polling = 0;
-        }
-        else {
-            if (lo_servers_recv_noblock(ldev->servers + 2, status, 2, left_ms)) {
-                admin_count = (status[0] > 0) + (status[1] > 0);
-                recvd = 1;
-            }
-        }
-
-        /* Only run mpr_net_poll() again if more than 100ms have elapsed. */
-        elapsed_ms = (mpr_get_current_time() - then) * 1000;
-        if ((elapsed_ms - admin_elapsed_ms) > 100) {
-            mpr_net_poll(net, 0);
-            admin_elapsed_ms = elapsed_ms;
-        }
-
-        if (block_ms > 0)
-            left_ms = block_ms - elapsed_ms;
-        else if (!recvd)
-            break;
-    } while (block_ms < 0 || left_ms > 0);
-
-    if (!ldev->registered)
-        return admin_count;
-
-    if (block_ms >= 0) {
-        /* When done, or if non-blocking, check for remaining messages up to a proportion of the
-         * number of input signals. Arbitrarily choosing 1 for now, but perhaps could be a
-         * heuristic based on a recent number of messages per channel per poll. */
-        while (device_count < (dev->num_inputs + ldev->n_output_callbacks)*1
-               && (lo_servers_recv_noblock(ldev->servers, &status[2], 2, 0)))
-            device_count += (status[2] > 0) + (status[3] > 0);
-
-        /* process incoming maps */
-        ldev->polling = 1;
-        process_incoming_maps(ldev);
-        ldev->polling = 0;
-    }
-
-    if (mpr_tbl_get_is_dirty(dev->obj.props.synced) && mpr_dev_get_is_ready(dev) && ldev->subscribers) {
-        /* inform device subscribers of changed properties */
-        mpr_net_use_subscribers(net, ldev, MPR_DEV);
-        mpr_dev_send_state(dev, MSG_DEV);
-    }
-    /* TODO: add sig_dirty flag to device */
-    mpr_net_use_subscribers(net, ldev, MPR_SIG);
-    mpr_dev_send_sigs(ldev, MPR_DIR_ANY, 0);
-
-    ldev->time_is_stale = 1;
-    return admin_count + device_count;
+    return mpr_net_poll(mpr_graph_get_net(dev->obj.graph), block_ms);
 }
 
 #ifdef HAVE_LIBPTHREAD
@@ -873,63 +757,13 @@ mpr_id_map mpr_dev_get_id_map_by_GID(mpr_local_dev dev, int group, mpr_id GID)
     return 0;
 }
 
-/* Internal LibLo error handler */
-static void handler_error(int num, const char *msg, const char *where)
-{
-    trace("[libmapper] liblo server error %d in path %s: %s\n", num, where, msg);
-}
-
-void mpr_dev_set_net_servers(mpr_local_dev dev, lo_server *servers)
-{
-    memcpy(dev->servers + 2, servers, sizeof(lo_server) * 2);
-}
-
-static void mpr_dev_start_servers(mpr_local_dev dev)
-{
-    int portnum;
-    mpr_net net = mpr_graph_get_net(dev->obj.graph);
-    char port[16], *pport = 0, *url, *host;
-    if (!dev->servers[SERVER_UDP] && !dev->servers[SERVER_TCP]) {
-        while (!(dev->servers[SERVER_UDP] = lo_server_new(pport, handler_error)))
-            pport = 0;
-        snprintf(port, 16, "%d", lo_server_get_port(dev->servers[SERVER_UDP]));
-        pport = port;
-        while (!(dev->servers[SERVER_TCP] = lo_server_new_with_proto(pport, LO_TCP, handler_error)))
-            pport = 0;
-
-        /* Disable liblo message queueing */
-        lo_server_enable_queue(dev->servers[SERVER_UDP], 0, 1);
-        lo_server_enable_queue(dev->servers[SERVER_TCP], 0, 1);
-
-        /* Add bundle handlers */
-        lo_server_add_bundle_handlers(dev->servers[SERVER_UDP], mpr_net_bundle_start,
-                                      NULL, (void*)net);
-        lo_server_add_bundle_handlers(dev->servers[SERVER_TCP], mpr_net_bundle_start,
-                                      NULL, (void*)net);
-    }
-
-    portnum = lo_server_get_port(dev->servers[SERVER_UDP]);
-    mpr_tbl_add_record(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, MOD_NONE);
-
-    trace_dev(dev, "bound to UDP port %i\n", portnum);
-    trace_dev(dev, "bound to TCP port %i\n", lo_server_get_port(dev->servers[SERVER_TCP]));
-
-    url = lo_server_get_url(dev->servers[SERVER_UDP]);
-    host = lo_url_get_hostname(url);
-    mpr_tbl_add_record(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, MOD_NONE);
-
-#ifndef WIN32
-    /* For some reason Windows thinks return of lo_address_get_url() should not be freed */
-    free(url);
-#endif /* WIN32 */
-
-    mpr_dev_set_net_servers(dev, mpr_net_get_servers(net));
-}
-
 /*! Probe the network to see if a device's proposed name.ordinal is available. */
-void mpr_local_dev_probe_name(mpr_local_dev dev, mpr_net net)
+void mpr_local_dev_probe_name(mpr_local_dev dev, int start_ordinal, mpr_net net)
 {
     int i;
+
+    if (start_ordinal)
+        dev->ordinal_allocator.val = start_ordinal;
 
     /* reset collisions and hints */
     dev->ordinal_allocator.collision_count = 0;
@@ -997,8 +831,7 @@ void mpr_local_dev_handler_name(mpr_local_dev dev, const char *name,
                 dev->ordinal_allocator.count_time = mpr_get_current_time();
             }
             else if (temp_id == random_id && hint > 0 && hint != dev->ordinal_allocator.val) {
-                dev->ordinal_allocator.val = hint;
-                mpr_local_dev_probe_name(dev, net);
+                mpr_local_dev_probe_name(dev, hint, net);
             }
         }
     }
@@ -1307,6 +1140,21 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
     }
 }
 
+void mpr_dev_update_subscribers(mpr_local_dev ldev)
+{
+    mpr_net net = mpr_graph_get_net(ldev->obj.graph);
+    if (ldev->subscribers && mpr_tbl_get_is_dirty(ldev->obj.props.synced)) {
+        /* inform device subscribers of changed properties */
+        mpr_net_use_subscribers(net, ldev, MPR_DEV);
+        mpr_dev_send_state((mpr_dev)ldev, MSG_DEV);
+    }
+    /* TODO: add sig_dirty flag to device */
+    mpr_net_use_subscribers(net, ldev, MPR_SIG);
+    mpr_dev_send_sigs(ldev, MPR_DIR_ANY, 0);
+
+    ldev->time_is_stale = 1;
+}
+
 int mpr_dev_check_synced(mpr_dev dev, mpr_time time)
 {
     return !dev->synced.sec || (dev->synced.sec > time.sec);
@@ -1325,11 +1173,6 @@ int mpr_dev_has_local_link(mpr_dev dev)
             return 1;
     }
     return 0;
-}
-
-lo_server mpr_local_dev_get_server(mpr_local_dev dev, dev_server_t idx)
-{
-    return dev->servers[idx];
 }
 
 void mpr_local_dev_set_sending(mpr_local_dev dev)
@@ -1431,7 +1274,7 @@ static int check_registration(mpr_local_dev dev)
 
     /* If the ordinal has changed, re-probe the new name. */
     if (1 == check_collisions(net, &dev->ordinal_allocator))
-        mpr_local_dev_probe_name(dev, net);
+        mpr_local_dev_probe_name(dev, 0, net);
     else if (dev->ordinal_allocator.locked) {
         /* If we are ready to register the device, add the message handlers. */
         on_registered(dev);

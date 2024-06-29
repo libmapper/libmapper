@@ -579,6 +579,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
 {
     mpr_graph g;
     mpr_local_sig lsig;
+    mpr_net net;
 
     /* For now we only allow adding signals to devices. */
     RETURN_ARG_UNLESS(dev && mpr_obj_get_is_local((mpr_obj)dev), 0);
@@ -587,9 +588,12 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
                         "trailing slash detected in signal name.\n");
     TRACE_RETURN_UNLESS(dir == MPR_DIR_IN || dir == MPR_DIR_OUT, 0,
                         "signal direction must be either input or output.\n")
-    g = mpr_obj_get_graph((mpr_obj)dev);
+
     if ((lsig = (mpr_local_sig)mpr_dev_get_sig_by_name(dev, name)))
         return (mpr_sig)lsig;
+
+    g = mpr_obj_get_graph((mpr_obj)dev);
+    net = mpr_graph_get_net(g);
 
     lsig = (mpr_local_sig)mpr_graph_add_list_item(g, MPR_SIG, sizeof(mpr_local_sig_t));
     lsig->obj.id = mpr_dev_generate_unique_id(dev);
@@ -598,7 +602,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     lsig->event_flags = events;
     mpr_sig_init((mpr_sig)lsig, dev, 1, dir, name, len, type, unit, min, max, num_inst);
 
-    mpr_local_dev_add_server_method((mpr_local_dev)dev, lsig->path, mpr_sig_osc_handler, lsig);
+    mpr_net_add_dev_server_method(net, (mpr_local_dev)dev, lsig->path, mpr_sig_osc_handler, lsig);
     mpr_local_dev_add_sig((mpr_local_dev)dev, lsig, dir);
     return (mpr_sig)lsig;
 }
@@ -696,9 +700,10 @@ void mpr_sig_free(mpr_sig sig)
     mpr_local_sig lsig = (mpr_local_sig)sig;
     RETURN_UNLESS(sig && sig->obj.is_local);
     ldev = (mpr_local_dev)sig->dev;
+    net = mpr_graph_get_net(sig->obj.graph);
 
     /* release associated OSC methods */
-    mpr_local_dev_remove_server_method(ldev, lsig->path);
+    mpr_net_remove_dev_server_method(net, ldev, lsig->path);
     net = mpr_graph_get_net(sig->obj.graph);
 
     /* release active instances */
@@ -1245,7 +1250,7 @@ static void _mpr_remote_sig_set_value(mpr_sig sig, int len, mpr_type type, const
     char port_str[10];
     lo_message msg = NULL;
     lo_address addr = NULL;
-    const void *coerced = val;
+    void *coerced = 0;
 
     /* find destination IP and port */
     dev = sig->dev;
@@ -1257,23 +1262,25 @@ static void _mpr_remote_sig_set_value(mpr_sig sig, int len, mpr_type type, const
         return;
 
     if (type != sig->type || len < sig->len) {
-        coerced = alloca(mpr_type_get_size(sig->type) * sig->len);
+        coerced = calloc(1, mpr_type_get_size(sig->type) * sig->len);
         mpr_set_coerced(len, type, val, sig->len, sig->type, (void*)coerced);
+        val = coerced;
     }
     switch (sig->type) {
         case MPR_INT32:
             for (i = 0; i < sig->len; i++)
-                lo_message_add_int32(msg, ((int*)coerced)[i]);
+                lo_message_add_int32(msg, ((int*)val)[i]);
             break;
         case MPR_FLT:
             for (i = 0; i < sig->len; i++)
-                lo_message_add_float(msg, ((float*)coerced)[i]);
+                lo_message_add_float(msg, ((float*)val)[i]);
             break;
         case MPR_DBL:
             for (i = 0; i < sig->len; i++)
-                lo_message_add_double(msg, ((double*)coerced)[i]);
+                lo_message_add_double(msg, ((double*)val)[i]);
             break;
     }
+    FUNC_IF(free, coerced);
 
     snprintf(port_str, 10, "%d", port);
     if (!(addr = lo_address_new(host, port_str)))
