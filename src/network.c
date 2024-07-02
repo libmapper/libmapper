@@ -1,7 +1,5 @@
 #include "config.h"
 
-#include <lo/lo.h>
-#include <lo/lo_lowlevel.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -57,6 +55,7 @@ typedef struct _mpr_net {
     mpr_graph graph;
 
     lo_server *servers;
+    int *server_status;
 
     struct {
         lo_address bus;             /*!< LibLo address for the multicast bus. */
@@ -425,7 +424,9 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
         ++net->num_devs;
 
         if ((net->num_servers - 2) < (net->num_devs * 2)) {
-            net->servers = realloc(net->servers, (net->num_devs * 2 + 2) * sizeof(lo_server));
+            net->num_servers = net->num_devs * 2 + 2;
+            net->servers = realloc(net->servers, net->num_servers * sizeof(lo_server));
+            net->server_status = realloc(net->server_status, net->num_servers * sizeof(int));
         }
         net->servers[net->num_devs * 2] = net->servers[net->num_devs * 2 + 1] = 0;
     }
@@ -516,6 +517,7 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
         return;
     }
     --net->num_devs;
+    net->num_servers -= 2;
 
     /* free device servers */
     lo_server_free(net->servers[i * 2 + 2]); /* UDP server */
@@ -527,7 +529,8 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
         net->servers[i * 2 + 3] = net->servers[i * 2 + 5];
     }
     net->devs = realloc(net->devs, net->num_devs * sizeof(mpr_local_dev));
-    net->servers = realloc(net->servers, (net->num_devs * 2 + 2) * sizeof(mpr_local_dev));
+    net->servers = realloc(net->servers, net->num_servers * sizeof(mpr_local_dev));
+    net->server_status = realloc(net->server_status, net->num_servers * sizeof(int));
 
     for (i = 0; i < NUM_DEV_HANDLERS_SPECIFIC; i++) {
         snprintf(path, 256, net_msg_strings[dev_handlers_specific[i].str_idx],
@@ -672,8 +675,10 @@ int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     FUNC_IF(lo_address_free, temp_addr2);
 
     /* Allocate server array */
-    if (!net->servers) {
-        net->servers = (lo_server*) calloc(1, (net->num_devs * 2 + 2) * sizeof(lo_server));
+    if (!net->num_servers) {
+        net->num_servers = 2;
+        net->servers = (lo_server*) calloc(1, net->num_servers * sizeof(lo_server));
+        net->server_status = (int*) malloc(net->num_servers * sizeof(int));
     }
 
     /* Open server for multicast */
@@ -813,16 +818,17 @@ void mpr_net_free_msgs(mpr_net net)
  *  \param net      A network structure handle. */
 void mpr_net_free(mpr_net net)
 {
-    int i, num_servers = net->num_devs * 2 + 2;
+    int i;
 
     /* send out any cached messages */
     mpr_net_send(net);
     FUNC_IF(free, net->iface.name);
     FUNC_IF(free, net->multicast.group);
 
-    for (i = 0; i < num_servers; i++)
+    for (i = 0; i < net->num_servers; i++)
         FUNC_IF(lo_server_free, net->servers[i]);
     free(net->servers);
+    free(net->server_status);
 
     FUNC_IF(lo_address_free, net->addr.bus);
 #ifndef WIN32
@@ -946,7 +952,6 @@ static void mpr_net_housekeeping(mpr_net net, int force_ping)
 int mpr_net_poll(mpr_net net, int block_ms)
 {
     int i, j, count = 0, left_ms, elapsed_ms, admin_elapsed_ms = 0;
-    int num_servers = net->num_devs * 2 + 2, status[num_servers];
     double then = mpr_get_current_time();
 
     mpr_net_housekeeping(net, 0);
@@ -968,10 +973,10 @@ int mpr_net_poll(mpr_net net, int block_ms)
         if (left_ms > 100)
             left_ms = 100;
 
-        if (lo_servers_recv_noblock(net->servers, status, num_servers, left_ms)) {
-            count = (status[0] > 0) + (status[1] > 0);
-            for (i = 0, j = 2; j < num_servers; i++, j += 2) {
-                int dev_count = (status[j] > 0) || (status[j+1] > 0);
+        if (lo_servers_recv_noblock(net->servers, net->server_status, net->num_servers, left_ms)) {
+            count = (net->server_status[0] > 0) + (net->server_status[1] > 0);
+            for (i = 0, j = 2; j < net->num_servers; i++, j += 2) {
+                int dev_count = (net->server_status[j] > 0) || (net->server_status[j+1] > 0);
                 if (dev_count) {
                     mpr_dev_process_incoming_maps(net->devs[i]);
                     count += dev_count;
@@ -2098,9 +2103,4 @@ static int handler_sync(const char *path, const char *types, lo_arg **av,
     trace_net(mpr_graph_get_net(graph));
     mpr_graph_sync_dev(graph, &av[0]->s);
     return 0;
-}
-
-lo_server *mpr_net_get_servers(mpr_net n)
-{
-    return n->servers;
 }

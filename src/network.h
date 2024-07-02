@@ -59,8 +59,6 @@ void mpr_net_free_msgs(mpr_net n);
 
 void mpr_net_free(mpr_net n);
 
-lo_server *mpr_net_get_servers(mpr_net n);
-
 void mpr_net_send_name_probe(mpr_net net, const char *name);
 
 void mpr_net_add_dev_methods(mpr_net net, mpr_local_dev dev);
