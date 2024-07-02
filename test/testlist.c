@@ -88,13 +88,13 @@ int wait_for_registration_and_sync(void)
 {
     int i = 10;
     while (!done && !mpr_dev_get_is_ready(dev)) {
-        mpr_dev_poll(dev, 100);
-        mpr_graph_poll(graph, 100);
+        mpr_dev_poll(dev, 10);
+        mpr_graph_poll(graph, 10);
     }
     /* wait some more for graph sync */
     while (!done && i-- > 0) {
-        mpr_dev_poll(dev, 100);
-        mpr_graph_poll(graph, 100);
+        mpr_dev_poll(dev, 10);
+        mpr_graph_poll(graph, 10);
     }
     return done;
 }
