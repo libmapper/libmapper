@@ -4671,8 +4671,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 b = b_out;
                 idx = (b->pos + v_out->mlen + hidx) % v_out->mlen;
                 t_d = mpr_time_as_dbl(b->times[idx]);
-                if (weight)
-                    t_d = t_d * weight + ((b->pos + v_out->mlen + hidx - 1) % v_out->mlen) * (1 - weight);
+                if (weight) {
+                    idx = (b->pos + v_out->mlen + hidx - 1) % v_out->mlen;
+                    t_d = t_d * weight + mpr_time_as_dbl(b->times[idx]) * (1 - weight);
+                }
             }
             else if (tok->var.idx >= VAR_X) {
                 mpr_value v;
@@ -4680,10 +4682,11 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 RETURN_ARG_UNLESS(v_in, status);
                 v = v_in[tok->var.idx - VAR_X];
                 b = &v->inst[inst_idx % v->num_inst];
-                /* TODO: ensure buffer overrun is not possible here amd similar */
                 t_d = mpr_time_as_dbl(b->times[(b->pos + v->mlen + hidx) % v->mlen]);
-                if (weight)
-                    t_d = t_d * weight + ((b->pos + v->mlen + hidx - 1) % v->mlen) * (1 - weight);
+                if (weight) {
+                    int idx = (b->pos + v->mlen + hidx - 1) % v->mlen;
+                    t_d = t_d * weight + mpr_time_as_dbl(b->times[idx]) * (1 - weight);
+                }
             }
             else if (v_vars) {
                 mpr_value v = *v_vars + tok->var.idx;
