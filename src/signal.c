@@ -416,17 +416,18 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             if (map_manages_inst && vals == slot_sig->len) {
                 /* special case: do a dry-run to check whether this map will
                  * cause a release. If so, don't bother stealing an instance. */
-                mpr_value_buffer_t b = { argv[0], 0, -1, 1 };
-                mpr_value_t v = { &b, val_len, 1, 0, slot_sig->type, 1 };
-
                 int slot_id = mpr_slot_get_id((mpr_slot)slot);
                 int num_src = mpr_map_get_num_src((mpr_map)map);
+                int status;
                 mpr_value *src = alloca(num_src * sizeof(mpr_value));
+                mpr_value v = mpr_value_new(val_len, slot_sig->type, 1, 1);
+                mpr_value_set_samp(v, 0, argv[0], &time);
                 for (i = 0; i < num_src; i++)
-                    src[i] = (i == slot_id) ? &v : 0;
-                if (  mpr_expr_eval(mpr_graph_get_expr_stack(sig->obj.graph),
-                                    mpr_local_map_get_expr(map), src, 0, 0, 0, 0, 0)
-                    & EXPR_RELEASE_BEFORE_UPDATE)
+                    src[i] = (i == slot_id) ? v : 0;
+                status = mpr_expr_eval(mpr_graph_get_expr_stack(sig->obj.graph),
+                                       mpr_local_map_get_expr(map), src, 0, 0, 0, 0, 0);
+                mpr_value_free(v);
+                if (status & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;
             }
 

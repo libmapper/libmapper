@@ -17,7 +17,7 @@ typedef struct _mpr_local_slot *mpr_local_slot;
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir, unsigned char is_local,
                       unsigned char is_src);
 
-int mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size);
+int mpr_slot_alloc_values(mpr_local_slot slot, unsigned int num_inst, int hist_size);
 
 void mpr_slot_free(mpr_slot slot);
 
@@ -29,7 +29,7 @@ void mpr_slot_print(mpr_slot slot, int is_dest);
 
 int mpr_slot_match_full_name(mpr_slot slot, const char *full_name);
 
-void mpr_slot_remove_inst(mpr_local_slot slot, int idx);
+void mpr_slot_remove_inst(mpr_local_slot slot, unsigned int inst_idx);
 
 int mpr_slot_get_status(mpr_local_slot slot);
 
@@ -65,9 +65,9 @@ void mpr_slot_set_causes_update(mpr_slot slot, int causes_update);
 
 mpr_value mpr_slot_get_value(mpr_local_slot slot);
 
-int mpr_slot_set_value(mpr_local_slot slot, int inst_idx, void *val, mpr_time time);
+int mpr_slot_set_value(mpr_local_slot slot, unsigned int inst_idx, void *val, mpr_time time);
 
-void mpr_slot_reset_inst(mpr_local_slot slot, int inst_idx);
+void mpr_slot_reset_inst(mpr_local_slot slot, unsigned int inst_idx);
 
 void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto);
 

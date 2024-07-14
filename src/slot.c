@@ -37,7 +37,7 @@ typedef struct _mpr_local_slot {
     mpr_local_map map;              /*!< Pointer to parent map */
 
     /* TODO: use signal for holding memory of local slots for efficiency */
-    mpr_value_t val;                /*!< Value histories for each signal instance. */
+    mpr_value val;                  /*!< Value histories for each signal instance. */
     mpr_link link;
 } mpr_local_slot_t;
 
@@ -46,7 +46,7 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
 {
     size_t size = is_local ? sizeof(struct _mpr_local_slot) : sizeof(struct _mpr_slot);
     int sig_is_local = mpr_obj_get_is_local((mpr_obj)sig);
-    int num_inst= mpr_sig_get_num_inst_internal(sig);
+    int num_inst = mpr_sig_get_num_inst_internal(sig);
     mpr_slot slot = (mpr_slot)calloc(1, size);
     slot->map = map;
     slot->sig = sig;
@@ -57,6 +57,12 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
     else
         slot->dir = dir;
     slot->causes_update = 1; /* default */
+
+    if (is_local) {
+        mpr_local_slot lslot = (mpr_local_slot)slot;
+        lslot->val = mpr_value_new(mpr_sig_get_len(sig), mpr_sig_get_type(sig), 1, slot->num_inst);
+    }
+
     return slot;
 }
 
@@ -69,7 +75,7 @@ void mpr_slot_free(mpr_slot slot)
 {
     if (slot->is_local) {
         mpr_local_slot lslot = (mpr_local_slot)slot;
-        mpr_value_free(&lslot->val);
+        FUNC_IF(mpr_value_free, lslot->val);
         if (mpr_obj_get_is_local((mpr_obj)slot->sig))
             mpr_local_sig_remove_slot((mpr_local_sig)slot->sig, lslot, lslot->dir);
     }
@@ -112,12 +118,12 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
                 updated += mpr_tbl_add_record(tbl, PROP(DIR), NULL, 1, MPR_INT32, &dir, MOD_REMOTE);
         }
         num_inst = mpr_msg_get_prop_as_int32(msg, MPR_PROP_NUM_INST | mask);
-        if (num_inst && num_inst != slot->num_inst) {
+        if (!((mpr_local_slot)slot)->val || (num_inst && num_inst != slot->num_inst)) {
             if (mpr_local_map_get_expr(((mpr_local_slot)slot)->map))
-                updated += mpr_slot_alloc_values((mpr_local_slot)slot, num_inst, 0);
+                mpr_slot_alloc_values((mpr_local_slot)slot, num_inst, 0);
             else
-                updated += mpr_tbl_add_record(tbl, PROP(NUM_INST), NULL, 1, MPR_INT32,
-                                              &num_inst, MOD_REMOTE);
+                slot->num_inst = num_inst;
+            ++updated;
         }
     }
     return updated;
@@ -187,7 +193,7 @@ int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)
             || strcmp(sig_name+1, mpr_sig_get_name(slot->sig))) ? 1 : 0;
 }
 
-int mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size)
+int mpr_slot_alloc_values(mpr_local_slot slot, unsigned int num_inst, int hist_size)
 {
     int len = mpr_sig_get_len(slot->sig), updated = 0;
     mpr_type type = mpr_sig_get_type(slot->sig);
@@ -199,7 +205,7 @@ int mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size)
     printf("\n");
 #endif
 
-    if (hist_size > 0 && hist_size != mpr_value_get_mlen(&slot->val)) {
+    if (hist_size > 0 && hist_size != mpr_value_get_mlen(slot->val)) {
         trace("  updating slot hist_size to %d\n", hist_size);
         updated = 1;
     }
@@ -217,33 +223,32 @@ int mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size)
         /* reallocate memory */
         trace("  reallocating value memory with num_inst %d and hist_size %d\n",
               slot->num_inst, hist_size);
-        mpr_value_realloc(&slot->val, len, type, hist_size, slot->num_inst,
+        mpr_value_realloc(slot->val, len, type, hist_size, slot->num_inst,
                           slot == (mpr_local_slot)mpr_map_get_dst_slot((mpr_map)slot->map));
     }
     return updated;
 }
 
-void mpr_slot_remove_inst(mpr_local_slot slot, int idx)
+void mpr_slot_remove_inst(mpr_local_slot slot, unsigned int inst_idx)
 {
-    RETURN_UNLESS(slot && idx >= 0 && idx < slot->num_inst);
-    /* TODO: remove slot->num_inst property */
-    slot->num_inst = mpr_value_remove_inst(&slot->val, idx);
+    RETURN_UNLESS(slot && inst_idx < slot->num_inst);
+    slot->num_inst = mpr_value_remove_inst(slot->val, inst_idx);
 }
 
 mpr_value mpr_slot_get_value(mpr_local_slot slot)
 {
-    return &slot->val;
+    return slot->val;
 }
 
-int mpr_slot_set_value(mpr_local_slot slot, int inst_idx, void *value, mpr_time time)
+int mpr_slot_set_value(mpr_local_slot slot, unsigned int inst_idx, void *value, mpr_time time)
 {
-    mpr_value_set_samp(&slot->val, inst_idx, value, time);
+    mpr_value_set_samp(slot->val, inst_idx, value, &time);
     return slot->causes_update;
 }
 
-void mpr_slot_reset_inst(mpr_local_slot slot, int inst_idx)
+void mpr_slot_reset_inst(mpr_local_slot slot, unsigned int inst_idx)
 {
-    mpr_value_reset_inst(&slot->val, inst_idx);
+    mpr_value_reset_inst(slot->val, inst_idx);
 }
 
 mpr_link mpr_slot_get_link(mpr_slot slot)

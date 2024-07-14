@@ -8,7 +8,43 @@
 
 #include "value.h"
 
+typedef struct _mpr_value_buffer
+{
+    void *samps;                /*!< Value for each sample of stored history. */
+    mpr_time *times;            /*!< Time for each sample of stored history. */
+    int16_t pos;                /*!< Current position in the circular buffer. */
+    uint8_t full;               /*!< Indicates whether complete buffer contains valid data. */
+} mpr_value_buffer_t, *mpr_value_buffer;
+
+typedef struct _mpr_value
+{
+    mpr_value_buffer inst;      /*!< Array of value histories for each signal instance. */
+    uint8_t vlen;               /*!< Vector length. */
+    uint8_t num_inst;           /*!< Number of instances. */
+    uint8_t num_active_inst;    /*!< Number of active instances. */
+    mpr_type type;              /*!< The type of this signal. */
+    uint16_t mlen;              /*!< History size of the buffer. */
+} mpr_value_t;
+
 MPR_INLINE static int _min(int a, int b) { return a < b ? a : b; }
+
+mpr_value mpr_value_new(unsigned int vlen, mpr_type type, unsigned int mlen, unsigned int num_inst)
+{
+    mpr_value v = (mpr_value) calloc(1, sizeof(mpr_value_t));
+    mpr_value_realloc(v, vlen, type, mlen, num_inst, 0);
+    return v;
+}
+
+void mpr_value_free(mpr_value v) {
+    int i;
+    RETURN_UNLESS(v->inst);
+    for (i = 0; i < v->num_inst; i++) {
+        FUNC_IF(free, v->inst[i].samps);
+        FUNC_IF(free, v->inst[i].times);
+    }
+    free(v->inst);
+    free(v);
+}
 
 void mpr_value_realloc(mpr_value v, unsigned int vlen, mpr_type type, unsigned int mlen,
                        unsigned int num_inst, int is_input)
@@ -106,7 +142,7 @@ done:
     v->num_inst = num_inst;
 }
 
-int mpr_value_remove_inst(mpr_value v, int idx)
+int mpr_value_remove_inst(mpr_value v, unsigned int idx)
 {
     int i;
     RETURN_ARG_UNLESS(idx >= 0 && idx < v->num_inst, v->num_inst);
@@ -124,11 +160,11 @@ int mpr_value_remove_inst(mpr_value v, int idx)
     return v->num_inst;
 }
 
-void mpr_value_reset_inst(mpr_value v, int idx)
+void mpr_value_reset_inst(mpr_value v, unsigned int idx)
 {
     mpr_value_buffer b;
-    RETURN_UNLESS(v->inst);
-    b = &v->inst[idx % v->num_inst];
+    RETURN_UNLESS(v->inst && idx < v->num_inst);
+    b = &v->inst[idx];
     memset(b->samps, 0, v->mlen * v->vlen * mpr_type_get_size(v->type));
     memset(b->times, 0, v->mlen * sizeof(mpr_time));
     if (b->pos >= 0)
@@ -137,9 +173,18 @@ void mpr_value_reset_inst(mpr_value v, int idx)
     b->full = 0;
 }
 
-void mpr_value_set_samp(mpr_value v, int idx, void *s, mpr_time t)
+void* mpr_value_get_samp(mpr_value v, unsigned int inst_idx, int hist_idx)
 {
-    mpr_value_buffer b = &v->inst[(idx = idx % v->num_inst)];
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
+    if (idx < 0)
+        idx += v->mlen;
+    return (char*)b->samps + idx * v->vlen * mpr_type_get_size(v->type);
+}
+
+void mpr_value_set_samp(mpr_value v, unsigned int inst_idx, void *s, mpr_time *t)
+{
+    mpr_value_buffer b = &v->inst[(inst_idx = inst_idx % v->num_inst)];
     if (b->pos < 0)
         ++v->num_active_inst;
     b->pos += 1;
@@ -147,23 +192,77 @@ void mpr_value_set_samp(mpr_value v, int idx, void *s, mpr_time t)
         b->pos = 0;
         b->full = 1;
     }
-    memcpy(mpr_value_get_samp(v, idx), s, v->vlen * mpr_type_get_size(v->type));
-    memcpy(mpr_value_get_time(v, idx), &t, sizeof(mpr_time));
+    if (s)
+        memcpy(mpr_value_get_samp(v, inst_idx, 0), s, v->vlen * mpr_type_get_size(v->type));
+    if (t)
+        memcpy(mpr_value_get_time(v, inst_idx, 0), t, sizeof(mpr_time));
 }
 
-void mpr_value_free(mpr_value v) {
-    int i;
-    RETURN_UNLESS(v->inst);
-    for (i = 0; i < v->num_inst; i++) {
-        FUNC_IF(free, v->inst[i].samps);
-        FUNC_IF(free, v->inst[i].times);
-    }
-    free(v->inst);
-    v->inst = 0;
+mpr_time* mpr_value_get_time(mpr_value v, unsigned int inst_idx, int hist_idx)
+{
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
+    if (idx < 0)
+        idx += v->mlen;
+    return &b->times[idx];
+}
+
+void mpr_value_set_time_hist(mpr_value v, mpr_time t, unsigned int inst_idx, int hist_idx)
+{
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
+    if (idx < 0)
+        idx += v->mlen;
+    memcpy(&b->times[idx], &t, sizeof(mpr_time));
+}
+
+void mpr_value_incr_idx(mpr_value v, unsigned int inst_idx)
+{
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    b->pos = (b->pos + 1) % v->mlen;
+}
+
+void mpr_value_decr_idx(mpr_value v, unsigned int inst_idx)
+{
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    --b->pos;
+    if (b->pos < 0)
+        b->pos = v->mlen - 1;
+}
+
+unsigned int mpr_value_get_num_samps(mpr_value v, unsigned int inst_idx)
+{
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    return b->full ? v->mlen : (b->pos + 1);
+}
+
+unsigned int mpr_value_get_vlen(mpr_value v)
+{
+    return v->vlen;
+}
+
+unsigned int mpr_value_get_mlen(mpr_value v)
+{
+    return v->mlen;
+}
+
+unsigned int mpr_value_get_num_inst(mpr_value v)
+{
+    return v->num_inst;
+}
+
+unsigned int mpr_value_get_num_active_inst(mpr_value v)
+{
+    return v->num_active_inst;
+}
+
+mpr_type mpr_value_get_type(mpr_value v)
+{
+    return v->type;
 }
 
 #ifdef DEBUG
-static void _value_print(mpr_value v, int inst_idx, int hist_idx) {
+static void _value_print(mpr_value v, unsigned int inst_idx, int hist_idx) {
     int i;
     void *s;
     mpr_time *t;
@@ -171,8 +270,8 @@ static void _value_print(mpr_value v, int inst_idx, int hist_idx) {
         printf("NULL\n");
         return;
     }
-    s = mpr_value_get_samp_hist(v, inst_idx, hist_idx);
-    t = mpr_value_get_time_hist(v, inst_idx, hist_idx);
+    s = mpr_value_get_samp(v, inst_idx, hist_idx);
+    t = mpr_value_get_time(v, inst_idx, hist_idx);
     printf("%08x.%08x | ", (*t).sec, (*t).frac);
     if (v->vlen > 1)
         printf("[");
@@ -195,7 +294,7 @@ static void _value_print(mpr_value v, int inst_idx, int hist_idx) {
         printf("\b\b @%p -> %p\n", v->inst[inst_idx].samps, s);
 }
 
-int mpr_value_print_inst(mpr_value v, int inst_idx) {
+int mpr_value_print_inst(mpr_value v, unsigned int inst_idx) {
     RETURN_ARG_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0, 1);
     _value_print(v, inst_idx, v->inst[inst_idx].pos);
     return 0;
@@ -210,7 +309,7 @@ void mpr_value_print(mpr_value v) {
     }
 }
 
-int mpr_value_print_inst_hist(mpr_value v, int inst_idx) {
+int mpr_value_print_inst_hist(mpr_value v, unsigned int inst_idx) {
     int i, hidx;
     RETURN_ARG_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0, 1);
 
