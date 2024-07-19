@@ -994,8 +994,10 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
         else
             mpr_sig_release_inst_internal(lsig, i);
     }
-    else
+    else {
+        lsig->obj.status |= MPR_STATUS_OVERFLOW;
         return -1;
+    }
 
     /* try again */
     if ((si = _find_inst_by_id(lsig, LID)) || (si = _reserved_inst(lsig, &LID))) {
@@ -1098,8 +1100,10 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
         else
             mpr_sig_release_inst_internal(lsig, i);
     }
-    else
+    else {
+        lsig->obj.status |= MPR_STATUS_OVERFLOW;
         return -1;
+    }
 
     /* try again */
     if (!id_map) {
@@ -1720,6 +1724,8 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
                 break;
         }
     }
+    if (updated)
+        sig->obj.status |= MPR_STATUS_MODIFIED;
     return updated;
 }
 

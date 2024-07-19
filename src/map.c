@@ -1719,6 +1719,8 @@ done:
         mpr_local_map_update_status((mpr_local_map)m);
     }
     trace("updated %d map properties.\n", updated);
+    if (updated)
+        m->obj.status |= MPR_STATUS_MODIFIED;
     return updated;
 }
 

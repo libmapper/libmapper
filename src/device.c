@@ -1037,6 +1037,8 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
                 break;
         }
     }
+    if (updated)
+        dev->obj.status |= MPR_STATUS_MODIFIED;
     return updated;
 }
 

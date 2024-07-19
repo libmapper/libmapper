@@ -133,25 +133,24 @@ typedef enum {
 /*! Describes the possible statuses for a libmapper object.
  *  @ingroup object */
 
-/*
- | status                 | mpr_obj | mpr_dev | mpr_sig | instance | sig cb | mpr_map | graph cb |
- | MPR_STATUS_EXPIRED     |    X    |    X    |    X    |          |        |    X    |    X     |
- | MPR_STATUS_REL_DNSTRM  |         |         |         |    X     |   X    |         |          |
- | MPR_STATUS_NEW         |    X    |    X    |    X    |    X     |   X    |    X    |    X     |
- | MPR_STATUS_MODIFIED    |    X    |    X    |    X    |          |        |    X    |    X     |
- | MPR_STATUS_RESERVED    |         |         |         |    X     |        |         |          |
- | MPR_STATUS_STAGED      |         |    X    |         |          |        |    X    |          |
- | MPR_STATUS_HAS_VALUE   |         |         |    X    |    X     |        |         |          |
- | MPR_STATUS_ACTIVE      |         |         |         |    X     |        |    X    |          |
- | MPR_STATUS_OVERFLOW    |         |         |         |          |   X    |         |          |
- | MPR_STATUS_REMOVED     |    X    |    X    |    X    |          |        |    X    |    X     |
- | MPR_STATUS_REL_UPSTRM  |         |         |         |    X     |   X    |         |          |
- | MPR_STATUS_READY       |         |    X    |         |          |        |    X    |          |
- | MPR_STATUS_UPDATE_LOC  |         |         |    X    |    X     |   X    |         |          |
- | MPR_STATUS_UPDATE_REM  |         |         |    X    |    X     |   X    |         |          |
+/* Status flag usage      | mpr_obj | mpr_dev | mpr_sig | instance | sig cb  | mpr_map | graph cb |
+ | MPR_STATUS_EXPIRED     |    X    |    X    |    X    |          |         |    X    |    X     |
+ | MPR_STATUS_REL_DNSTRM  |         |         |         |    X     |    X    |         |          |
+ | MPR_STATUS_NEW         |    X    |    X    |    X    |    X     |    X    |    X    |    X     |
+ | MPR_STATUS_MODIFIED    |    X    |    X    |    X    |          |         |    X    |    X     |
+ | MPR_STATUS_RESERVED    |         |         |         |    X     |         |         |          |
+ | MPR_STATUS_STAGED      |         |    X    |         |          |         |    X    |          |
+ | MPR_STATUS_HAS_VALUE   |         |         |    X    |    X     |         |         |          |
+ | MPR_STATUS_ACTIVE      |         |         |         |    X     |         |    X    |          |
+ | MPR_STATUS_OVERFLOW    |         |         |    X    |          |    X    |         |          |
+ | MPR_STATUS_REMOVED     |    X    |    X    |    X    |          |         |    X    |    X     |
+ | MPR_STATUS_REL_UPSTRM  |         |         |         |    X     |    X    |         |          |
+ | MPR_STATUS_READY       |         |    X    |         |          |         |    X    |          |
+ | MPR_STATUS_UPDATE_LOC  |         |         |    X    |    X     |    X    |         |          |
+ | MPR_STATUS_UPDATE_REM  |         |         |    X    |    X     |    X    |         |          |
 */
 
-typedef enum {                      /*| obj   | dev   | sig   | inst  | sig cb | map   | gph cb |*/
+typedef enum {
     MPR_STATUS_UNDEFINED    = 0x0000,
 
     MPR_STATUS_NEW          = 0x0001,   /*!< New object. */

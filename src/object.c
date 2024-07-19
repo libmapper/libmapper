@@ -15,6 +15,7 @@ void mpr_obj_init(mpr_obj o, mpr_graph g, mpr_type t)
 {
     o->graph = g;
     o->type = t;
+    o->status = MPR_STATUS_NEW;
 }
 
 void mpr_obj_free(mpr_obj o)
@@ -42,6 +43,7 @@ void mpr_obj_increment_version(mpr_obj o)
     }
     else if (o->props.staged)
         mpr_tbl_set_is_dirty(o->props.staged, 1);
+    o->status |= MPR_STATUS_MODIFIED;
 }
 
 int mpr_obj_get_status(mpr_obj obj)
