@@ -15,15 +15,20 @@ typedef struct _mpr_value *mpr_value;
 mpr_value mpr_value_new(unsigned int vlen, mpr_type type, unsigned int mlen, unsigned int num_inst);
 
 void mpr_value_realloc(mpr_value val, unsigned int vec_len, mpr_type type,
-                       unsigned int mem_len, unsigned int num_inst, int is_input);
+                       unsigned int mem_len, unsigned int num_inst, int reset);
 
-void mpr_value_reset_inst(mpr_value v, unsigned int inst_idx);
+void mpr_value_reset_inst(mpr_value v, unsigned int inst_idx, mpr_time t);
 
 int mpr_value_remove_inst(mpr_value v, unsigned int inst_idx);
 
-void* mpr_value_get_samp(mpr_value v, unsigned int inst_idx, int hist_idx);
+void* mpr_value_get_value(mpr_value v, unsigned int inst_idx, int hist_idx);
 
-void mpr_value_set_samp(mpr_value v, unsigned int inst_idx, void *s, mpr_time *t);
+void mpr_value_set_next(mpr_value v, unsigned int inst_idx, const void *s, mpr_time *t);
+
+int mpr_value_set_element(mpr_value v, unsigned int inst_idx, int el_idx, void *new);
+
+int mpr_value_set_next_coerced(mpr_value v, unsigned int inst_idx, unsigned int len,
+                               mpr_type type, const void *s, mpr_time *t);
 
 mpr_time* mpr_value_get_time(mpr_value v, unsigned int inst_idx, int hist_idx);
 
@@ -42,6 +47,8 @@ unsigned int mpr_value_get_mlen(mpr_value v);
 unsigned int mpr_value_get_num_inst(mpr_value v);
 unsigned int mpr_value_get_num_active_inst(mpr_value v);
 mpr_type mpr_value_get_type(mpr_value v);
+
+int mpr_value_cmp(mpr_value v, unsigned int inst_idx, int hist_idx, const void *ptr);
 
 #ifdef DEBUG
 void mpr_value_print(mpr_value v);

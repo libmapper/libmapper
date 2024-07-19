@@ -472,7 +472,7 @@ static int process_outgoing_maps(mpr_local_dev dev)
         list = mpr_list_get_next(list);
     }
     dev->polling = 0;
-    return msgs ? 1 : 0;
+    return msgs != 0;
 }
 
 void mpr_dev_update_maps(mpr_dev dev) {

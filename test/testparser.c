@@ -1,6 +1,8 @@
-#include "../src/value.h"
+#include "../src/bitflags.h"
 #include "../src/expression.h"
 #include "../src/mpr_time.h"
+#include "../src/value.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,8 +39,6 @@ double src_dbl[SRC_ARRAY_LEN], dst_dbl[DST_ARRAY_LEN], expect_dbl[DST_ARRAY_LEN]
 mpr_type expect_type[DST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
-mpr_type out_types[DST_ARRAY_LEN];
-mpr_type updated_types[DST_ARRAY_LEN];
 
 mpr_time time_in = {0, 0}, time_out = {0, 0};
 
@@ -165,21 +165,25 @@ double random_dbl()
     return *d;
 }
 
-int check_result(mpr_type *types, mpr_value value, int check)
+#define TYPE_ERROR 1
+#define VALUE_ERROR 2
+
+int check_result(mpr_bitflags updated, mpr_value value, int check)
 {
-    int i, error = -1, len = mpr_value_get_vlen(value);
-    if (!types || len < 1)
+    int i, error = 0, error_idx = -1, len = mpr_value_get_vlen(value);
+    mpr_type type = mpr_value_get_type(value);
+    if (!updated || len < 1)
         return 1;
 
     switch (dst_type) {
         case MPR_INT32:
-            memcpy(dst_int, mpr_value_get_samp(outh, 0, 0), sizeof(int) * len);
+            memcpy(dst_int, mpr_value_get_value(outh, 0, 0), sizeof(int) * len);
             break;
         case MPR_FLT:
-            memcpy(dst_flt, mpr_value_get_samp(outh, 0, 0), sizeof(float) * len);
+            memcpy(dst_flt, mpr_value_get_value(outh, 0, 0), sizeof(float) * len);
             break;
         default:
-            memcpy(dst_dbl, mpr_value_get_samp(outh, 0, 0), sizeof(double) * len);
+            memcpy(dst_dbl, mpr_value_get_value(outh, 0, 0), sizeof(double) * len);
             break;
     }
     memcpy(&time_out, mpr_value_get_time(outh, 0, 0), sizeof(mpr_time));
@@ -189,33 +193,47 @@ int check_result(mpr_type *types, mpr_value value, int check)
         eprintf("[");
 
     for (i = 0; i < len; i++) {
-        switch (types[i]) {
-            case MPR_NULL:
-                eprintf("NULL, ");
-                if (expect_type[i] != MPR_NULL)
-                    error = i;
-                break;
-            case MPR_INT32:
-                eprintf("%d, ", dst_int[i]);
-                if (   (expect_type[i] != MPR_INT32)
-                    || (check && dst_int[i] != expect_int[i]))
-                    error = i;
-                break;
-            case MPR_FLT:
-                eprintf("%g, ", dst_flt[i]);
-                if (   (expect_type[i] != MPR_FLT)
-                    || (check && dst_flt[i] != expect_flt[i] && expect_flt[i] == expect_flt[i]))
-                    error = i;
-                break;
-            case MPR_DBL:
-                eprintf("%g, ", dst_dbl[i]);
-                if (   (expect_type[i] != MPR_DBL)
-                    || (check && dst_dbl[i] != expect_dbl[i] && expect_dbl[i] == expect_dbl[i]))
-                    error = i;
-                break;
-            default:
-                eprintf("\nTYPE ERROR\n");
-                return 1;
+        if (!mpr_bitflags_get(updated, i)) {
+            eprintf("NULL, ");
+            if (expect_type[i] != MPR_NULL)
+                error_idx = i;
+        }
+        else {
+            switch (type) {
+                case MPR_INT32:
+                    eprintf("%d, ", dst_int[i]);
+                    if (expect_type[i] != MPR_INT32)
+                        error = TYPE_ERROR;
+                    else if (check && dst_int[i] != expect_int[i])
+                        error = VALUE_ERROR;
+                    else
+                        break;
+                    error_idx = i;
+                    break;
+                case MPR_FLT:
+                    eprintf("%g, ", dst_flt[i]);
+                    if (expect_type[i] != MPR_FLT)
+                        error = TYPE_ERROR;
+                    else if (check && dst_flt[i] != expect_flt[i] && expect_flt[i] == expect_flt[i])
+                        error = VALUE_ERROR;
+                    else
+                        break;
+                    error_idx = i;
+                    break;
+                case MPR_DBL:
+                    eprintf("%g, ", dst_dbl[i]);
+                    if (expect_type[i] != MPR_DBL)
+                        error = TYPE_ERROR;
+                    else if (check && dst_dbl[i] != expect_dbl[i] && expect_dbl[i] == expect_dbl[i])
+                        error = VALUE_ERROR;
+                    else
+                        break;
+                    error_idx = i;
+                    break;
+                default:
+                    eprintf("\nTYPE ERROR\n");
+                    return 1;
+            }
         }
     }
 
@@ -225,10 +243,10 @@ int check_result(mpr_type *types, mpr_value value, int check)
         eprintf("\b\b");
     if (!check)
         return 0;
-    if (error >= 0) {
-        eprintf("... error at index %d ", error);
-        if (types[error] != expect_type[error]) {
-            switch (expect_type[error]) {
+    if (error) {
+        eprintf("... error at index %d ", error_idx);
+        if (error == TYPE_ERROR) {
+            switch (expect_type[error_idx]) {
                 case MPR_NULL:  eprintf("(expected NULL)\n");   break;
                 case MPR_INT32: eprintf("(expected int)\n");    break;
                 case MPR_FLT:   eprintf("(expected float)\n");  break;
@@ -236,11 +254,10 @@ int check_result(mpr_type *types, mpr_value value, int check)
             }
         }
         else {
-            switch (types[error]) {
-                case MPR_NULL:  eprintf("(expected NULL)\n");                   break;
-                case MPR_INT32: eprintf("(expected %d)\n", expect_int[error]);  break;
-                case MPR_FLT:   eprintf("(expected %g)\n", expect_flt[error]);  break;
-                case MPR_DBL:   eprintf("(expected %g)\n", expect_dbl[error]);  break;
+            switch (type) {
+                case MPR_INT32: eprintf("(expected %d)\n", expect_int[error_idx]);  break;
+                case MPR_FLT:   eprintf("(expected %g)\n", expect_flt[error_idx]);  break;
+                case MPR_DBL:   eprintf("(expected %g)\n", expect_dbl[error_idx]);  break;
             }
         }
         return 1;
@@ -283,6 +300,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
 {
     /* clear output arrays */
     int i, j, result = 0, mlen, status;
+    mpr_bitflags has_value = 0, updated_values = 0;
 
     if (start_index >= 0 && expression_count != start_index) {
         ++expression_count;
@@ -308,24 +326,24 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     }
     mpr_time_set(&time_in, MPR_NOW);
     for (i = 0; i < n_sources; i++) {
-        mpr_value_reset_inst(inh[i], 0);
+        mpr_value_reset_inst(inh[i], 0, time_in);
         mlen = mpr_expr_get_in_hist_size(e, i);
         mpr_value_realloc(inh[i], src_lens[i], src_types[i], mlen, 1, 0);
         switch (src_types[i]) {
             case MPR_INT32:
-                mpr_value_set_samp(inh[i], 0, src_int, &time_in);
+                mpr_value_set_next(inh[i], 0, src_int, &time_in);
                 break;
             case MPR_FLT:
-                mpr_value_set_samp(inh[i], 0, src_flt, &time_in);
+                mpr_value_set_next(inh[i], 0, src_flt, &time_in);
                 break;
             case MPR_DBL:
-                mpr_value_set_samp(inh[i], 0, src_dbl, &time_in);
+                mpr_value_set_next(inh[i], 0, src_dbl, &time_in);
                 break;
             default:
                 assert(0);
         }
     }
-    mpr_value_reset_inst(outh, 0);
+    mpr_value_reset_inst(outh, 0, time_in);
     mlen = mpr_expr_get_out_hist_size(e);
     mpr_value_realloc(outh, dst_len, dst_type, mlen, 1, 1);
 
@@ -338,7 +356,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     for (i = 0; i < e->n_vars; i++) {
         int vlen = mpr_expr_get_var_vec_len(e, i);
         mpr_type type = mpr_expr_get_var_type(e, i);
-        mpr_value_reset_inst(user_vars[i], 0);
+        mpr_value_reset_inst(user_vars[i], 0, time_in);
         mpr_value_realloc(user_vars[i], vlen, type, 1, 1, 0);
         mpr_value_incr_idx(user_vars[i], 0);
     }
@@ -364,12 +382,12 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     update_count = 0;
     then = mpr_get_current_time();
 
-    for (i = 0; i < DST_ARRAY_LEN; i++) {
-        updated_types[i] = MPR_NULL;
-    }
+    has_value = mpr_bitflags_new(DST_ARRAY_LEN);
+    updated_values = mpr_bitflags_new(DST_ARRAY_LEN);
 
     eprintf("Try evaluation once... ");
-    status = mpr_expr_eval(eval_stk, e, inh, user_vars, outh, &time_in, out_types, 0);
+    status = mpr_expr_eval(eval_stk, e, inh, user_vars, outh, &time_in, has_value, 0);
+
     if (!status) {
         eprintf("FAILED.\n");
         result = 1;
@@ -377,7 +395,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     }
     else if (status & EXPR_UPDATE) {
         ++update_count;
-        memcpy(&updated_types, out_types, sizeof(mpr_type) * DST_ARRAY_LEN);
+        mpr_bitflags_cpy(updated_values, has_value, DST_ARRAY_LEN);
     }
     eprintf("OK\n");
 
@@ -391,22 +409,22 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         for (j = 0; j < n_sources; j++) {
             switch (mpr_value_get_type(inh[j])) {
                 case MPR_INT32:
-                    mpr_value_set_samp(inh[j], 0, src_int, &time_in);
+                    mpr_value_set_next(inh[j], 0, src_int, &time_in);
                     break;
                 case MPR_FLT:
-                    mpr_value_set_samp(inh[j], 0, src_flt, &time_in);
+                    mpr_value_set_next(inh[j], 0, src_flt, &time_in);
                     break;
                 case MPR_DBL:
-                    mpr_value_set_samp(inh[j], 0, src_dbl, &time_in);
+                    mpr_value_set_next(inh[j], 0, src_dbl, &time_in);
                     break;
                 default:
                     assert(0);
             }
         }
-        status = mpr_expr_eval(eval_stk, e, inh, user_vars, outh, &time_in, out_types, 0);
+        status = mpr_expr_eval(eval_stk, e, inh, user_vars, outh, &time_in, has_value, 0);
         if (status & EXPR_UPDATE) {
             ++update_count;
-            memcpy(&updated_types, out_types, sizeof(mpr_type) * DST_ARRAY_LEN);
+            mpr_bitflags_cpy(updated_values, has_value, DST_ARRAY_LEN);
         }
         /* sleep here stops compiler from optimizing loop away */
         usleep(1);
@@ -417,7 +435,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     if (0 == result)
         eprintf("OK\n");
 
-    if (check_result(updated_types, outh, check))
+    if (check_result(updated_values, outh, check))
         result = 1;
 
     eprintf("Recv'd %d updates... ", update_count);
@@ -433,6 +451,10 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     eprintf("Elapsed time: %g seconds.\n", now-then);
 
 free:
+    if (has_value)
+        free(has_value);
+    if (updated_values)
+        free(updated_values);
     mpr_expr_free(e);
     return result;
 

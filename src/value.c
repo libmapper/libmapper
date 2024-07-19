@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <assert.h>
 
+#include "util/mpr_set_coerced.h"
 #include "value.h"
 
 typedef struct _mpr_value_buffer
@@ -37,7 +38,7 @@ mpr_value mpr_value_new(unsigned int vlen, mpr_type type, unsigned int mlen, uns
 
 void mpr_value_free(mpr_value v) {
     int i;
-    RETURN_UNLESS(v->inst);
+    RETURN_UNLESS(v && v->inst);
     for (i = 0; i < v->num_inst; i++) {
         FUNC_IF(free, v->inst[i].samps);
         FUNC_IF(free, v->inst[i].times);
@@ -47,7 +48,7 @@ void mpr_value_free(mpr_value v) {
 }
 
 void mpr_value_realloc(mpr_value v, unsigned int vlen, mpr_type type, unsigned int mlen,
-                       unsigned int num_inst, int is_input)
+                       unsigned int num_inst, int reset)
 {
     int i, samp_size;
     mpr_value_buffer_t *b, tmp;
@@ -75,7 +76,7 @@ void mpr_value_realloc(mpr_value v, unsigned int vlen, mpr_type type, unsigned i
         }
     }
 
-    if (!is_input || vlen != v->vlen || type != v->type) {
+    if (reset || vlen != v->vlen || type != v->type) {
         /* reallocate old instances (v->num_inst has not yet been updated) */
         for (i = 0; i < v->num_inst; i++) {
             b = &v->inst[i];
@@ -90,7 +91,7 @@ void mpr_value_realloc(mpr_value v, unsigned int vlen, mpr_type type, unsigned i
         goto done;
     }
 
-    if (mlen == v->mlen)
+    if (!v->mlen || mlen == v->mlen)
         goto done;
 
     /* only the memory size is different */
@@ -160,50 +161,75 @@ int mpr_value_remove_inst(mpr_value v, unsigned int idx)
     return v->num_inst;
 }
 
-void mpr_value_reset_inst(mpr_value v, unsigned int idx)
+void mpr_value_reset_inst(mpr_value v, unsigned int idx, mpr_time t)
 {
     mpr_value_buffer b;
     RETURN_UNLESS(v->inst && idx < v->num_inst);
     b = &v->inst[idx];
     memset(b->samps, 0, v->mlen * v->vlen * mpr_type_get_size(v->type));
+    /* store the reset time at idx 0 */
     memset(b->times, 0, v->mlen * sizeof(mpr_time));
+    memcpy(b->times, &t, sizeof(mpr_time));
     if (b->pos >= 0)
         --v->num_active_inst;
     b->pos = -1;
     b->full = 0;
 }
 
-void* mpr_value_get_samp(mpr_value v, unsigned int inst_idx, int hist_idx)
+void* mpr_value_get_value(mpr_value v, unsigned int inst_idx, int hist_idx)
 {
     mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
     int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
+    RETURN_ARG_UNLESS(b->pos >= 0, NULL);
     if (idx < 0)
         idx += v->mlen;
     return (char*)b->samps + idx * v->vlen * mpr_type_get_size(v->type);
 }
 
-void mpr_value_set_samp(mpr_value v, unsigned int inst_idx, void *s, mpr_time *t)
+void mpr_value_set_next(mpr_value v, unsigned int inst_idx, const void *s, mpr_time *t)
 {
-    mpr_value_buffer b = &v->inst[(inst_idx = inst_idx % v->num_inst)];
-    if (b->pos < 0)
-        ++v->num_active_inst;
-    b->pos += 1;
-    if (b->pos >= v->mlen) {
-        b->pos = 0;
-        b->full = 1;
-    }
+    mpr_value_incr_idx(v, inst_idx);
     if (s)
-        memcpy(mpr_value_get_samp(v, inst_idx, 0), s, v->vlen * mpr_type_get_size(v->type));
+        memcpy(mpr_value_get_value(v, inst_idx, 0), s, v->vlen * mpr_type_get_size(v->type));
     if (t)
         memcpy(mpr_value_get_time(v, inst_idx, 0), t, sizeof(mpr_time));
 }
 
+/* returns 1 if the element was updated */
+int mpr_value_set_element(mpr_value v, unsigned int inst_idx, int el_idx, void *new)
+{
+    void *old = mpr_value_get_value(v, inst_idx, 0);
+    size_t size = mpr_type_get_size(v->type);
+    RETURN_ARG_UNLESS(old, 0);
+    el_idx = el_idx % v->vlen;
+    if (el_idx < 0)
+        el_idx += v->vlen;
+    if (memcmp(old + el_idx * size, new, size)) {
+        memcpy(old + el_idx * size, new, size);
+        return 1;
+    }
+    return 0;
+}
+
+int mpr_value_set_next_coerced(mpr_value v, unsigned int inst_idx, unsigned int len,
+                               mpr_type type, const void *s, mpr_time *t)
+{
+    mpr_value_incr_idx(v, inst_idx);
+    if (t)
+        memcpy(mpr_value_get_time(v, inst_idx, 0), t, sizeof(mpr_time));
+    return s ? mpr_set_coerced(len, type, s, v->vlen, v->type, mpr_value_get_value(v, inst_idx, 0)) : 0;
+}
+
+/* here we return the time at idx 0 even if the value has been reset */
 mpr_time* mpr_value_get_time(mpr_value v, unsigned int inst_idx, int hist_idx)
 {
     mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
-    int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
-    if (idx < 0)
-        idx += v->mlen;
+    int idx = 0;
+    if (b->pos >= 0) {
+        idx = (b->pos + v->mlen + hist_idx) % v->mlen;
+        if (idx < 0)
+            idx += v->mlen;
+    }
     return &b->times[idx];
 }
 
@@ -216,17 +242,27 @@ void mpr_value_set_time_hist(mpr_value v, mpr_time t, unsigned int inst_idx, int
     memcpy(&b->times[idx], &t, sizeof(mpr_time));
 }
 
+int mpr_value_cmp(mpr_value v, unsigned int inst_idx, int hist_idx, const void *ptr)
+{
+    const void *s = mpr_value_get_value(v, inst_idx, hist_idx);
+    return !s || memcmp(s, ptr, v->vlen * mpr_type_get_size(v->type));
+}
+
 void mpr_value_incr_idx(mpr_value v, unsigned int inst_idx)
 {
     mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
-    b->pos = (b->pos + 1) % v->mlen;
+    if (b->pos < 0)
+        ++v->num_active_inst;
+    if (++b->pos >= v->mlen) {
+        b->pos = 0;
+        b->full |= 1;
+    }
 }
 
 void mpr_value_decr_idx(mpr_value v, unsigned int inst_idx)
 {
     mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
-    --b->pos;
-    if (b->pos < 0)
+    if (--b->pos < 0)
         b->pos = v->mlen - 1;
 }
 
@@ -270,7 +306,7 @@ static void _value_print(mpr_value v, unsigned int inst_idx, int hist_idx) {
         printf("NULL\n");
         return;
     }
-    s = mpr_value_get_samp(v, inst_idx, hist_idx);
+    s = mpr_value_get_value(v, inst_idx, hist_idx);
     t = mpr_value_get_time(v, inst_idx, hist_idx);
     printf("%08x.%08x | ", (*t).sec, (*t).frac);
     if (v->vlen > 1)

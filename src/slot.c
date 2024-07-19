@@ -224,7 +224,7 @@ int mpr_slot_alloc_values(mpr_local_slot slot, unsigned int num_inst, int hist_s
         trace("  reallocating value memory with num_inst %d and hist_size %d\n",
               slot->num_inst, hist_size);
         mpr_value_realloc(slot->val, len, type, hist_size, slot->num_inst,
-                          slot == (mpr_local_slot)mpr_map_get_dst_slot((mpr_map)slot->map));
+                          slot != (mpr_local_slot)mpr_map_get_dst_slot((mpr_map)slot->map));
     }
     return updated;
 }
@@ -240,15 +240,13 @@ mpr_value mpr_slot_get_value(mpr_local_slot slot)
     return slot->val;
 }
 
-int mpr_slot_set_value(mpr_local_slot slot, unsigned int inst_idx, void *value, mpr_time time)
+int mpr_slot_set_value(mpr_local_slot slot, unsigned int inst_idx, const void *value, mpr_time time)
 {
-    mpr_value_set_samp(slot->val, inst_idx, value, &time);
+    if (value)
+        mpr_value_set_next(slot->val, inst_idx, value, &time);
+    else
+        mpr_value_reset_inst(slot->val, inst_idx, time);
     return slot->causes_update;
-}
-
-void mpr_slot_reset_inst(mpr_local_slot slot, unsigned int inst_idx)
-{
-    mpr_value_reset_inst(slot->val, inst_idx);
 }
 
 mpr_link mpr_slot_get_link(mpr_slot slot)

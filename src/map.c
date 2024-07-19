@@ -67,7 +67,7 @@ typedef struct _mpr_local_map {
     mpr_id_map id_map;              /*!< Associated mpr_id_map. */
 
     mpr_expr expr;                  /*!< The mapping expression. */
-    char *updated_inst;             /*!< Bitflags to indicate updated instances. */
+    mpr_bitflags updated_inst;      /*!< Bitflags to indicate updated instances. */
     mpr_value *vars;                /*!< User variables values. */
     const char **var_names;         /*!< User variables names. */
     const char **old_var_names;     /*!< User variables names. */
@@ -421,7 +421,7 @@ void mpr_map_free(mpr_map map)
             FUNC_IF(free, (void*)lmap->old_var_names[i]);
         }
         FUNC_IF(free, lmap->old_var_names);
-        FUNC_IF(free, lmap->updated_inst);
+        mpr_bitflags_free(lmap->updated_inst);
         FUNC_IF(mpr_expr_free, lmap->expr);
     }
 
@@ -673,7 +673,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     mpr_sig dst_sig;
     mpr_id_map id_map = 0;
     mpr_value *src_vals, dst_val;
-    char *types;
+    char *has_value;
 
     assert(m->obj.is_local);
 
@@ -705,7 +705,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         id_map = m->id_map;
     }
 
-    types = alloca(mpr_sig_get_len(dst_sig) * sizeof(char));
+    has_value = mpr_bitflags_new(mpr_sig_get_len(dst_sig));
 
     for (i = 0; i < m->num_inst; i++) {
         /* Check if this instance has been updated */
@@ -713,12 +713,12 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
             continue;
         /* TODO: Check if this instance has enough history to process the expression */
         status = mpr_expr_eval(mpr_graph_get_expr_stack(m->obj.graph), m->expr,
-                               src_vals, m->vars, dst_val, &time, types, i);
+                               src_vals, m->vars, dst_val, &time, has_value, i);
         if (!status)
             continue;
 
         if (mpr_sig_get_use_inst((mpr_sig)src_sig) && !map_manages_inst) {
-            mpr_local_sig_get_inst_by_idx(src_sig, i, &id_map);
+            id_map = mpr_local_sig_get_id_map_by_inst_idx(src_sig, i);
             if (!id_map) {
                 trace("error: couldn't find id_map for signal instance idx %d\n", i);
                 continue;
@@ -736,14 +736,14 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         }
         if (status & EXPR_UPDATE) {
             /* send instance update */
-            mpr_value val = mpr_slot_get_value(m->dst);
-            void *result = mpr_value_get_samp(val, i, 0);
+            void *result = mpr_value_get_value(dst_val, i, 0);
             if (map_manages_inst && !id_map) {
                 /* create an id_map and store it in the map */
                 id_map = m->id_map = mpr_dev_add_id_map(dev, 0, 0, 0);
             }
-            msg = mpr_map_build_msg(m, 0, result, types, id_map);
-            mpr_local_slot_send_msg(m->dst, msg, *(mpr_time*)mpr_value_get_time(val, i, 0), m->protocol);
+            msg = mpr_map_build_msg(m, 0, result, has_value, id_map);
+            mpr_local_slot_send_msg(m->dst, msg, *(mpr_time*)mpr_value_get_time(dst_val, i, 0),
+                                    m->protocol);
         }
         /* send instance release if dst is instanced and either src or map is also instanced. */
         if (id_map && status & EXPR_RELEASE_AFTER_UPDATE && m->use_inst) {
@@ -757,6 +757,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         if (status & EXPR_EVAL_DONE)
             break;
     }
+    mpr_bitflags_free(has_value);
     mpr_bitflags_clear(m->updated_inst, m->num_inst);
     m->updated = 0;
 }
@@ -775,7 +776,8 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
 
     assert(m->obj.is_local);
 
-    RETURN_UNLESS(m->updated && m->expr && !m->muted);
+    RETURN_UNLESS(m->updated && m->expr && !m->muted
+                  && MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)m->src[0]));
 
     /* temporary solution: use most multitudinous source signal for id_map
      * permanent solution: move id_maps to map */
@@ -811,8 +813,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
                                src_vals, m->vars, dst_val, &time, types, i);
         if (!status)
             continue;
-
-        value = mpr_value_get_samp(dst_val, i, 0);
+        value = mpr_value_get_value(dst_val, i, 0);
         mpr_local_sig_set_inst_value(dst_sig, value, i, id_map, status, map_manages_inst, time);
 
         if ((status & EXPR_EVAL_DONE) && !m->use_inst) {
@@ -831,29 +832,40 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
 
 /*! Build a value update message for a given map. */
 lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, const void *val,
-                             mpr_type *types, mpr_id_map id_map)
+                             char *has_value, mpr_id_map id_map)
 {
     int i, len = 0;
+    mpr_type type = MPR_INT32;
     NEW_LO_MSG(msg, return 0);
     if (MPR_LOC_SRC == m->process_loc) {
         mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->dst);
         len = mpr_sig_get_len(sig);
+        type = mpr_sig_get_type(sig);
     }
     else if (slot) {
         mpr_sig sig = mpr_slot_get_sig((mpr_slot)slot);
         len = mpr_sig_get_len(sig);
+        type = mpr_sig_get_type(sig);
     }
 
-    if (val && types) {
+    if (val) {
         /* value of vector elements can be <type> or NULL */
-        for (i = 0; i < len; i++) {
-            switch (types[i]) {
-            case MPR_INT32: lo_message_add_int32(msg, ((int*)val)[i]);     break;
-            case MPR_FLT:   lo_message_add_float(msg, ((float*)val)[i]);   break;
-            case MPR_DBL:   lo_message_add_double(msg, ((double*)val)[i]); break;
-            case MPR_NULL:  lo_message_add_nil(msg);                       break;
-            default:                                                       break;
-            }
+        switch (type) {
+#define TYPED_CASE(MTYPE, TYPE, CAST)                                   \
+            case MTYPE:                                                 \
+                for (i = 0; i < len; i++) {                             \
+                    if (!has_value || mpr_bitflags_get(has_value, i))   \
+                        lo_message_add_##TYPE(msg, ((CAST*)val)[i]);    \
+                    else                                                \
+                        lo_message_add_nil(msg);                        \
+                }                                                       \
+                break;
+                TYPED_CASE(MPR_INT32, int32, int);
+                TYPED_CASE(MPR_FLT, float, float);
+                TYPED_CASE(MPR_DBL, double, double);
+#undef TYPED_CASE
+            default:
+                break;
         }
     }
     else if (m->use_inst) {
@@ -933,9 +945,9 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
         else {
             vars[i] = mpr_value_new(vlen, mpr_expr_get_var_type(e, i), 1, var_num_inst);
             /* set position to 0 since we are not currently allowing history on user variables */
-            for (j = 0; j < var_num_inst; j++)
-                mpr_value_incr_idx(vars[i], j);
         }
+        for (j = 0; j < var_num_inst; j++)
+            mpr_value_incr_idx(vars[i], j);
     }
 
     /* free old variables and replace with new */
@@ -967,13 +979,13 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
     m->vars = vars;
     m->var_names = var_names;
     m->num_vars = num_vars;
-    m->num_inst = num_inst;
 
     /* allocate update bitflags */
     if (m->updated_inst)
-        m->updated_inst = realloc(m->updated_inst, num_inst / 8 + 1);
+        m->updated_inst = mpr_bitflags_realloc(m->updated_inst, m->num_inst, num_inst);
     else
-        m->updated_inst = calloc(1, num_inst / 8 + 1);
+        m->updated_inst = mpr_bitflags_new(num_inst);
+    m->num_inst = num_inst;
 
     if (!quiet) {
         /* Inform remote peers of the change */
@@ -1107,7 +1119,7 @@ for (j = 0; j < m->num_vars; j++) {                                 \
     len += snprint_var(VARNAME, expr + len, MAX_LEN - len,          \
                        mpr_value_get_vlen(ev[j]),                   \
                        mpr_value_get_type(ev[j]),                   \
-                       mpr_value_get_samp(ev[j], k, 0));            \
+                       mpr_value_get_value(ev[j], k, 0));           \
     break;                                                          \
 }                                                                   \
 if (j == m->num_vars) {                                             \
@@ -1407,10 +1419,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
     if (   mpr_expr_get_num_input_slots(m->expr) <= 0 && !m->use_inst
         && mpr_obj_get_is_local((mpr_obj)dst_sig)) {
         /* call handler if it exists */
-        mpr_time now;
-        mpr_time_set(&now, MPR_NOW);
-        mpr_sig_call_handler((mpr_local_sig)dst_sig, MPR_STATUS_UPDATE_REM, 0, -1,
-                             mpr_slot_get_value(m->dst), now, 0);
+        mpr_sig_call_handler((mpr_local_sig)dst_sig, MPR_STATUS_UPDATE_REM, 0, 0, 0);
     }
 
     /* check whether each source slot causes computation */
@@ -1661,7 +1670,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                             switch (mpr_value_get_type(lm->vars[j])) {
 #define TYPED_CASE(MTYPE, TYPE, MTYPE1, EL1, MTYPE2, EL2)                           \
                                 case MTYPE: {                                       \
-                                    TYPE *v = mpr_value_get_samp(lm->vars[j], k, 0);\
+                                    TYPE *v = mpr_value_get_value(lm->vars[j], k, 0);\
                                     for (k = 0, l = 0; k < var_len; k++, l++) {     \
                                         if (l >= mpr_msg_atom_get_len(a))           \
                                             l = 0;                                  \
@@ -1816,19 +1825,19 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
                 lo_message_add_string(msg, varname);
                 switch (mpr_value_get_type(lm->vars[j])) {
                     case MPR_INT32: {
-                        int *v = mpr_value_get_samp(lm->vars[j], k, 0);
+                        int *v = mpr_value_get_value(lm->vars[j], k, 0);
                         for (l = 0; l < mpr_value_get_vlen(lm->vars[j]); l++)
                             lo_message_add_int32(msg, v[l]);
                         break;
                     }
                     case MPR_FLT: {
-                        float *v = mpr_value_get_samp(lm->vars[j], k, 0);
+                        float *v = mpr_value_get_value(lm->vars[j], k, 0);
                         for (l = 0; l < mpr_value_get_vlen(lm->vars[j]); l++)
                             lo_message_add_float(msg, v[l]);
                         break;
                     }
                     case MPR_DBL: {
-                        double *v = mpr_value_get_samp(lm->vars[j], k, 0);
+                        double *v = mpr_value_get_value(lm->vars[j], k, 0);
                         for (l = 0; l < mpr_value_get_vlen(lm->vars[j]); l++)
                             lo_message_add_double(msg, v[l]);
                         break;

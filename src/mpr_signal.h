@@ -25,8 +25,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
 void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const char *name, int len,
                   mpr_type type, const char *unit, const void *min, const void *max, int *num_inst);
 
-void mpr_sig_call_handler(mpr_local_sig sig, int evt, mpr_id inst, int len,
-                          const void *val, mpr_time time, float diff);
+void mpr_sig_call_handler(mpr_local_sig sig, int evt, mpr_id inst, unsigned int inst_idx, float diff);
 
 int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg);
 
@@ -69,14 +68,13 @@ void mpr_local_sig_remove_slot(mpr_local_sig sig, mpr_local_slot slot, mpr_dir d
 
 /**** Instances ****/
 
-mpr_sig_inst mpr_local_sig_get_inst_by_idx(mpr_local_sig sig, int inst_idx, mpr_id_map *id_map);
-
 int mpr_sig_get_num_inst_internal(mpr_sig sig);
 
 int mpr_sig_get_use_inst(mpr_sig sig);
 
-void mpr_local_sig_set_inst_value(mpr_local_sig sig, void *value, int inst_idx, mpr_id_map id_map,
-                                  int status, int map_manages_inst, mpr_time time);
+void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst_idx,
+                                  mpr_id_map id_map, int status, int map_manages_inst,
+                                  mpr_time time);
 
 /* Functions below are only used by testinstance.c for printing instance indices */
 mpr_sig_inst *mpr_local_sig_get_insts(mpr_local_sig sig);
@@ -84,5 +82,7 @@ mpr_sig_inst *mpr_local_sig_get_insts(mpr_local_sig sig);
 uint8_t mpr_sig_inst_get_idx(mpr_sig_inst si);
 
 int mpr_local_sig_get_num_id_maps(mpr_local_sig sig);
+
+mpr_id_map mpr_local_sig_get_id_map_by_inst_idx(mpr_local_sig sig, unsigned int inst_idx);
 
 #endif /* __MPR_SIGNAL_H__ */

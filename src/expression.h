@@ -5,6 +5,7 @@
 typedef struct _mpr_expr *mpr_expr;
 typedef struct _mpr_expr_stack *mpr_expr_stack;
 
+#include "bitflags.h"
 #include "mpr_time.h"
 #include "value.h"
 
@@ -59,7 +60,7 @@ void printexpr(const char*, mpr_expr);
  *                      instances because all instances are reduced using e.g.
  *                      `y=x.instance.mean()`). */
 int mpr_expr_eval(mpr_expr_stack stk, mpr_expr expr, mpr_value *srcs, mpr_value *expr_vars,
-                  mpr_value result, mpr_time *time, mpr_type *types, int inst_idx);
+                  mpr_value result, mpr_time *time, mpr_bitflags has_value, int inst_idx);
 
 int mpr_expr_get_num_input_slots(mpr_expr expr);
 

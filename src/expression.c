@@ -1789,7 +1789,7 @@ static int precompute(mpr_expr_stack eval_stk, mpr_token_t *stk, int len, int ve
     switch (type) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                      \
         case MTYPE: {                                                   \
-            TYPE *a = (TYPE*)mpr_value_get_samp(v, 0, 0);               \
+            TYPE *a = (TYPE*)mpr_value_get_value(v, 0, 0);              \
             if (vec_len > 1) {                                          \
                 stk[0].toktype = TOK_VLITERAL;                          \
                 stk[0].lit.val.T##p = malloc(vec_len * sizeof(TYPE));   \
@@ -4271,7 +4271,7 @@ MPR_INLINE static int _max(int a, int b)
 }
 
 int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
-                  mpr_value v_out, mpr_time *time, mpr_type *out_types, int inst_idx)
+                  mpr_value v_out, mpr_time *time, mpr_bitflags has_value, int inst_idx)
 {
 #if TRACE_EVAL
     printf("evaluating expression...\n");
@@ -4306,21 +4306,21 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
         if (expr->inst_ctl >= 0) {
             /* recover instance state */
             mpr_value v = v_vars[expr->inst_ctl];
-            int *vi = mpr_value_get_samp(v, inst_idx, 0);
+            int *vi = mpr_value_get_value(v, inst_idx, 0);
             alive = (0 != vi[0]);
         }
         if (expr->mute_ctl >= 0) {
             /* recover mute state */
             mpr_value v = v_vars[expr->mute_ctl];
-            int *vi = mpr_value_get_samp(v, inst_idx, 0);
+            int *vi = mpr_value_get_value(v, inst_idx, 0);
             muted = (0 != vi[0]);
         }
     }
 
     if (v_out) {
-        /* init out_types */
-        if (out_types)
-            memset(out_types, MPR_NULL, mpr_value_get_vlen(v_out));
+        /* init has_value */
+        if (has_value)
+            mpr_bitflags_clear(has_value, mpr_value_get_vlen(v_out));
         /* Increment index position of output data structure. */
         mpr_value_incr_idx(v_out, inst_idx);
     }
@@ -4457,6 +4457,13 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else
                 goto error;
 
+            if (mpr_value_get_num_samps(v, inst_idx) <= 0) {
+#if TRACE_EVAL
+                printf("\r\t\t\t\t\tno values! exiting...\n");
+#endif
+                return 0;
+            }
+
             if (tok->gen.flags & VAR_HIST_IDX) {
                 double intpart;
                 assert(idxp >= 0);
@@ -4518,7 +4525,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 #define COPY_TYPED(MTYPE, TYPE, T)                                                  \
                 case MTYPE: {                                                       \
                     int j, k, vlen = mpr_value_get_vlen(v);                         \
-                    TYPE *a = (TYPE*)mpr_value_get_samp(v, inst_idx, hidx);         \
+                    TYPE *a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx);        \
                     if (vwt) {                                                      \
                         register TYPE temp;                                         \
                         register float ivwt = 1 - vwt;                              \
@@ -4540,7 +4547,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     }                                                               \
                     if (hwt) {                                                      \
                         register float ihwt = 1 - hwt;                              \
-                        a = (TYPE*)mpr_value_get_samp(v, inst_idx, hidx - 1);       \
+                        a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx - 1);      \
                         if (vwt) {                                                  \
                             register TYPE temp;                                     \
                             register float ivwt = 1 - vwt;                          \
@@ -5206,7 +5213,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             switch (mpr_value_get_type(v)) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                                              \
                 case MTYPE: {                                                                   \
-                    TYPE *a = (TYPE*)mpr_value_get_samp(v, inst_idx, hidx);                     \
+                    TYPE *a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx);                    \
                     for (i = vidx, j = tok->var.offset; i < tok->gen.vec_len + vidx; i++, j++) {\
                         if (j >= dims[dp]) j = 0;                                               \
                         a[i] = stk[sp + j].T;                                                   \
@@ -5227,10 +5234,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 #endif
 
             if (tok->var.idx == VAR_Y) {
-                if (out_types) {
+                if (has_value) {
                     for (i = 0, j = vidx; i < tok->gen.vec_len; i++, j++) {
                         if (j >= mpr_value_get_vlen(v)) j = 0;
-                        out_types[j] = types[dp];
+                        mpr_bitflags_set(has_value, j);
                     }
                 }
             }
@@ -5339,10 +5346,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 
     RETURN_ARG_UNLESS(v_out, status);
 
-    if (!out_types) {
+    if (!has_value) {
         /* Internal evaluation during parsing doesn't contain assignment token,
          * so we need to copy to output here. */
-        void *v = mpr_value_get_samp(v_out, inst_idx, 0);
+        void *v = mpr_value_get_value(v_out, inst_idx, 0);
         switch (mpr_value_get_type(v_out)) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                          \
             case MTYPE:                                                     \

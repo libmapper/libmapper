@@ -65,9 +65,7 @@ void mpr_slot_set_causes_update(mpr_slot slot, int causes_update);
 
 mpr_value mpr_slot_get_value(mpr_local_slot slot);
 
-int mpr_slot_set_value(mpr_local_slot slot, unsigned int inst_idx, void *val, mpr_time time);
-
-void mpr_slot_reset_inst(mpr_local_slot slot, unsigned int inst_idx);
+int mpr_slot_set_value(mpr_local_slot slot, unsigned int inst_idx, const void *value, mpr_time time);
 
 void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto);
 
