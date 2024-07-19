@@ -15,7 +15,7 @@ if (!(Test-Path "$($scriptDir)\build\liblo\")) {
   Invoke-WebRequest https://github.com/radarsat1/liblo/archive/refs/tags/0.32.zip -OutFile liblo.zip
   Expand-Archive liblo.zip liblo
   rm liblo.zip
-  cd liblo\liblo-master\cmake\
+  cd liblo\liblo-0.32\cmake\
   (gc config-msvc.h.in) -replace '#define HAVE_UNISTD_H', '//#define HAVE_UNISTD_H' | Out-File -encoding ASCII config-msvc.h.in
   mkdir build
   cd build\
