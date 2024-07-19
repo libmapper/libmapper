@@ -5,7 +5,7 @@ namespace Mapper;
 public abstract class MapperObject
 {
     [Flags]
-    public enum Status
+    public enum ObjectStatus
     {
         New = 0x01,
         Modified = 0x02,
@@ -21,6 +21,7 @@ public abstract class MapperObject
 
     /// <summary>
     /// Get the unique graph ID for this object.
+    /// Note that the top 32 bits might not be populated for a few seconds after creation.
     /// </summary>
     public long Id => (long)GetProperty(Property.Id);
 
@@ -73,7 +74,7 @@ public abstract class MapperObject
                         case (int)Property.Protocol:
                             return (Map.Protocol)i;
                         case (int)Property.Status:
-                            return (Status)i;
+                            return (ObjectStatus)i;
                         case (int)Property.Stealing:
                             return (Signal.Stealing)i;
                         case (int)Property.Type:

@@ -10,7 +10,7 @@
         <PackageIcon>libmapper_logo_black_512px.png</PackageIcon>
         <RepositoryUrl>https://github.com/libmapper/libmapper</RepositoryUrl>
         <NeutralLanguage>en</NeutralLanguage>
-        <Version>2.4.6.3</Version>
+        <Version>2.4.6.4</Version>
         <TargetFrameworks>net8.0;netstandard2.1;net6.0;net7.0</TargetFrameworks>
         <LangVersion>latest</LangVersion>
         <IncludeSymbols>true</IncludeSymbols>
