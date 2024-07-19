@@ -310,20 +310,18 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
 
 
 /* Notes:
- * - Incoming signal values may be scalars or vectors, but much match the
- *   length of the target signal or mapping slot.
- * - Vectors are of homogeneous type (MPR_INT32, MPR_FLT or MPR_DBL) however
- *   individual elements may have no value (type MPR_NULL)
+ * - Incoming signal values may be scalars or vectors, but much match the length of the target
+ *   signal or mapping slot.
+ * - Vectors are of homogeneous type (MPR_INT32, MPR_FLT or MPR_DBL) however individual elements
+ *   may have no value (type MPR_NULL)
  * - A vector consisting completely of nulls indicates a signal instance release
  *   TODO: use more specific message for release?
- * - Updates to a specific signal instance are indicated using the label
- *   "@in" followed by a 64bit integer which uniquely identifies this
- *   instance within the network of libmapper devices
- * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
- *   are indicated using the label "@sl" followed by a single integer slot #
- * - Instance creation and release may also be triggered by expression
- *   evaluation. Refer to the document "Using Instanced Signals with Libmapper"
- *   for more information.
+ * - Updates to a specific signal instance are indicated using the label "@in" followed by a 64bit
+ *   integer which uniquely identifies this instance within the distributed graph
+ * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping are indicated using
+ *   the label "@sl" followed by a single integer slot #
+ * - Instance creation and release may also be triggered by expression evaluation. Refer to the
+ *   document "Understanding Instanced Signals and Maps" for more information.
  */
 int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int argc,
                         lo_message msg, void *data)

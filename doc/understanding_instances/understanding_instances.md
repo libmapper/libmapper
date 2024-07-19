@@ -3,7 +3,7 @@
 
 Input and output signals addressed by libmapper may be *instanced* meaning that there are multiple independent copies of the object or phenomenon represented by the signal. If multiple instances of an object are active at the same time we say that the object is *multiplex*; if there are times during which an object instance is inactive (e.g. the phenomenon it represents does not exist) we say that the object is *ephemeral*. In the latter case the independent copies of the object exist serially over time.
 
-In the table below, signals are referred to as *instanced* if they are multiplex, ephemeral, or both; otherwise the signal is referred to as *singleton*. The table aims to depicts each possible combination of instanced and singleton signals that might be connected in a map, including convergent maps in which some source signals are instanced and some are not. For each combination a small "grid" graphic is used to depict the mapping topopogy, e.g.:
+In the table below, signals are referred to as *instanced* if they are multiplex, ephemeral, or both; otherwise the signal is referred to as *singleton*. The table aims to depict each possible combination of instanced and singleton signals that might be connected in a map, including convergent maps in which some source signals are instanced and some are not. For each combination a small "grid" graphic is used to depict the mapping topopogy, e.g.:
 
 <img style="display:block;padding-left:35%;width:20%;" src="./images/icon_s2i.s.png">
 

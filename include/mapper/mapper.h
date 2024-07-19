@@ -415,7 +415,7 @@ void mpr_sig_remove_inst(mpr_sig signal, mpr_id instance);
  *                      `SET_*`, and `REL_*`. */
 int mpr_sig_get_inst_status(mpr_sig signal, mpr_id instance);
 
-/*! Activate a specific signal instance without setting it's value. In general it is not necessary
+/*! Activate a specific signal instance without setting its value. In general it is not necessary
  *  to use this function, since signal instances will be automatically activated as necessary when
  *  signals are updated by `mpr_sig_set_value()` or through a map.
  *  \param signal       The signal to operate on.

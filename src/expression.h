@@ -52,10 +52,12 @@ void printexpr(const char*, mpr_expr);
  *  \param types        An array of `mpr_type` for storing the output type per vector element
  *  \param inst_idx     Index of the instance being updated.
  *  \result             0 if the expression evaluation caused no change, or a bitflags consisting of
- *                      `MPR_SIG_UPDATE` (if an update was generated), `MPR_SIG_REL_UPSTRM` (if the
- *                      expression generated an instance release before the update), and
- *                      `MPR_SIG_REL_DNSRTM` (if the expression generated an instance release after
- *                      an update). */
+ *                      `EXPR_UPDATE` or `EXPR_MUTED_UPDATE` (if an update was generated),
+ *                      `EXPR_RELEASE_BEFORE_UPDATE` or `EXPR_RELEASE_AFTER_UPDATE` (if the
+ *                      expression generated an instance release), `EXPR_EVAL_DONE` (if the
+ *                      expression will not generate different results for different source
+ *                      instances because all instances are reduced using e.g.
+ *                      `y=x.instance.mean()`). */
 int mpr_expr_eval(mpr_expr_stack stk, mpr_expr expr, mpr_value *srcs, mpr_value *expr_vars,
                   mpr_value result, mpr_time *time, mpr_type *types, int inst_idx);
 
