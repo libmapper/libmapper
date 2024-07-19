@@ -15,10 +15,13 @@ public class Signal : MapperObject
     [Flags]
     public enum StatusFlags
     {
-        SetRemote = 0x10,
-        SetLocal = 0x20,
-        HasValue = 0x40,
-        IsActive = 0x80
+        IsActive = 0x0020,
+        HasValue = 0x0040,
+        NewValue = 0x0080,
+        UpdateLocal = 0x0100,
+        UpdateRemote = 0x0200,
+        ReleaseUpstream = 0x0400,
+        ReleaseDownstream = 0x0400
     }
     
     public enum Direction
