@@ -12,7 +12,7 @@ if (!(Test-Path "$($scriptDir)\build\zlib\")) {
 }
 # Download liblo and build
 if (!(Test-Path "$($scriptDir)\build\liblo\")) {
-  Invoke-WebRequest https://github.com/radarsat1/liblo/archive/refs/heads/master.zip -OutFile liblo.zip
+  Invoke-WebRequest https://github.com/radarsat1/liblo/archive/refs/tags/0.32.zip -OutFile liblo.zip
   Expand-Archive liblo.zip liblo
   rm liblo.zip
   cd liblo\liblo-master\cmake\
