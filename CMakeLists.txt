@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.19)
 # Replace with your own global paths before building and modify build directories if different from below
 set(BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build")
 set(LIBMAPPER_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/include")
-set(LIBLO_DIR "${BUILD_DIR}/liblo")
+set(LIBLO_DIR "${BUILD_DIR}/liblo/liblo-0.32")
 set(LIBLO_BUILD_DIR "${LIBLO_DIR}/cmake/build/Release")
 set(ZLIB_DIR "${BUILD_DIR}/zlib/msvc2017_64")
 set(ZLIB_BUILD_DIR "${ZLIB_DIR}/lib/zlib")
