@@ -15,7 +15,7 @@ if (!(Test-Path "$($scriptDir)\build\liblo\")) {
   Invoke-WebRequest https://github.com/radarsat1/liblo/archive/refs/tags/0.32.zip -OutFile liblo.zip
   Expand-Archive liblo.zip liblo
   rm liblo.zip
-  cd liblo\liblo-0.32\cmake\
+  cd liblo\cmake\
   (gc config-msvc.h.in) -replace '#define HAVE_UNISTD_H', '//#define HAVE_UNISTD_H' | Out-File -encoding ASCII config-msvc.h.in
   mkdir build
   cd build\
@@ -34,7 +34,7 @@ if (!(Test-Path "$($scriptDir)\dist\")) {
 }
 # Copy dlls to /dist
 cp -v ./build/Release/libmapper.dll ./dist/libmapper.dll
-cp -v ./build/liblo/liblo-master/cmake/build/Release/liblo.dll ./dist/liblo.dll
+cp -v ./build/liblo/cmake/build/Release/liblo.dll ./dist/liblo.dll
 cp -v ./build/zlib/msvc2017_64/lib/zlib/zlib.dll ./dist/zlib.dll
 # Copy test files
 cp -v ./build/test/Release/* ./dist/tests
