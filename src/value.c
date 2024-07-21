@@ -198,7 +198,7 @@ void mpr_value_set_next(mpr_value v, unsigned int inst_idx, const void *s, mpr_t
 /* returns 1 if the element was updated */
 int mpr_value_set_element(mpr_value v, unsigned int inst_idx, int el_idx, void *new)
 {
-    void *old = mpr_value_get_value(v, inst_idx, 0);
+    char *old = (char*) mpr_value_get_value(v, inst_idx, 0);
     size_t size = mpr_type_get_size(v->type);
     RETURN_ARG_UNLESS(old, 0);
     el_idx = el_idx % v->vlen;
