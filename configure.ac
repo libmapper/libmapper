@@ -353,7 +353,7 @@ PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([liblo],
   AS_HELP_STRING([--without-liblo],[compile without liblo, disable OSC]))
 AS_IF([test x$with_liblo != xno],[
-  PKG_CHECK_MODULES([liblo], [liblo >= 0.30])])
+  PKG_CHECK_MODULES([liblo], [liblo >= 0.32])])
 AS_IF([test "x$liblo_LIBS" = x],
   [with_liblo=no])
 AS_IF([test x$with_liblo != xno],[
@@ -368,8 +368,8 @@ AS_IF([test x$with_liblo != xno],[
     [AC_DEFINE([HAVE_LIBLO_SERVER_IFACE],[],[Define to use lo_server_new_multicast_iface function in liblo.])])
   AC_CHECK_FUNC([lo_bundle_count],
     [AC_DEFINE([HAVE_LIBLO_BUNDLE_COUNT],[],[Define to use lo_bundle_count function in liblo.])])
-  AC_CHECK_FUNC([lo_servers_recv_noblock],
-    [AC_DEFINE([HAVE_LIBLO_SERVERS_RECV_NOBLOCK],[],[Define to use lo_servers_recv_noblock function in liblo.])],[AC_MSG_ERROR([liblo >= 0.30 required.])])
+  AC_CHECK_FUNC([lo_server_new_from_config],
+    [AC_DEFINE([HAVE_LIBLO_SERVER_NEW_FROM_CONFIG],[],[Define to use lo_server_new_from_config function in liblo.])],[AC_MSG_ERROR([liblo >= 0.32 required.])])
   LIBS="$tmpLIBS"
 ])
 

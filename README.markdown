@@ -263,7 +263,7 @@ Optional dependencies for building bindings:
 
 * Python bindings: [Python](http://www.python.org), Python license, LGPL-compatible
 * Java bindings: [openjdk](https://openjdk.org/), GPL license
-* C# bindings: [Mono](https://www.mono-project.com/), MIT license
+* C# bindings: [.NET](https://dotnet.microsoft.com/en-us/), MIT license
 
 Used only in the examples:
 
