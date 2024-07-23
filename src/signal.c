@@ -1467,9 +1467,10 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
         RETURN_ARG_UNLESS(id_map_idx >= 0, 0);
         si = _get_inst_by_id_map_idx(lsig, id_map_idx);
     }
+    RETURN_ARG_UNLESS(si, 0);
     if (time)
         mpr_time_set(time, *mpr_value_get_time(lsig->value, si->idx, 0));
-    RETURN_ARG_UNLESS(si && (si->status & MPR_STATUS_HAS_VALUE), 0)
+    RETURN_ARG_UNLESS(si->status & MPR_STATUS_HAS_VALUE, 0)
     mpr_time_set(&now, MPR_NOW);
     if (lsig->dir == MPR_DIR_IN && !lsig->handler)
         mpr_sig_update_timing_stats(lsig, mpr_time_get_diff(now, *mpr_value_get_time(lsig->value, si->idx, 0)));
