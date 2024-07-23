@@ -733,11 +733,38 @@ class Object:
         ACTIVE      = 0x20
         ANY         = 0xFF
 
+        def __str__(self):
+            if self._name_ is not None:
+                return self._name_
+            members, uncovered = _decompose(self.__cls__, self._value_)
+            return '|'.join([str(m._name_ or m._value_) for m in members])
+
         def __repr__(self):
-            return 'libmapper.Object.Status.' + self.name
+            return 'libmapper.Object.Status(' + str(self) + ')'
 
     def __init__(self, ref):
         self._obj = ref
+
+    def graph(self):
+        """Retrieve the parent `Graph` object for an object."""
+
+        mpr.mpr_obj_get_graph.argtypes = [c_void_p]
+        mpr.mpr_obj_get_graph.restype = c_void_p
+        return Graph(None, mpr.mpr_obj_get_graph(self._obj))
+
+    def get_status(self):
+        """Get the status of an object"""
+
+        mpr.mpr_obj_get_status.argtypes = [c_void_p]
+        mpr.mpr_obj_get_status.restype = c_int
+        return Status(mpr.mpr_obj_get_status(self._obj))
+
+    def reset_status(self):
+        """Reset the ephemeral status flags of an object"""
+
+        mpr.mpr_obj_reset_status.argtypes = [c_void_p]
+        mpr.mpr_obj_reset_status.restype = c_void_p
+        mpr.mpr_obj_reset_status(self._obj)
 
     def get_num_properties(self):
         """Get an object's number of properties."""
@@ -746,13 +773,6 @@ class Object:
         mpr.mpr_obj_get_num_props.restype = c_int
         return mpr.mpr_obj_get_num_props(self._obj)
     num_properties = property(get_num_properties)
-
-    def graph(self):
-        """Retrieve the parent `Graph` object for an object."""
-
-        mpr.mpr_obj_get_graph.argtypes = [c_void_p]
-        mpr.mpr_obj_get_graph.restype = c_void_p
-        return Graph(None, mpr.mpr_obj_get_graph(self._obj))
 
     def set_property(self, key_or_idx, val, publish=True):
         """
@@ -1180,11 +1200,12 @@ class Signal(Object):
         REL_UPSTRM  = 0x0400
         REL_DNSTRM  = 0x0800
         INST_OFLW   = 0x1000
-        ALL         = 0xFF
+        ALL         = 0x1FFF
 
         def __repr__(self):
             return 'libmapper.Signal.Event.' + self.name
 
+    @unique
     class InstanceStatus(IntFlag):
         """The set of possible status flags for a signal instance."""
 
@@ -1200,7 +1221,7 @@ class Signal(Object):
         UPDATE_LOC          = 0x0100
         UPDATE_REM          = 0x0200
         REL_UPSTRM          = 0x0400
-        REL_DWNSTRM         = 0x0800
+        REL_DNSTRM          = 0x0800
         OVERFLOW            = 0x1000
         ANY                 = 0x1FFF
 
@@ -1227,6 +1248,7 @@ class Signal(Object):
     def __init__(self, sigptr=None):
         self._obj = sigptr
         self.id = 0
+        self._is_sig_inst = False
         self.callback = None
 
     def __repr__(self):
@@ -1392,6 +1414,7 @@ class Signal(Object):
         """
 
         self.id = id
+        self._is_sig_inst = True
         return self
 
     def release(self):
@@ -1402,19 +1425,21 @@ class Signal(Object):
         mpr.mpr_sig_release_inst(self._obj, self.id)
 
     def get_status(self):
-        """Get the status of this signal instance."""
+        """Get the status of this signal or signal instance."""
 
-        mpr.mpr_sig_get_inst_status.argtypes = [c_void_p, c_longlong]
-        mpr.mpr_sig_get_inst_status.restype = c_int
-        return Signal.InstanceStatus(mpr.mpr_sig_get_inst_status(self._obj, self.id))
+        if self._is_sig_inst:
+            mpr.mpr_sig_get_inst_status.argtypes = [c_void_p, c_longlong]
+            mpr.mpr_sig_get_inst_status.restype = c_int
+            return Signal.InstanceStatus(mpr.mpr_sig_get_inst_status(self._obj, self.id))
+        else:
+            return super().get_status()
 
     def num_instances(self, status=InstanceStatus.ANY):
         """
         Get the number of instances for this Signal.
 
         Args:
-            status (libmapper.Signal.InstanceStatus): The status of the instances to search for.
-                Should be set to `ACTIVE`, `STAGED`, or both (`ACTIVE | STAGED`).
+            status (libmapper.Signal.InstanceStatus): The statuses of the instances to search for.
 
         Returns:
              The number of allocated signal instances matching the specified status.
@@ -1433,8 +1458,7 @@ class Signal(Object):
         Args:
             idx (int): The numerical index of the instance to retrieve.  Should be between zero
                 and the number of instances.
-            status (libmapper.Signal.InstanceStatus): The status of the instances to search for.
-                Should be set to `ACTIVE`, `STAGED`, or both (`ACTIVE | STAGED`).
+            status (libmapper.Signal.InstanceStatus): The statuses of the instances to search for.
 
         Returns:
             The instance identifier associated with the given index, or `0` if unsuccessful.

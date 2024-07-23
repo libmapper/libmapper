@@ -61,6 +61,21 @@ def print_instance_timetags():
     phrase += ' ]'
     print(phrase)
 
+def print_instance_statuses():
+    phrase = 'active /outsig: ['
+    count = outsig.num_instances(mpr.Object.Status.ACTIVE)
+    for i in range(count):
+        phrase += ' '
+        phrase += str(outsig.Instance(outsig.instance_id(i, mpr.Object.Status.ACTIVE)).get_status())
+    phrase += ' ]   '
+    phrase += 'active /insig: ['
+    count = insig.num_instances(mpr.Object.Status.ACTIVE)
+    for i in range(count):
+        phrase += '   '
+        phrase += str(insig.Instance(insig.instance_id(i, mpr.Object.Status.ACTIVE)).get_status())
+    phrase += ' ]'
+    print(phrase)
+
 src = mpr.Device("py.testinstance.src")
 outsig = src.add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32, None, 0, 100, 5)
 outsig.reserve_instances(5)
@@ -96,6 +111,7 @@ for i in range(100):
     print_instance_ids()
     print_instance_values()
     print_instance_timetags()
+    print_instance_statuses()
     dest.poll(100)
     src.poll(0)
 

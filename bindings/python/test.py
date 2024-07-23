@@ -20,6 +20,7 @@ def setup(d):
         d.poll(10)
 
     print('device name', d['name'])
+    print('device status', d.get_status())
     print('device port', d['port'])
     print('device ordinal', d['ordinal'])
 
@@ -71,8 +72,10 @@ def setup(d):
 
     sig = d.add_signal(mpr.Signal.Direction.INCOMING, "insig", 4, mpr.Type.INT32, None, None, None, None, h)
     print('signal properties:', sig.properties)
+    print('signal status:', sig.get_status())
     sig = d.add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 4, mpr.Type.FLOAT)
     print('signal properties:', sig.properties)
+    print('signal status:', sig.get_status())
 
     # try adding a signal with the same name
     sig = d.add_signal(mpr.Signal.Direction.INCOMING, "outsig", 4, mpr.Type.FLOAT)
