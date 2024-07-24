@@ -73,7 +73,7 @@ class test {
                                      null, null, null, new mapper.signal.Listener() {
             public void onEvent(Signal sig, mapper.signal.Event e, int v, Time time) {
                 System.out.println(sig.properties().get("name") + " got "
-                                   + v + " at t=" + time.toString());
+                                   + v + " at t=" + time.toString() + ", status=" + sig.getStatus());
             }});
 
         System.out.println("Input signal name: "+inp1.properties().get("name"));

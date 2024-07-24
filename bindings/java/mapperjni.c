@@ -202,7 +202,7 @@ static void throwOutOfMemory(JNIEnv *env)
     }
 }
 
-static mpr_dev get_mpr_obj_from_jobject(JNIEnv *env, jobject jobj)
+static mpr_obj get_mpr_obj_from_jobject(JNIEnv *env, jobject jobj)
 {
     // TODO check object here
     jclass cls = (*env)->GetObjectClass(env, jobj);
@@ -848,6 +848,21 @@ JNIEXPORT jlong JNICALL Java_mapper_AbstractObject_graph
 {
     mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
     return mobj ? jlong_ptr(mpr_obj_get_graph(mobj)) : 0;
+}
+
+JNIEXPORT jint JNICALL Java_mapper_AbstractObject_getStatus
+  (JNIEnv *env, jobject jobj)
+{
+    mpr_obj obj = get_mpr_obj_from_jobject(env, jobj);
+    return obj ? mpr_obj_get_status(obj) : 0;
+}
+
+JNIEXPORT void JNICALL Java_mapper_AbstractObject__1reset_1status
+  (JNIEnv *env, jobject jobj, jlong ptr)
+{
+    mpr_obj obj = (mpr_obj) ptr_jlong(ptr);
+    if (obj)
+        mpr_obj_reset_status(obj);
 }
 
 JNIEXPORT void JNICALL Java_mapper_AbstractObject__1push
@@ -1867,7 +1882,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_00024Instance_setUserReference
     return obj;
 }
 
-JNIEXPORT jint JNICALL Java_mapper_Signal_00024Instance__getStatus
+JNIEXPORT jint JNICALL Java_mapper_Signal_00024Instance_getStatus
   (JNIEnv *env, jobject obj)
 {
     mpr_id id;
@@ -1986,6 +2001,13 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_newestActiveInstance
     mpr_id id = mpr_sig_get_newest_inst_id(sig);
     inst_jni_context ctx = ((inst_jni_context) mpr_sig_get_inst_data(sig, id));
     return ctx ? ctx->inst : 0;
+}
+
+JNIEXPORT jint JNICALL Java_mapper_Signal__1num_1instances
+  (JNIEnv *env, jobject obj, jlong jsig, jint status_flags)
+{
+    mpr_sig sig = (mpr_sig) ptr_jlong(jsig);
+    return sig ? mpr_sig_get_num_inst(sig, status_flags) : 0;
 }
 
 JNIEXPORT jint JNICALL Java_mapper_Signal_numActiveInstances

@@ -18,7 +18,14 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
         return new mapper.Graph(graph(_obj));
     }
 
-    private native void _push(long obj);
+    /* status */
+    public native int getStatus();
+
+    private native void _reset_status(long obj);
+    public T resetStatus() {
+        _reset_status(_obj);
+        return self();
+    }
 
     /* properties */
     public class Properties
@@ -149,6 +156,7 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
     public Properties properties()
         { return new Properties(this); }
 
+    private native void _push(long obj);
     public T push() {
         _push(_obj);
         return self();

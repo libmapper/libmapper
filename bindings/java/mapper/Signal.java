@@ -87,8 +87,20 @@ public class Signal extends AbstractObject
     public native Instance oldestActiveInstance();
     public native Instance newestActiveInstance();
 
-    public native int numInstances(InstanceStatus status);
-    public native int numReservedInstances();
+    private native int _num_instances(long sig, int status);
+    public int numInstances(InstanceStatus status)
+    {
+        return _num_instances(_obj, status.value());
+    }
+    public int numInstances(EnumSet<InstanceStatus> statuses)
+    {
+        int flags = 0;
+        for (InstanceStatus is : InstanceStatus.values()) {
+            if (statuses.contains(is))
+                flags |= is.value();
+        }
+        return _num_instances(_obj, flags);
+    }
 
     /* set value */
     public native Signal setValue(long id, Object value);
