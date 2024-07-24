@@ -10,7 +10,8 @@ authors = [
   { name = "libmapper.org", email = "dot_mapper@googlegroups.com" },
 ]
 description = "A library for representing input and output signals on a network and allowing arbitrary 'mappings' to be dynamically created between them."
-readme = "README.md"
+readme = {file = "README.md", content-type = "text/markdown"}
+keywords = ["mapping","media"]
 requires-python = ">=3.7"
 dependencies = [
 
