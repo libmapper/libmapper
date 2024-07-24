@@ -94,7 +94,7 @@ typedef struct _mpr_local_sig
 
     mpr_sig_id_map id_maps;         /*!< ID maps and active instances. */
     mpr_value value;
-    int num_id_maps;
+    unsigned int num_id_maps;
     mpr_sig_inst *inst;             /*!< Array of pointers to the signal insts. */
     mpr_bitflags vec_known;         /*!< Bitflags when entire vector is known. */
     mpr_bitflags updated_inst;      /*!< Bitflags to indicate updated instances. */
@@ -414,16 +414,16 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
                  * cause a release. If so, don't bother stealing an instance. */
                 int slot_id = mpr_slot_get_id((mpr_slot)slot);
                 int num_src = mpr_map_get_num_src((mpr_map)map);
-                int status;
+                int eval_status;
                 mpr_value *src = alloca(num_src * sizeof(mpr_value));
                 mpr_value v = mpr_value_new(val_len, slot_sig->type, 1, 1);
                 mpr_value_set_next(v, 0, argv[0], &time);
                 for (i = 0; i < num_src; i++)
                     src[i] = (i == slot_id) ? v : 0;
-                status = mpr_expr_eval(mpr_graph_get_expr_stack(sig->obj.graph),
-                                       mpr_local_map_get_expr(map), src, 0, 0, 0, 0, 0);
+                eval_status = mpr_expr_eval(mpr_graph_get_expr_stack(sig->obj.graph),
+                                            mpr_local_map_get_expr(map), src, 0, 0, 0, 0, 0);
                 mpr_value_free(v);
-                if (status & EXPR_RELEASE_BEFORE_UPDATE)
+                if (eval_status & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;
             }
 
@@ -468,6 +468,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
                 sig->id_maps[id_map_idx].inst->status |= MPR_STATUS_REL_UPSTRM;
             else
                 sig->id_maps[id_map_idx].inst->status |= MPR_STATUS_REL_DNSTRM;
+            sig->obj.status |= sig->id_maps[id_map_idx].inst->status;
             mpr_dev_GID_decref(dev, sig->group, id_map);
             if (!sig->ephemeral) {
                 /* clear signal's reference to id_map */
@@ -554,6 +555,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             id_map = sig->id_maps[id_map_idx].id_map;
             if (!mpr_bitflags_compare(si->has_value_flags, sig->vec_known, sig->len)) {
                 si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM | status);
+                sig->obj.status |= si->status;
                 mpr_value_set_time_hist(sig->value, time, si->idx, 0);
                 mpr_bitflags_unset(sig->updated_inst, si->idx);
                 mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, id_map->LID, si->idx, diff);
@@ -1166,7 +1168,7 @@ static int _reserve_inst(mpr_local_sig lsig, mpr_id *id, void *data)
     lsig->inst[lsig->num_inst] = (mpr_sig_inst) calloc(1, sizeof(struct _mpr_sig_inst));
     si = lsig->inst[lsig->num_inst];
     si->has_value_flags = mpr_bitflags_new(lsig->len);
-    si->status &= ~(MPR_STATUS_HAS_VALUE | MPR_STATUS_ACTIVE);
+    si->status = MPR_STATUS_STAGED;
 
     if (id)
         si->id = *id;
@@ -1363,6 +1365,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
         mpr_value_set_next(lsig->value, si->idx, val, &time);
     }
     si->status |= status;
+    sig->obj.status |= status;
 
     /* mark instance as updated */
     mpr_local_sig_set_updated(lsig, si->idx);
@@ -1407,7 +1410,7 @@ static void mpr_sig_release_inst_internal(mpr_local_sig lsig, int id_map_idx)
     }
 
     /* Put instance back in reserve list */
-    smap->inst->status = 0;
+    smap->inst->status = MPR_STATUS_STAGED;
     smap->inst = 0;
 }
 
@@ -1487,7 +1490,7 @@ int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
     int i, j;
     RETURN_ARG_UNLESS(sig, 0);
     RETURN_ARG_UNLESS(sig->obj.is_local && sig->ephemeral, sig->num_inst);
-    if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_STAGED)) == (MPR_STATUS_ACTIVE | MPR_STATUS_STAGED))
+    if (status == MPR_STATUS_ANY)
         return sig->num_inst;
     for (i = 0, j = 0; i < sig->num_inst; i++) {
         if (((mpr_local_sig)sig)->inst[i]->status & status)
@@ -1502,7 +1505,7 @@ mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status)
     mpr_local_sig lsig = (mpr_local_sig)sig;
     RETURN_ARG_UNLESS(sig && sig->obj.is_local && sig->use_inst, 0);
     RETURN_ARG_UNLESS(idx >= 0 && idx < sig->num_inst, 0);
-    if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_STAGED)) == (MPR_STATUS_ACTIVE | MPR_STATUS_STAGED))
+    if (status == MPR_STATUS_ANY)
         return lsig->inst[idx]->id;
     for (i = 0, j = -1; i < lsig->num_inst; i++) {
         if (!(lsig->inst[i]->status & status))
@@ -1548,8 +1551,8 @@ int mpr_sig_get_inst_status(mpr_sig sig, mpr_id id)
     si = _find_inst_by_id((mpr_local_sig)sig, id);
     if (si) {
         if ((status = si->status)) {
-            /* clear all flags except for HAS_VALUE and ACTIVE */
-            si->status &= (MPR_STATUS_HAS_VALUE | MPR_STATUS_ACTIVE);
+            /* clear all flags except for HAS_VALUE, ACTIVE, and STAGED */
+            si->status &= (MPR_STATUS_HAS_VALUE | MPR_STATUS_ACTIVE | MPR_STATUS_STAGED);
         }
         else
             status = MPR_STATUS_STAGED;
@@ -1607,6 +1610,7 @@ static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map 
 {
     int i;
     if (!(si->status & MPR_STATUS_ACTIVE)) {
+        si->status &= ~MPR_STATUS_STAGED;
         si->status = MPR_STATUS_NEW | MPR_STATUS_ACTIVE;
         mpr_time_set(&si->created, MPR_NOW);
     }
@@ -1799,7 +1803,7 @@ void mpr_sig_copy_props(mpr_sig to, mpr_sig from)
 }
 
 void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst_idx,
-                                  mpr_id_map id_map, int status, int map_manages_inst,
+                                  mpr_id_map id_map, int eval_status, int map_manages_inst,
                                   mpr_time time)
 {
     mpr_sig_inst si;
@@ -1820,15 +1824,16 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst
     }
     diff = mpr_time_get_diff(time, *mpr_value_get_time(sig->value, si->idx, 0));
 
-    if (status & EXPR_RELEASE_BEFORE_UPDATE) {
+    if (eval_status & EXPR_RELEASE_BEFORE_UPDATE) {
         /* TODO: release map-tracked instance */
         /* Try to release instance, but do not call process_sig() here, since we don't
          * know if the local signal instance will actually be released. */
         si->status |= MPR_STATUS_REL_UPSTRM;
+        sig->obj.status |= MPR_STATUS_REL_UPSTRM;
         mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx, diff);
     }
 
-    if (status & EXPR_UPDATE) {
+    if (eval_status & EXPR_UPDATE) {
         /* TODO: create new map->id_map */
 /*
          if (map_manages_inst) {
@@ -1844,6 +1849,7 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst
         if (mpr_value_cmp(sig->value, si->idx, 0, value))
             si->status |= MPR_STATUS_NEW_VALUE;
         mpr_value_set_next(sig->value, si->idx, value, &time);
+        sig->obj.status |= si->status;
 
         mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, si->id, si->idx, diff);
 
@@ -1855,11 +1861,12 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst
         }
     }
 
-    if (status & EXPR_RELEASE_AFTER_UPDATE) {
+    if (eval_status & EXPR_RELEASE_AFTER_UPDATE) {
         /* TODO: release map-tracked instance */
         /* Try to release instance, but do not call process_sig() here, since we don't
          * know if the local signal instance will actually be released. */
         si->status |= MPR_STATUS_REL_UPSTRM;
+        sig->obj.status |= si->status;
         mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx, diff);
     }
 }
@@ -1949,7 +1956,7 @@ uint8_t mpr_sig_inst_get_idx(mpr_sig_inst si)
     return si->idx;
 }
 
-int mpr_local_sig_get_num_id_maps(mpr_local_sig sig)
+unsigned int mpr_local_sig_get_num_id_maps(mpr_local_sig sig)
 {
     return sig->num_id_maps;
 }

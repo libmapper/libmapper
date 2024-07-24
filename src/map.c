@@ -687,8 +687,8 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     src_vals = alloca(m->num_src * sizeof(mpr_value));
     for (i = 0; i < m->num_src; i++) {
         mpr_local_sig comp = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)m->src[i]);
-        if (  mpr_sig_get_num_inst((mpr_sig)comp, MPR_STATUS_ANY)
-            > mpr_sig_get_num_inst((mpr_sig)src_sig, MPR_STATUS_ANY)) {
+        if (  mpr_sig_get_num_inst_internal((mpr_sig)comp)
+            > mpr_sig_get_num_inst_internal((mpr_sig)src_sig)) {
             src_slot = m->src[i];
             src_sig = comp;
         }
@@ -785,8 +785,8 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     src_sig = mpr_slot_get_sig((mpr_slot)src_slot);
     for (i = 0; i < m->num_src; i++) {
         mpr_sig comp = mpr_slot_get_sig((mpr_slot)m->src[i]);
-        if (  mpr_sig_get_num_inst(comp, MPR_STATUS_ANY)
-            > mpr_sig_get_num_inst(src_sig, MPR_STATUS_ANY)) {
+        if (  mpr_sig_get_num_inst_internal(comp)
+            > mpr_sig_get_num_inst_internal(src_sig)) {
             src_slot = m->src[i];
             src_sig = comp;
         }
@@ -909,10 +909,10 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
         sig = mpr_slot_get_sig((mpr_slot)m->src[i]);
         hist_size = mpr_expr_get_in_hist_size(e, i);
         mpr_slot_alloc_values(m->src[i], 0, hist_size);
-        num_inst = mpr_max(mpr_sig_get_num_inst(sig, MPR_STATUS_ANY), num_inst);
+        num_inst = mpr_max(mpr_sig_get_num_inst_internal(sig), num_inst);
     }
     sig = mpr_slot_get_sig((mpr_slot)m->dst);
-    num_inst = mpr_max(mpr_sig_get_num_inst(sig, MPR_STATUS_ANY), num_inst);
+    num_inst = mpr_max(mpr_sig_get_num_inst_internal(sig), num_inst);
     hist_size = mpr_expr_get_out_hist_size(e);
 
     /* If the dst slot is remote, we need to allocate enough dst slot and variable instances for

@@ -433,13 +433,14 @@ mpr_id mpr_sig_get_oldest_inst_id(mpr_sig signal);
  *  \return             The instance identifier, or zero if unsuccessful. */
 mpr_id mpr_sig_get_newest_inst_id(mpr_sig signal);
 
-/*! Get a signal instance's identifier by its index.  Intended to be used for
- *  iterating over the active instances.
+/*! Get a signal instance's identifier by its index.  Intended to be used for iterating over
+ *  instances, along with `mpr_sig_get_num_inst()`.
  *  \param signal       The signal to operate on.
  *  \param index        The numerical index of the instance to retrieve.  Should be between zero
  *                      and the number of instances.
- *  \param status       The status of the instances to search should be set to `MPR_STATUS_ACTIVE`,
- *                      `MPR_STATUS_RESERVED`, or both (`MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED`).
+ *  \param status       The statuses of the instances to search. Instances matching _any_ of the
+ *                      status bitflags will be counted. For example, only active instances can be
+ *                      included by setting status to `MPR_STATUS_ACTIVE`.
  *  \return             The instance identifier associated with the given index, or zero
  *                      if unsuccessful. */
 mpr_id mpr_sig_get_inst_id(mpr_sig signal, int index, mpr_status status);
@@ -458,8 +459,9 @@ void *mpr_sig_get_inst_data(mpr_sig signal, mpr_id instance);
 
 /*! Get the number of instances for a specific signal.
  *  \param signal       The signal to check.
- *  \param status       The status of the instances to search should be set to `MPR_STATUS_ACTIVE`,
- *                      `MPR_STATUS_RESERVED`, or both (`MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED`).
+ *  \param status       The statuses of the instances to search. Instances matching _any_ of the
+ *                      status bitflags will be counted. For example, only active instances can be
+ *                      included by setting status to `MPR_STATUS_ACTIVE`.
  *  \return             The number of allocated signal instances matching the specified status. */
 int mpr_sig_get_num_inst(mpr_sig signal, mpr_status status);
 
