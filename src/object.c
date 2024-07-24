@@ -48,7 +48,7 @@ void mpr_obj_increment_version(mpr_obj o)
 
 int mpr_obj_get_status(mpr_obj obj)
 {
-    return obj->status;
+    return obj->status & 0xFFFF;
 }
 
 void mpr_obj_reset_status(mpr_obj obj)
@@ -56,7 +56,8 @@ void mpr_obj_reset_status(mpr_obj obj)
     obj->status &= (  MPR_STATUS_EXPIRED
                     | MPR_STATUS_STAGED
                     | MPR_STATUS_ACTIVE
-                    | MPR_STATUS_HAS_VALUE);
+                    | MPR_STATUS_HAS_VALUE
+                    | 0xFFFF0000);
 }
 
 int mpr_obj_get_num_props(mpr_obj o, int staged)

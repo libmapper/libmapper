@@ -774,7 +774,6 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         mpr_map_init(map, num_src, src_sigs, dst_sig, is_local);
         if (id && !mpr_obj_get_id((mpr_obj)map))
             mpr_obj_set_id((mpr_obj)map, id);
-        ++g->staged_maps;
 #ifdef DEBUG
         trace_graph(g, "added map ");
         mpr_prop_print(1, MPR_MAP, map);
@@ -1199,11 +1198,6 @@ void mpr_graph_sync_dev(mpr_graph g, const char *name)
     }
     else
         trace_graph(g, "ignoring sync from '%s' (autosubscribe = %d)\n", name, g->autosub);
-}
-
-void mpr_graph_inc_staged_maps(mpr_graph g)
-{
-    ++g->staged_maps;
 }
 
 int mpr_graph_get_autosub(mpr_graph g)

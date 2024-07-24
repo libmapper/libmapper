@@ -1861,6 +1861,10 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             }
         }
     }
+    else {
+        ((mpr_obj)map)->status &= ~MPR_STATUS_STAGED;
+        ((mpr_obj)map)->status |= MPR_STATUS_ACTIVE;
+    }
     if (rc || updated) {
         if (mpr_obj_get_is_local((mpr_obj)map)) {
             mpr_sig sig;

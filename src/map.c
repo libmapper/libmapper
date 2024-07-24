@@ -236,8 +236,7 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
     mpr_tbl_link_value(t, PROP(PROCESS_LOC), 1, MPR_INT32, &m->process_loc, MOD_ANY);
     mpr_tbl_link_value_no_default(t, PROP(PROTOCOL), 1, MPR_INT32, &m->protocol, MOD_REMOTE);
     mpr_tbl_link_value(t, PROP(SCOPE), 1, MPR_LIST, q, MOD_NONE | PROP_OWNED);
-    /* TODO: should we be sharing the status property? Try hiding it from protocol & interface */
-    mpr_tbl_link_value(t, PROP(STATUS), 1, MPR_INT32, &m->obj.status, MOD_NONE);
+    mpr_tbl_link_value(t, PROP(STATUS), 1, MPR_INT32, &m->obj.status, MOD_NONE | LOCAL_ACCESS);
     mpr_tbl_link_value_no_default(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, MOD_REMOTE);
     mpr_tbl_link_value(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, MOD_REMOTE);
 
