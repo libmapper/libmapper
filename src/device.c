@@ -326,6 +326,7 @@ static void on_registered(mpr_local_dev dev)
     free(dev->name);
     dev->name = name;
 
+    dev->obj.status &= ~MPR_STATUS_STAGED;
     dev->obj.status |= MPR_STATUS_ACTIVE;
 
     mpr_dev_get_name((mpr_dev)dev);
