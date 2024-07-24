@@ -43,6 +43,7 @@ int setup_src(mpr_graph g, const char *iface)
 {
     int mn=0, mx=1;
     mpr_list l;
+    mpr_time t;
 
     src = mpr_dev_new("testlinear.send", g);
     if (!src)
@@ -54,6 +55,9 @@ int setup_src(mpr_graph g, const char *iface)
 
     sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_INT32, NULL,
                           &mn, &mx, NULL, NULL, 0);
+
+    /* test retrieving value before it exists */
+    eprintf("sendsig value is %p\n", mpr_sig_get_value(sendsig, 0, &t));
 
     eprintf("Output signal 'outsig' registered.\n");
     l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
@@ -92,6 +96,7 @@ int setup_dst(mpr_graph g, const char *iface)
 {
     float mn=0, mx=1;
     mpr_list l;
+    mpr_time t;
 
     dst = mpr_dev_new("testlinear.recv", g);
     if (!dst)
@@ -103,6 +108,9 @@ int setup_dst(mpr_graph g, const char *iface)
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
                           &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
+
+    /* test retrieving value before it exists */
+    eprintf("recvsig value is %p\n", mpr_sig_get_value(recvsig, 0, &t));
 
     eprintf("Input signal 'insig' registered.\n");
     l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
