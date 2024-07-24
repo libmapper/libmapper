@@ -98,8 +98,9 @@ def object_name(type):
 def graph_cb(type, object, event):
     print(event.name)
     if type is mpr.Type.DEVICE or type is mpr.Type.SIGNAL:
-        print('  ', object['name'])
+        print(' ', type.name + ':', object['name'])
     elif type is mpr.Type.MAP:
+        print(' MAP:')
         for s in object.signals(mpr.Map.Location.SOURCE):
             print("  src: ", s.device()['name'], ':', s['name'])
         for s in object.signals(mpr.Map.Location.DESTINATION):
@@ -193,9 +194,7 @@ print('current time:', mpr.Time().get_double())
 
 g.print()
 
-g.remove_callback(graph_cb)
-
-print('freeing devices')
+g.free()
 dev1.free()
 dev2.free()
 print('done')
