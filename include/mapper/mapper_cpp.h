@@ -517,7 +517,15 @@ namespace mapper {
             MODIFIED    = MPR_STATUS_MODIFIED,  /*!< Object properties have changed. */
             STAGED      = MPR_STATUS_STAGED,    /*!< Object has been staged. */
             ACTIVE      = MPR_STATUS_ACTIVE,    /*!< Object is active. */
-            REMOVED     = MPR_STATUS_REMOVED    /*!< Object was removed. */
+            REMOVED     = MPR_STATUS_REMOVED,   /*!< Object was removed. */
+            HAS_VALUE   = MPR_STATUS_HAS_VALUE, /*!< Object has a value. */
+            NEW_VALUE   = MPR_STATUS_NEW_VALUE, /*!< Object value has changed since last check. */
+            UPDATE_LOC  = MPR_STATUS_UPDATE_LOC,/*!< Object value was set locally since last check. */
+            UPDATE_REM  = MPR_STATUS_UPDATE_REM,/*!< Object value was set remotely since last check. */
+            REL_UPSTRM  = MPR_STATUS_REL_UPSTRM,/*!< Object instance was released upstream since last check. */
+            REL_DNSTRM  = MPR_STATUS_REL_DNSTRM,/*!< Object instance was released downstream since last check. */
+            INST_OFLW   = MPR_STATUS_OVERFLOW,  /*!< No local object instances left. */
+            ANY         = MPR_STATUS_ANY
         };
 
         Object() { _obj = NULL; _owned = 0; _refcount_ptr = 0; }
@@ -540,6 +548,16 @@ namespace mapper {
         /*! Get the underlying Graph.
          *  \return         Graph. */
         inline Graph graph() const;
+
+        /*! Get the status bitflags for an Object.
+         *  \return         Status bitflags. */
+        int get_status() const
+            { return mpr_obj_get_status(_obj); }
+
+        /*! Reset the ephemeral status bitflags for an Object.
+         *  \return         Self. */
+        Object& reset_status()
+            { mpr_obj_reset_status(_obj); RETURN_SELF; }
 
         /*! Set arbitrary properties for an Object.
          *  \param vals     The Properties to add or modify.
@@ -974,6 +992,11 @@ namespace mapper {
             Instance& _set_value(std::vector<T> val)
                 { return set_value(&val[0], val.size()); }
         public:
+            /*! Get the status bitflags for this Instance.
+             *  \return         Status bitflags. */
+            int get_status()
+                { return mpr_sig_get_inst_status(_sig, _id); }
+
             /*! Set the current value for this Instance.
              *  \param vals     The value to set. Can be scalar, array, `std::array`, or
              *                  `std::vector` of `int`, `float`, or `double`.
@@ -2489,13 +2512,21 @@ namespace mapper {
     inline std::ostream& operator<<(std::ostream &os, const Object::Status& s)
     {
         switch (s) {
-            case Object::Status::UNDEFINED: os << "UNDEFINED";  break;
-            case Object::Status::STAGED:    os << "STAGED";     break;
-            case Object::Status::ACTIVE:    os << "ACTIVE";     break;
-            case Object::Status::NEW:       os << "NEW";        break;
-            case Object::Status::MODIFIED:  os << "MODIFIED";   break;
-            case Object::Status::REMOVED:   os << "REMOVED";    break;
-            case Object::Status::EXPIRED:   os << "EXPIRED";    break;
+            case Object::Status::UNDEFINED:     os << "UNDEFINED";  break;
+            case Object::Status::NEW:           os << "NEW";        break;
+            case Object::Status::MODIFIED:      os << "MODIFIED";   break;
+            case Object::Status::REMOVED:       os << "REMOVED";    break;
+            case Object::Status::EXPIRED:       os << "EXPIRED";    break;
+            case Object::Status::STAGED:        os << "STAGED";     break;
+            case Object::Status::ACTIVE:        os << "ACTIVE";     break;
+            case Object::Status::HAS_VALUE:     os << "HAS_VALUE";  break;
+            case Object::Status::NEW_VALUE:     os << "NEW_VALUE";  break;
+            case Object::Status::UPDATE_LOC:    os << "UPDATE_LOC"; break;
+            case Object::Status::UPDATE_REM:    os << "UPDATE_REM"; break;
+            case Object::Status::REL_UPSTRM:    os << "REL_UPSTRM"; break;
+            case Object::Status::REL_DNSTRM:    os << "REL_DNSTRM"; break;
+            case Object::Status::INST_OFLW:     os << "INST_OFLW";  break;
+            case Object::Status::ANY:           os << "ANY";        break;
         }
         return os;
     }
