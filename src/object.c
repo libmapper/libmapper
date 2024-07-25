@@ -16,6 +16,7 @@ void mpr_obj_init(mpr_obj o, mpr_graph g, mpr_type t)
     o->graph = g;
     o->type = t;
     o->status = MPR_STATUS_NEW;
+    mpr_obj_set_status(o->graph, MPR_STATUS_NEW, 0);
 }
 
 void mpr_obj_free(mpr_obj o)
@@ -44,6 +45,7 @@ void mpr_obj_increment_version(mpr_obj o)
     else if (o->props.staged)
         mpr_tbl_set_is_dirty(o->props.staged, 1);
     o->status |= MPR_STATUS_MODIFIED;
+    mpr_obj_set_status(o->graph, MPR_STATUS_MODIFIED, 0);
 }
 
 int mpr_obj_get_status(mpr_obj obj)
@@ -58,6 +60,8 @@ void mpr_obj_reset_status(mpr_obj obj)
                     | MPR_STATUS_ACTIVE
                     | MPR_STATUS_HAS_VALUE
                     | 0xFFFF0000);
+    if (MPR_GRAPH == obj->type)
+        mpr_graph_reset_obj_statuses((mpr_graph)obj);
 }
 
 int mpr_obj_get_num_props(mpr_obj o, int staged)

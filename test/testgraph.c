@@ -1029,8 +1029,6 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    goto done;
-
     /*********/
 
     eprintf("\nFind maps for source device 'testgraph__.2', signal 'out1'"
@@ -1171,6 +1169,42 @@ int main(int argc, char **argv)
 
     /*********/
 
+    eprintf("\n--- status ---\n");
+
+    eprintf("\nFilter devices by status after reset:\n");
+
+    eprintf("graph status before reset: %d\n", mpr_obj_get_status((mpr_obj)graph));
+    mpr_obj_reset_status((mpr_obj)graph);
+    eprintf("graph status after reset: %d\n", mpr_obj_get_status((mpr_obj)graph));
+
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
+    intval = MPR_STATUS_NEW;
+    devlist = mpr_list_filter(devlist, MPR_PROP_STATUS, NULL, 1, MPR_INT32, &intval, MPR_OP_AND);
+    count = 0;
+    if (!devlist || !(dev = (mpr_dev)*devlist)) {
+        eprintf("device query returned 0.\n");
+    }
+    else {
+        eprintf("device query returned results.\n");
+        while (devlist) {
+            ++count;
+            printobject(*devlist);
+            devlist = mpr_list_get_next(devlist);
+        }
+    }
+    if (count != 0) {
+        eprintf("Expected 0 records, but counted %d.\n", count);
+        result = 1;
+        goto done;
+    }
+
+    /*********/
+
+    /* skipping scope query – not currently working! */
+    goto done;
+
+    eprintf("\n--- map scopes ---\n");
+
     eprintf("\nFind maps with scope 'testgraph__.2':\n");
 
     devlist = mpr_graph_get_list(graph, MPR_DEV);
@@ -1182,7 +1216,7 @@ int main(int argc, char **argv)
     }
 
     maplist = mpr_graph_get_list(graph, MPR_MAP);
-    maplist = mpr_list_filter(maplist, MPR_PROP_SCOPE, NULL, 1, MPR_PTR, dev, MPR_OP_ANY);
+    maplist = mpr_list_filter(maplist, MPR_PROP_SCOPE, NULL, 1, MPR_PTR, dev, MPR_OP_EQ | MPR_OP_ANY);
     mpr_list_free(devlist);
 
     count=0;

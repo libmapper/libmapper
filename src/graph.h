@@ -101,4 +101,6 @@ int mpr_graph_get_autosub(mpr_graph g);
 
 mpr_expr_stack mpr_graph_get_expr_stack(mpr_graph g);
 
+void mpr_graph_reset_obj_statuses(mpr_graph g);
+
 #endif /* __MPR_GRAPH_H__ */

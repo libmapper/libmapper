@@ -36,7 +36,8 @@ mpr_graph mpr_obj_get_graph(mpr_obj object);
  *  \return             The status bitflags used by this object. */
 int mpr_obj_get_status(mpr_obj object);
 
-/*! Reset the volatile status bitflags used by an object.
+/*! Reset the volatile status bitflags used by an object. If the object is a `mpr_graph` this
+ *  will also reset the volatile status bits for objects stored in the graph.
  *  \param object       The object to reset. */
 void mpr_obj_reset_status(mpr_obj object);
 
@@ -632,7 +633,10 @@ void mpr_list_print(mpr_list list);
 
     @{ Graphs are the primary interface through which a program may observe the distributed graph
        and store information about devices and signals that are present.  Each Graph stores records
-       of devices, signals, and maps, which can be queried. */
+       of devices, signals, and maps, which can be queried. Changes to the graph will trigger any
+       registered graph callbacks, as well as modify the `object status` of the graph. As with
+       other libmapper objects, the volatile status bits can be reset by calling
+       `mpr_obj_reset_status()`. */
 
 /*! Create a peer in the distributed graph.
  *  \param autosubscribe_types  A combination of `mpr_type` values controlling whether the graph

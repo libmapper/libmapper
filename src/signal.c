@@ -658,6 +658,7 @@ void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const cha
         sig->num_inst = 1;
         sig->use_inst = 0;
         sig->obj.props.staged = mpr_tbl_new();
+        sig->obj.status = MPR_STATUS_NEW;
     }
 
     tbl = sig->obj.props.synced;

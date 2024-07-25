@@ -439,6 +439,11 @@ int mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types, const void *u
 void mpr_graph_call_cbs(mpr_graph g, mpr_obj o, mpr_type t, mpr_graph_evt e)
 {
     fptr_list cb = g->callbacks, temp;
+
+    /* add event to object and graph status */
+    mpr_obj_set_status(o, e, 0);
+    g->obj.status |= e;
+
     while (cb) {
         temp = cb->next;
         if (cb->types & t)
@@ -1208,4 +1213,23 @@ int mpr_graph_get_autosub(mpr_graph g)
 mpr_expr_stack mpr_graph_get_expr_stack(mpr_graph g)
 {
     return g->expr_stack;
+}
+
+void mpr_graph_reset_obj_statuses(mpr_graph g)
+{
+    mpr_list list = mpr_list_from_data(g->devs);
+    while (list) {
+        mpr_obj_reset_status(*list);
+        list = mpr_list_get_next(list);
+    }
+    list = mpr_list_from_data(g->sigs);
+    while (list) {
+        mpr_obj_reset_status(*list);
+        list = mpr_list_get_next(list);
+    }
+    list = mpr_list_from_data(g->maps);
+    while (list) {
+        mpr_obj_reset_status(*list);
+        list = mpr_list_get_next(list);
+    }
 }
