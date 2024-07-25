@@ -35,6 +35,8 @@ public enum Operator
     IsLessThan = 0x06, //!< Property value < query value
     IsLessThanOrEqual = 0x07, //!< Property value <= query value
     IsNotEqual = 0x08, //!< Property value != query value
+    And = 0x09, //!< Property value & query value
+    Or = 0x0A, //!< Property value | query value
     All = 0x10, //!< Applies to all elements of value
     Any = 0x20 //!< Applies to any element of value
 }

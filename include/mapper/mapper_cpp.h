@@ -94,6 +94,8 @@ namespace mapper {
         LESS_THAN               = MPR_OP_LT,    /*!< Property value < query value */
         LESS_THAN_OR_EQUAL      = MPR_OP_LTE,   /*!< Property value <= query value */
         NOT_EQUAL               = MPR_OP_NEQ,   /*!< Property value != query value */
+        AND                     = MPR_OP_AND,   /*!< Property value & query value (bitwise AND) */
+        OR                      = MPR_OP_OR,    /*!< Property value | query value (bitwise OR) */
         ALL                     = MPR_OP_ALL,   /*!< Applies to all elements of value */
         ANY                     = MPR_OP_ANY,   /*!< Applies to any element of value */
         NONE                    = MPR_OP_NONE

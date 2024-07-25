@@ -86,6 +86,8 @@ class Operator(IntFlag):
     LESS_THAN               = 0x06
     LESS_THAN_OR_EQUAL      = 0x07
     NOT_EQUAL               = 0x08
+    AND                     = 0x09
+    OR                      = 0x0A
     ALL                     = 0x10
     ANY                     = 0x20
     NONE                    = 0x40
