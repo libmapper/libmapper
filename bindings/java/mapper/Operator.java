@@ -3,19 +3,19 @@ package mapper;
 
 /*! Possible operations for composing graph queries. */
 public enum Operator {
-    NEX     (0x01),
-    EQ      (0x02),
-    EX      (0x03),
-    GT      (0x04),
-    GTE     (0x05),
-    LT      (0x06),
-    LTE     (0x07),
-    NEQ     (0x08);
-    BAND    (0x09);
-    BOR     (0x0A);
-    ALL     (0x10);
-    ANY     (0x20);
-    NONE    (0x40);
+    DOES_NOT_EXIST          (0x01),
+    EQUAL                   (0x02),
+    EXISTS                  (0x03),
+    GREATER_THAN            (0x04),
+    GREATER_THAN_OR_EQUAL   (0x05),
+    LESS_THAN               (0x06),
+    LESS_THAN_OR_EQUAL      (0x07),
+    NOT_EQUAL               (0x08),
+    BIT_AND                 (0x09),
+    BIT_OR                  (0x0A),
+    ALL                     (0x10),
+    ANY                     (0x20),
+    NONE                    (0x40);
 
     Operator(int value) {
         this._value = value;
