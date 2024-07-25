@@ -519,7 +519,8 @@ for (i = 0, j = 0; i < _l1; i++, j++) {     \
 
 static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1, const void *v2)
 {
-    uint8_t i, j, eq = 0, gt = 0, lt = 0, _l1 = l1, _l2 = l2;
+    unsigned int eq = 0, gt = 0, lt = 0;
+    uint8_t i, j, and = 0, or = 0, _l1 = l1, _l2 = l2;
     register int ret;
 
     if (op & (MPR_OP_ANY | MPR_OP_NONE)) {
@@ -564,10 +565,18 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
                     ++lt;
                 if (comp > 0)
                     ++gt;
+                and |= (b1 && b2);
+                or |= (b1 || b2);
             }
             break;
         case MPR_INT32:
             COMPARE_TYPE(int);
+            for (i = 0, j = 0; i < _l1; i++, j++) {
+                if (j >= _l2)
+                    j = 0;
+                and |= (((int*)v1)[i] & ((int*)v2)[j]);
+                or |= (((int*)v1)[i] | ((int*)v2)[j]);
+            }
             break;
         case MPR_FLT:
             COMPARE_TYPE(float);
@@ -581,6 +590,12 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
         case MPR_INT64:
         case MPR_TIME:
             COMPARE_TYPE(uint64_t);
+            for (i = 0, j = 0; i < _l1; i++, j++) {
+                if (j >= _l2)
+                    j = 0;
+                and |= (((uint64_t*)v1)[i] & ((uint64_t*)v2)[j]);
+                or |= (((uint64_t*)v1)[i] | ((uint64_t*)v2)[j]);
+            }
             break;
         case MPR_PTR:
             for (i = 0, j = 0; i < _l1; i++, j++) {
@@ -630,6 +645,8 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
             case MPR_OP_LT:     ret = lt != 0;          break;
             case MPR_OP_LTE:    ret = (eq + lt) != 0;   break;
             case MPR_OP_NEQ:    ret = (gt + lt) != 0;   break;
+            case MPR_OP_AND:    ret = and;              break;
+            case MPR_OP_OR:     ret = or;               break;
             default:            ret = 0;                break;
         }
         if (op & MPR_OP_NONE)
@@ -643,6 +660,8 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
             case MPR_OP_LT:     ret = (eq + gt) == 0;   break;
             case MPR_OP_LTE:    ret = gt == 0;          break;
             case MPR_OP_NEQ:    ret = eq == 0;          break;
+            case MPR_OP_AND:    ret = and;              break;
+            case MPR_OP_OR:     ret = or;               break;
             default:            ret = 0;                break;
         }
     }
@@ -705,7 +724,7 @@ mpr_list mpr_list_filter(mpr_list list, mpr_prop p, const char *key, int len,
     int i = 0, size, offset = 0, mask = MPR_OP_ALL | MPR_OP_ANY;
     char *data;
 
-    if (!list || op <= MPR_OP_UNDEFINED || (op | mask) > (MPR_OP_NEQ | mask)
+    if (!list || op <= MPR_OP_UNDEFINED || (op | mask) > (MPR_OP_OR | mask)
         || ((!val || len <= 0) && op != MPR_OP_EX && op != MPR_OP_NEX)) {
         return list;
     }

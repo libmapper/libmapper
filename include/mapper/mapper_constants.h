@@ -85,6 +85,8 @@ typedef enum {
     MPR_OP_LT           = 0x06, /*!< Property value < query value */
     MPR_OP_LTE          = 0x07, /*!< Property value <= query value */
     MPR_OP_NEQ          = 0x08, /*!< Property value != query value */
+    MPR_OP_AND          = 0x09, /*!< Property value & query value (bitwise AND) */
+    MPR_OP_OR           = 0x0A, /*!< Property value | query value (bitwise OR) */
     MPR_OP_ALL          = 0x10, /*!< Applies to all elements of value */
     MPR_OP_ANY          = 0x20, /*!< Applies to any element of value */
     MPR_OP_NONE         = 0x40
