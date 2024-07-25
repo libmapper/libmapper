@@ -1,5 +1,12 @@
 # libmapper NEWS
 
+Version 2.4.8
+-------------
+
+We are pleased to announce the release of version 2.4.8 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This release provides minor updates to verion 2.4.7, fixing an issue with building Python wheels that prevented releasing that version to PyPI. Version 2.4.8 also adds two new `operator` constants (`MPR_OP_BAND` and `MPR_OP_BOR`) and enables status bitflag updates to the `mpr_graph` object type.
+
 Version 2.4.7
 -------------
 
