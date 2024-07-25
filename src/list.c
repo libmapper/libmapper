@@ -645,8 +645,8 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
             case MPR_OP_LT:     ret = lt != 0;          break;
             case MPR_OP_LTE:    ret = (eq + lt) != 0;   break;
             case MPR_OP_NEQ:    ret = (gt + lt) != 0;   break;
-            case MPR_OP_AND:    ret = and;              break;
-            case MPR_OP_OR:     ret = or;               break;
+            case MPR_OP_BAND:   ret = and;              break;
+            case MPR_OP_BOR:    ret = or;               break;
             default:            ret = 0;                break;
         }
         if (op & MPR_OP_NONE)
@@ -660,8 +660,8 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
             case MPR_OP_LT:     ret = (eq + gt) == 0;   break;
             case MPR_OP_LTE:    ret = gt == 0;          break;
             case MPR_OP_NEQ:    ret = eq == 0;          break;
-            case MPR_OP_AND:    ret = and;              break;
-            case MPR_OP_OR:     ret = or;               break;
+            case MPR_OP_BAND:   ret = and;              break;
+            case MPR_OP_BOR:    ret = or;               break;
             default:            ret = 0;                break;
         }
     }
@@ -724,7 +724,7 @@ mpr_list mpr_list_filter(mpr_list list, mpr_prop p, const char *key, int len,
     int i = 0, size, offset = 0, mask = MPR_OP_ALL | MPR_OP_ANY;
     char *data;
 
-    if (!list || op <= MPR_OP_UNDEFINED || (op | mask) > (MPR_OP_OR | mask)
+    if (!list || op <= MPR_OP_UNDEFINED || (op | mask) > (MPR_OP_BOR | mask)
         || ((!val || len <= 0) && op != MPR_OP_EX && op != MPR_OP_NEX)) {
         return list;
     }

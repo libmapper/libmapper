@@ -1179,7 +1179,7 @@ int main(int argc, char **argv)
 
     devlist = mpr_graph_get_list(graph, MPR_DEV);
     intval = MPR_STATUS_NEW;
-    devlist = mpr_list_filter(devlist, MPR_PROP_STATUS, NULL, 1, MPR_INT32, &intval, MPR_OP_AND);
+    devlist = mpr_list_filter(devlist, MPR_PROP_STATUS, NULL, 1, MPR_INT32, &intval, MPR_OP_BAND);
     count = 0;
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
