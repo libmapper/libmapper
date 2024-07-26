@@ -121,7 +121,7 @@ generated output.
 ### Comparison functions:
 * `min(x,y)` – smaller of two values (overloaded)
 * `max(x,y)` – greater of two values (overloaded)
-* `schmitt(x,a,b)` – a comparator with hysteresis ([Schmitt trigger](https://en.wikipedia.org/wiki/Schmitt_trigger)) with input `x`, low threshold `a` and high threshold `b`
+* `schmitt(x,a,b)` – a comparator with hysteresis ([Schmitt trigger](https://en.wikipedia.org/wiki/Schmitt_trigger)) with input `x`, low threshold `a` and high threshold `b`. Output is binary state of the trigger (`0` or `1`)
 
 ### Random number generation:
 * `uniform(x)` — uniform random distribution between 0 and the given value
