@@ -672,7 +672,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     mpr_sig dst_sig;
     mpr_id_map id_map = 0;
     mpr_value *src_vals, dst_val;
-    char *has_value;
+    mpr_bitflags has_value;
 
     assert(m->obj.is_local);
 
@@ -771,7 +771,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     mpr_local_sig dst_sig;
     mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
     mpr_id_map id_map = 0;
-    char *types;
+    mpr_bitflags has_value;
 
     assert(m->obj.is_local);
 
@@ -803,13 +803,13 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         else
             id_map = 0;
     }
-    types = alloca(mpr_sig_get_len((mpr_sig)dst_sig) * sizeof(char));
+    has_value = mpr_bitflags_new(mpr_sig_get_len((mpr_sig)dst_sig));
     for (i = 0; i < m->num_inst; i++) {
         void *value;
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         status = mpr_expr_eval(mpr_graph_get_expr_stack(m->obj.graph), m->expr,
-                               src_vals, m->vars, dst_val, &time, types, i);
+                               src_vals, m->vars, dst_val, &time, has_value, i);
         if (!status)
             continue;
         value = mpr_value_get_value(dst_val, i, 0);
@@ -825,13 +825,14 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             break;
         }
     }
+    mpr_bitflags_free(has_value);
     mpr_bitflags_clear(m->updated_inst, m->num_inst);
     m->updated = 0;
 }
 
 /*! Build a value update message for a given map. */
 lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, const void *val,
-                             char *has_value, mpr_id_map id_map)
+                             mpr_bitflags has_value, mpr_id_map id_map)
 {
     int i, len = 0;
     mpr_type type = MPR_INT32;
@@ -1393,14 +1394,15 @@ static int set_expr(mpr_local_map m, const char *expr_str)
 
     if (!replace_expr_str(m, expr_str)) {
         mpr_time now;
-        char *types = alloca(mpr_sig_get_len(dst_sig) * sizeof(char));
+        mpr_bitflags has_value = mpr_bitflags_new(mpr_sig_get_len(dst_sig));
         mpr_map_alloc_values(m, 1);
 
         /* evaluate expression to initialise literals */
         mpr_time_set(&now, MPR_NOW);
         for (i = 0; i < m->num_inst; i++)
             mpr_expr_eval(mpr_graph_get_expr_stack(m->obj.graph), m->expr, 0,
-                          m->vars, mpr_slot_get_value(m->dst), &now, types, i);
+                          m->vars, mpr_slot_get_value(m->dst), &now, has_value, i);
+        mpr_bitflags_free(has_value);
     }
     else {
         if (!m->expr) {
