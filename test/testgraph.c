@@ -1071,6 +1071,7 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
+    mpr_list_free(siglist);
 
     /* intersect map queries */
     maplist = mpr_list_get_isect(maplist, mpr_sig_get_maps(sig, MPR_DIR_IN));
@@ -1132,6 +1133,7 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
+    mpr_list_free(devlist);
     siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     maplist2 = 0;
