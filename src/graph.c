@@ -135,7 +135,7 @@ void print_subscription_flags(int flags)
 static void on_dev_autosubscribe(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *v)
 {
     /* New subscriptions are handled in network.c as response to "sync" msg */
-    if (MPR_OBJ_REM == e)
+    if (MPR_STATUS_REMOVED == e)
         mpr_graph_subscribe(g, (mpr_dev)o, 0, 0);
 }
 
@@ -246,7 +246,7 @@ void mpr_graph_cleanup(mpr_graph g)
 
         if (status & MPR_STATUS_EXPIRED) {
             trace_graph(g, "  removing expired map\n");
-            mpr_graph_remove_map(g, map, MPR_OBJ_EXP);
+            mpr_graph_remove_map(g, map, MPR_STATUS_EXPIRED);
         }
         else {
             if (!(status & MPR_MAP_STATUS_PUSHED)) {
@@ -319,7 +319,7 @@ void mpr_graph_free(mpr_graph g)
         mpr_obj map = *list;
         list = mpr_list_get_next(list);
         if (!map->is_local) {
-            mpr_graph_remove_map(g, (mpr_map)map, MPR_OBJ_REM);
+            mpr_graph_remove_map(g, (mpr_map)map, MPR_STATUS_REMOVED);
         }
     }
 
@@ -329,7 +329,7 @@ void mpr_graph_free(mpr_graph g)
         mpr_obj link = *list;
         list = mpr_list_get_next(list);
         if (!link->is_local)
-            mpr_graph_remove_link(g, (mpr_link)link, MPR_OBJ_REM);
+            mpr_graph_remove_link(g, (mpr_link)link, MPR_STATUS_REMOVED);
     }
 
     /* Remove all non-local devices and signals from the graph except for
@@ -359,10 +359,10 @@ void mpr_graph_free(mpr_graph g)
             }
             sigs = mpr_list_get_next(sigs);
             if (no_local_sig_maps)
-                mpr_graph_remove_sig(g, (mpr_sig)sig, MPR_OBJ_REM);
+                mpr_graph_remove_sig(g, (mpr_sig)sig, MPR_STATUS_REMOVED);
         }
         if (no_local_dev_maps)
-            mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_OBJ_REM);
+            mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_STATUS_REMOVED);
     }
 
     FUNC_IF(mpr_expr_stack_free, g->expr_stack);
@@ -522,7 +522,7 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg, int force)
 
     if (!dev) {
         mpr_id id = mpr_id_from_str(no_slash);
-        dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, mpr_dev_get_struct_size());
+        dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, mpr_dev_get_struct_size(0), 0);
         mpr_obj_init((mpr_obj)dev, g, MPR_DEV);
         mpr_dev_init(dev, 0, no_slash, id);
 #ifdef DEBUG
@@ -548,7 +548,7 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg, int force)
         mpr_dev_set_synced(dev, MPR_NOW);
 
         if (rc || updated)
-            mpr_graph_call_cbs(g, (mpr_obj)dev, MPR_DEV, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
+            mpr_graph_call_cbs(g, (mpr_obj)dev, MPR_DEV, rc ? MPR_STATUS_NEW : MPR_STATUS_MODIFIED);
     }
     return dev;
 }
@@ -624,7 +624,7 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
 
     if (!sig) {
         int num_inst = 1;
-        sig = (mpr_sig)mpr_list_add_item((void**)&g->sigs, mpr_sig_get_struct_size());
+        sig = (mpr_sig)mpr_list_add_item((void**)&g->sigs, mpr_sig_get_struct_size(0), 0);
         mpr_obj_init((mpr_obj)sig, g, MPR_SIG);
         mpr_sig_init(sig, dev, 0, MPR_DIR_UNDEFINED, name, 0, 0, 0, 0, 0, &num_inst);
         rc = 1;
@@ -646,7 +646,7 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
 #endif
 
         if (rc || updated)
-            mpr_graph_call_cbs(g, (mpr_obj)sig, MPR_SIG, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
+            mpr_graph_call_cbs(g, (mpr_obj)sig, MPR_SIG, rc ? MPR_STATUS_NEW : MPR_STATUS_MODIFIED);
     }
     return sig;
 }
@@ -681,7 +681,7 @@ mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2)
     if (link)
         return link;
 
-    link = (mpr_link)mpr_list_add_item((void**)&g->links, mpr_link_get_struct_size());
+    link = (mpr_link)mpr_list_add_item((void**)&g->links, mpr_link_get_struct_size(), 0);
     mpr_obj_init((mpr_obj)link, g, MPR_LINK);
     if (mpr_obj_get_is_local((mpr_obj)dev2))
         mpr_link_init(link, g, dev2, dev1);
@@ -774,7 +774,8 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         }
         is_local += mpr_obj_get_is_local((mpr_obj)dst_sig);
 
-        map = (mpr_map)mpr_list_add_item((void**)&g->maps, mpr_map_get_struct_size(is_local));
+        map = (mpr_map)mpr_list_add_item((void**)&g->maps, mpr_map_get_struct_size(is_local),
+                                         is_local);
         mpr_obj_init((mpr_obj)map, g, MPR_MAP);
         mpr_map_init(map, num_src, src_sigs, dst_sig, is_local);
         if (id && !mpr_obj_get_id((mpr_obj)map))
@@ -785,7 +786,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         printf("\n");
 #endif
         if (mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE)
-            mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, MPR_OBJ_NEW);
+            mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, MPR_STATUS_NEW);
     }
     else {
         int changed = 0;
@@ -818,7 +819,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                 }
             }
             if (mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE)
-                mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, MPR_OBJ_MOD);
+                mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, MPR_STATUS_MODIFIED);
         }
     }
     return map;
@@ -909,7 +910,7 @@ void mpr_graph_housekeeping(mpr_graph g)
             if (!mpr_dev_has_local_link((mpr_dev)dev)) {
                 /* remove subscription */
                 mpr_graph_subscribe(g, (mpr_dev)dev, 0, 0);
-                mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_OBJ_EXP);
+                mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_STATUS_EXPIRED);
             }
         }
     }
@@ -1160,15 +1161,25 @@ int mpr_graph_get_owned(mpr_graph g)
     return g->own;
 }
 
-mpr_obj mpr_graph_add_list_item(mpr_graph g, int obj_type, size_t size)
+mpr_obj mpr_graph_add_obj(mpr_graph g, int obj_type, int is_local)
 {
     mpr_list *list = get_list_internal(g, obj_type);
     mpr_obj obj;
+    size_t size;
     RETURN_ARG_UNLESS(list, 0);
-    obj = mpr_list_add_item((void**)list, size);
+
+    switch (obj_type) {
+        case MPR_DEV:   size = mpr_dev_get_struct_size(is_local);   break;
+        case MPR_SIG:   size = mpr_sig_get_struct_size(is_local);   break;
+        case MPR_MAP:   size = mpr_map_get_struct_size(is_local);   break;
+    }
+
+    obj = mpr_list_add_item((void**)list, size, is_local && (MPR_MAP == obj_type));
+    mpr_obj_init(obj, g, obj_type);
+
     if (MPR_MAP == obj_type)
         ++g->staged_maps;
-    mpr_obj_init(obj, g, obj_type);
+
     return obj;
 }
 

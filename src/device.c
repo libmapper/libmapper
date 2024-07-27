@@ -102,9 +102,9 @@ static int check_registration(mpr_local_dev dev);
 
 mpr_time ts = {0,1};
 
-size_t mpr_dev_get_struct_size(void)
+size_t mpr_dev_get_struct_size(int is_local)
 {
-    return sizeof(mpr_dev_t);
+    return is_local ? sizeof(mpr_local_dev_t) : sizeof(mpr_dev_t);
 }
 
 static int cmp_qry_linked(const void *ctx, mpr_dev dev)
@@ -193,7 +193,7 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph graph)
         mpr_graph_set_owned(g, 0);
     }
 
-    dev = (mpr_local_dev)mpr_graph_add_list_item(g, MPR_DEV, sizeof(mpr_local_dev_t));
+    dev = (mpr_local_dev)mpr_graph_add_obj(g, MPR_DEV, 1);
     mpr_dev_init((mpr_dev)dev, 1, NULL, 0);
 
     dev->own_graph = graph ? 0 : 1;
@@ -272,7 +272,7 @@ void mpr_dev_free(mpr_dev dev)
     while (list) {
         mpr_link link = (mpr_link)*list;
         list = mpr_list_get_next(list);
-        mpr_graph_remove_link(graph, link, MPR_OBJ_REM);
+        mpr_graph_remove_link(graph, link, MPR_STATUS_REMOVED);
     }
 
     /* Release device id maps */
@@ -291,7 +291,7 @@ void mpr_dev_free(mpr_dev dev)
         free(id_map);
     }
 
-    mpr_graph_remove_dev(graph, dev, MPR_OBJ_REM);
+    mpr_graph_remove_dev(graph, dev, MPR_STATUS_REMOVED);
     if (own_graph)
         mpr_graph_free(graph);
 }
@@ -441,9 +441,12 @@ void mpr_dev_process_incoming_maps(mpr_local_dev dev)
     dev->receiving = 0;
     maps = mpr_graph_get_list(graph, MPR_MAP);
     while (maps) {
-        mpr_local_map map = *(mpr_local_map*)maps;
+        mpr_map map = (mpr_map)*maps;
         maps = mpr_list_get_next(maps);
-        mpr_map_receive(map, dev->time);
+        if (mpr_obj_get_is_local((mpr_obj)map))
+            mpr_map_receive((mpr_local_map)map, dev->time);
+        else
+            break;
     }
 }
 
@@ -461,10 +464,12 @@ static int process_outgoing_maps(mpr_local_dev dev)
     /* TODO: speed this up! */
     list = mpr_graph_get_list(graph, MPR_MAP);
     while (list) {
-        mpr_local_map map = *(mpr_local_map*)list;
+        mpr_map map = (mpr_map)*list;
         list = mpr_list_get_next(list);
         if (mpr_obj_get_is_local((mpr_obj)map))
-            mpr_map_send(map, dev->time);
+            mpr_map_send((mpr_local_map)map, dev->time);
+        else
+            break;
     }
     dev->sending = 0;
     list = mpr_graph_get_list(graph, MPR_LINK);
@@ -1307,7 +1312,7 @@ void mpr_local_dev_handler_logout(mpr_local_dev dev, mpr_dev remote, const char 
     if (remote && (link = mpr_dev_get_link_by_remote((mpr_dev)dev, remote))) {
         /* TODO: release maps, call local handlers and inform subscribers */
         trace_dev(dev, "removing link to removed device '%s'.\n", mpr_dev_get_name(remote));
-        mpr_graph_remove_link(dev->obj.graph, link, MPR_OBJ_REM);
+        mpr_graph_remove_link(dev->obj.graph, link, MPR_STATUS_REMOVED);
     }
     if (0 == strncmp(prefix_str, dev->name, dev->prefix_len)) {
         /* If device name matches and ordinal is within my block, free it */

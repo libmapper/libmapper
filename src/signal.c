@@ -7,7 +7,6 @@
 #include "bitflags.h"
 #include "device.h"
 #include "graph.h"
-#include "list.h"
 #include "mpr_signal.h"
 #include "network.h"
 #include "object.h"
@@ -113,9 +112,9 @@ typedef struct _mpr_local_sig
     uint8_t updated;                /* TODO: fold into updated_inst bitflags. */
 } mpr_local_sig_t;
 
-size_t mpr_sig_get_struct_size(void)
+size_t mpr_sig_get_struct_size(int is_local)
 {
-    return sizeof(mpr_sig_t);
+    return is_local ? sizeof(mpr_local_sig_t) : sizeof(mpr_sig_t);
 }
 
 /*! Helper to find the size in bytes of a signal's full vector. */
@@ -596,7 +595,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     g = mpr_obj_get_graph((mpr_obj)dev);
     net = mpr_graph_get_net(g);
 
-    lsig = (mpr_local_sig)mpr_graph_add_list_item(g, MPR_SIG, sizeof(mpr_local_sig_t));
+    lsig = (mpr_local_sig)mpr_graph_add_obj(g, MPR_SIG, 1);
     lsig->obj.id = mpr_dev_generate_unique_id(dev);
     lsig->period = -1;
     lsig->handler = (void*)h;
@@ -739,7 +738,7 @@ void mpr_sig_free(mpr_sig sig)
     mpr_bitflags_free(lsig->vec_known);
     mpr_value_free(lsig->value);
 
-    mpr_graph_remove_sig(sig->obj.graph, sig, MPR_OBJ_REM);
+    mpr_graph_remove_sig(sig->obj.graph, sig, MPR_STATUS_REMOVED);
     mpr_obj_increment_version((mpr_obj)ldev);
 }
 

@@ -9,7 +9,6 @@ typedef struct _mpr_local_dev *mpr_local_dev;
 #include "id.h"
 #include "id_map.h"
 #include "link.h"
-#include "list.h"
 #include "message.h"
 #include "mpr_signal.h"
 #include "mpr_time.h"
@@ -94,7 +93,7 @@ int mpr_dev_has_local_link(mpr_dev dev);
 
 int mpr_dev_check_synced(mpr_dev dev, mpr_time time);
 
-size_t mpr_dev_get_struct_size(void);
+size_t mpr_dev_get_struct_size(int is_local);
 
 int mpr_dev_get_is_registered(mpr_dev dev);
 

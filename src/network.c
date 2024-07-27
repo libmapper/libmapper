@@ -910,7 +910,7 @@ void mpr_net_maybe_send_ping(mpr_net net, int force)
                       mpr_dev_get_name(remote_dev));
 #endif
             /* remove related data structures */
-            mpr_graph_remove_link(gph, link, mapped ? MPR_OBJ_EXP : MPR_OBJ_REM);
+            mpr_graph_remove_link(gph, link, mapped ? MPR_STATUS_EXPIRED : MPR_STATUS_REMOVED);
             mpr_net_use_subscribers(net, (mpr_local_dev)local_dev, MPR_DEV);
             mpr_dev_send_state(local_dev, MSG_DEV);
         }
@@ -1187,7 +1187,7 @@ static int handler_logout(const char *path, const char *types, lo_arg **av,
     }
     if (remote) {
         mpr_graph_unsubscribe(gph, remote);
-        mpr_graph_remove_dev(gph, remote, MPR_OBJ_REM);
+        mpr_graph_remove_dev(gph, remote, MPR_STATUS_REMOVED);
     }
     return 0;
 }
@@ -1358,7 +1358,7 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
 
     dev = mpr_graph_get_dev_by_name(gph, devname);
     if (dev && !mpr_obj_get_is_local((mpr_obj)dev))
-        mpr_graph_remove_sig(gph, mpr_dev_get_sig_by_name(dev, signamep), MPR_OBJ_REM);
+        mpr_graph_remove_sig(gph, mpr_dev_get_sig_by_name(dev, signamep), MPR_STATUS_REMOVED);
     return 0;
 }
 
@@ -1890,7 +1890,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
                 }
             }
         }
-        mpr_graph_call_cbs(gph, (mpr_obj)map, MPR_MAP, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
+        mpr_graph_call_cbs(gph, (mpr_obj)map, MPR_MAP, rc ? MPR_STATUS_NEW : MPR_STATUS_MODIFIED);
     }
     mpr_obj_clear_empty_props((mpr_obj)map);
     return 0;
@@ -2052,7 +2052,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     }
 
     /* The mapping is removed. */
-    mpr_graph_remove_map(graph, (mpr_map)map, MPR_OBJ_REM);
+    mpr_graph_remove_map(graph, (mpr_map)map, MPR_STATUS_REMOVED);
     return 0;
 }
 
@@ -2067,7 +2067,7 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **av,
     trace_net(net);
     map = find_map(net, types, ac, av, 0, FIND);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
-    mpr_graph_remove_map(graph, map, MPR_OBJ_REM);
+    mpr_graph_remove_map(graph, map, MPR_STATUS_REMOVED);
     return 0;
 }
 

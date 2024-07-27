@@ -10,7 +10,6 @@
 #include "device.h"
 #include "graph.h"
 #include "link.h"
-#include "list.h"
 #include "map.h"
 #include "mpr_time.h"
 #include "network.h"
@@ -326,7 +325,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
         }
     }
 
-    m = (mpr_map)mpr_graph_add_list_item(g, MPR_MAP, is_local ? sizeof(mpr_local_map_t) : sizeof(mpr_map_t));
+    m = (mpr_map)mpr_graph_add_obj(g, MPR_MAP, is_local);
     m->bundle = 1;
 
     /* Sort the source signals by name */

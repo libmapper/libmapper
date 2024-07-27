@@ -91,7 +91,7 @@ mpr_net mpr_graph_get_net(mpr_graph g);
 
 int mpr_graph_get_owned(mpr_graph g);
 
-mpr_obj mpr_graph_add_list_item(mpr_graph g, int obj_type, size_t size);
+mpr_obj mpr_graph_add_obj(mpr_graph g, int obj_type, int is_local);
 
 int mpr_graph_generate_unique_id(mpr_graph g);
 

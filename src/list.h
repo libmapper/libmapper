@@ -9,7 +9,7 @@ typedef struct _mpr_obj **mpr_list;
 
 void *mpr_list_from_data(const void *data);
 
-void *mpr_list_add_item(void **list, size_t size);
+void *mpr_list_add_item(void **list, size_t size, int prepend);
 
 void mpr_list_remove_item(void **list, void *item);
 
