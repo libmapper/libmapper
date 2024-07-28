@@ -1507,8 +1507,11 @@ int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
     else {
         /* try to retrieve process location property from message */
         const char *loc_str = mpr_msg_get_prop_as_str(msg, PROP(PROCESS_LOC));
-        if (loc_str)
-            m->process_loc = mpr_loc_from_str(loc_str);
+        if (loc_str) {
+            int new_loc = mpr_loc_from_str(loc_str);
+            if (MPR_LOC_UNDEFINED != new_loc)
+                m->process_loc = new_loc;
+        }
         /* processing location must be either SRC or DST */
         if (m->process_loc != MPR_LOC_SRC && m->process_loc != MPR_LOC_DST)
             m->process_loc = orig_loc;
@@ -1581,8 +1584,9 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
             case PROP(PROCESS_LOC): {
                 if (!m->obj.is_local) {
                     mpr_loc loc = mpr_loc_from_str(&(vals[0])->s);
-                    updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
-                                                  MPR_INT32, &loc, MOD_REMOTE);
+                    if (MPR_LOC_UNDEFINED != loc)
+                        updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
+                                                      MPR_INT32, &loc, MOD_REMOTE);
                 }
                 break;
             }
@@ -1615,8 +1619,9 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                 if (mpr_obj_get_is_local((mpr_obj)m) && MPR_LOC_BOTH == ((mpr_local_map)m)->locality)
                     break;
                 pro = mpr_proto_from_str(&(vals[0])->s);
-                updated += mpr_tbl_add_record(tbl, PROP(PROTOCOL), NULL, 1, MPR_INT32,
-                                              &pro, MOD_REMOTE);
+                if (pro != MPR_PROTO_UNDEFINED)
+                    updated += mpr_tbl_add_record(tbl, PROP(PROTOCOL), NULL, 1, MPR_INT32, &pro,
+                                                  MOD_REMOTE);
                 break;
             }
             case PROP(USE_INST): {
@@ -2146,7 +2151,9 @@ mpr_loc mpr_local_map_get_process_loc_from_msg(mpr_local_map map, mpr_msg msg)
     else if (msg) {
         const char *str;
         if ((str = mpr_msg_get_prop_as_str(msg, MPR_PROP_PROCESS_LOC))) {
-            loc = mpr_loc_from_str(str);
+            int new_loc = mpr_loc_from_str(str);
+            if (MPR_LOC_UNDEFINED != new_loc)
+                loc = new_loc;
         }
         if (   (str = mpr_msg_get_prop_as_str(msg, MPR_PROP_EXPR))
             || (str = mpr_map_get_expr_str((mpr_map)map))) {

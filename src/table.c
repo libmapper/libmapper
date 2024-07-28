@@ -288,20 +288,34 @@ void mpr_tbl_clear_empty_records(mpr_tbl t)
 static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, const void *val)
 {
     int i, updated = 0;
-    void *old_val, *new_val;
+    void *old_val, *new_val, *coerced = 0;
     RETURN_ARG_UNLESS(len && (rec->val || !(rec->flags & INDIRECT)), 0);
     old_val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
     new_val = old_val;
-    if (old_val && (len != rec->len || type != rec->type)) {
-        /* free old values */
-        if (MPR_STR == rec->type && rec->len > 1) {
-            for (i = 0; i < rec->len; i++)
-                free(((char**)old_val)[i]);
+    if (old_val && (type != rec->type || len != rec->len)) {
+        if (rec->flags & INDIRECT || rec->prop != MPR_PROP_EXTRA) {
+            coerced = calloc(1, mpr_type_get_size(rec->type) * rec->len);
+            if (-1 == mpr_set_coerced(len, type, val, rec->len, rec->type, coerced)) {
+                trace("could not coerce %c%d -> %c%d\n", type, len, rec->type, rec->len);
+                free(coerced);
+                return 0;
+            }
+            trace("coerced %c%d -> %c%d\n", type, len, rec->type, rec->len);
+            val = coerced;
+            type = rec->type;
+            len = rec->len;
         }
-        if (rec->len > 1 || (MPR_PTR != rec->type && MPR_GRAPH < rec->type))
-            free(old_val);
-        old_val = 0;
-        updated = 1;
+        else {
+            /* free old values */
+            if (MPR_STR == rec->type && rec->len > 1) {
+                for (i = 0; i < rec->len; i++)
+                    free(((char**)old_val)[i]);
+            }
+            if (rec->len > 1 || (MPR_PTR != rec->type && MPR_GRAPH < rec->type))
+                free(old_val);
+            old_val = 0;
+            updated = 1;
+        }
     }
     switch (type) {
         case MPR_STR:
@@ -313,7 +327,7 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, 
                         updated = 1;
                     }
                     else
-                        return 0;
+                        goto done;
                 }
                 new_val = val ? (void*)strdup((char*)val) : 0;
             }
@@ -358,6 +372,9 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, 
     rec->len = len;
     rec->type = type;
     rec->flags |= PROP_SET;
+
+done:
+    FUNC_IF(free, coerced);
     return updated != 0;
 }
 
@@ -374,15 +391,7 @@ static int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
         }
         else
             rec->prop &= ~PROP_REMOVE;
-        if (   (rec->flags & INDIRECT || rec->prop != MPR_PROP_EXTRA)
-            && (type != rec->type || len != rec->len)) {
-            void *coerced = calloc(1, mpr_type_get_size(rec->type) * rec->len);
-            if (0 <= mpr_set_coerced(len, type, val, rec->len, rec->type, coerced))
-                updated = t->dirty = update_elements(rec, rec->len, rec->type, coerced);
-            free(coerced);
-        }
-        else
-            updated = t->dirty = update_elements(rec, len, type, val);
+        updated = t->dirty = update_elements(rec, len, type, val);
     }
     else {
         /* Need to add a new entry. */
@@ -605,18 +614,31 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
     /* add value */
     switch (masked) {
         case MPR_PROP_DIR: {
-            int dir = *(int*)rec->val;
-            lo_message_add_string(msg, dir == MPR_DIR_OUT ? "output" : "input");
+            if (rec->type == MPR_INT32) {
+                int dir = *(int*)rec->val;
+                lo_message_add_string(msg, dir == MPR_DIR_OUT ? "output" : "input");
+            }
+            else
+                _add_typed_val(msg, rec->len, rec->type, indirect ? *rec->val : rec->val);
             break;
         }
         case MPR_PROP_PROCESS_LOC:
-            lo_message_add_string(msg, mpr_loc_as_str(*(int*)rec->val));
+            if (rec->type == MPR_INT32)
+                lo_message_add_string(msg, mpr_loc_as_str(*(int*)rec->val));
+            else
+                _add_typed_val(msg, rec->len, rec->type, indirect ? *rec->val : rec->val);
             break;
         case MPR_PROP_PROTOCOL:
-            lo_message_add_string(msg, mpr_proto_as_str(*(int*)rec->val));
+            if (rec->type == MPR_INT32)
+                lo_message_add_string(msg, mpr_proto_as_str(*(int*)rec->val));
+            else
+                _add_typed_val(msg, rec->len, rec->type, indirect ? *rec->val : rec->val);
             break;
         case MPR_PROP_STEAL_MODE:
-            lo_message_add_string(msg, mpr_steal_type_as_str(*(int*)rec->val));
+            if (rec->type == MPR_INT32)
+                lo_message_add_string(msg, mpr_steal_type_as_str(*(int*)rec->val));
+            else
+                _add_typed_val(msg, rec->len, rec->type, indirect ? *rec->val : rec->val);
             break;
         case MPR_PROP_DEV:
         case MPR_PROP_SIG:
