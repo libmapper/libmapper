@@ -162,14 +162,22 @@ test_config test_configs[] = {
     { 33, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, EXPR1, 0.5,  0.5,  0.0,   0 },
     { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, EXPR1, 0.5,  0.5,  0.0,   0 },
 
+    /* instanced ––> singleton; instance reduce expression */
+    { 35, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, EXPR2, 1.0,  1.0,  0.0,   0 },
+    { 36, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, EXPR2, 1.0,  1.0,  0.0,   0 },
+
+    /* instanced ==> singleton; instance reduce expression */
+    { 37, INSTANCED, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, EXPR2, 1.0,  1.0,  0.0,   0 },
+    { 38, INSTANCED, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, EXPR2, 1.0,  1.0,  0.0,   0 },
+
     /* instanced ––> instanced; instance reduce expression */
     /* result of expression should update all active destination instances */
-    { 35, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, EXPR2, 3.0,  3.0,  0.0,   1 },
-    { 36, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, EXPR2, 3.0,  3.0,  0.0,   1 },
+    { 39, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, EXPR2, 3.0,  3.0,  0.0,   1 },
+    { 40, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, EXPR2, 3.0,  3.0,  0.0,   1 },
 
     /* instanced ==> instanced; instance reduce expression */
-    { 37, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, EXPR2, 1.0,  1.0,  0.0,   1 },
-    { 38, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, EXPR2, 4.0,  1.0,  0.0,   1 },
+    { 41, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, EXPR2, 1.0,  1.0,  0.0,   1 },
+    { 42, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, EXPR2, 4.0,  1.0,  0.0,   1 },
 
     /* work in progress:
      * instanced ––> instanced; in-map instance management (late start, early release, ad hoc)
@@ -316,7 +324,7 @@ void print_instance_ids(mpr_sig sig)
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
     for (i=0; i<n; i++) {
-        eprintf("%2i, ", (int)mpr_sig_get_inst_id(sig, i, MPR_STATUS_ANY));
+        eprintf("%4i, ", (int)mpr_sig_get_inst_id(sig, i, MPR_STATUS_ANY));
     }
     if (i)
         eprintf("\b\b ");
@@ -330,7 +338,8 @@ void print_instance_idx(mpr_sig sig)
     mpr_sig_inst *si = mpr_local_sig_get_insts((mpr_local_sig)sig);
     eprintf("%s: [ ", name);
     for (i = 0; i < n; i++) {
-        eprintf("%2i, ", mpr_sig_inst_get_idx(si[i]));
+        // API inconsistency here: should be mpr_sig_get_inst_idx()
+        eprintf("%4i, ", mpr_sig_inst_get_idx(si[i]));
     }
     if (i)
         eprintf("\b\b ");
@@ -346,9 +355,24 @@ void print_instance_vals(mpr_sig sig)
         mpr_id id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ANY);
         float *val = (float*)mpr_sig_get_value(sig, id, 0);
         if (val)
-            printf("%2.0f, ", *val);
+            printf("%4.0f, ", *val);
         else
-            printf("––, ");
+            printf("––––, ");
+    }
+    if (i)
+        eprintf("\b\b ");
+    eprintf("]   ");
+}
+
+void print_instance_status(mpr_sig sig)
+{
+    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ANY);
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
+    eprintf("%s: [ ", name);
+    for (i = 0; i < n; i++) {
+        mpr_id id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ANY);
+        // TODO: switch to printing hex
+        eprintf("x%03x, ", mpr_sig_get_inst_status(sig, id));
     }
     if (i)
         eprintf("\b\b ");
@@ -428,7 +452,7 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
         }
 
         if (verbose) {
-            printf("ID:    ");
+            printf("ID:     ");
             if (src_type & SINGLETON)
                 print_instance_ids(monosend);
             if (src_type & INSTANCED)
@@ -439,7 +463,7 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
                 print_instance_ids(multirecv);
             printf("\n");
 
-            printf("IDX:   ");
+            printf("INDEX:  ");
             if (src_type & SINGLETON)
                 print_instance_idx(monosend);
             if (src_type & INSTANCED)
@@ -450,7 +474,7 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
                 print_instance_idx(multirecv);
             printf("\n");
 
-            printf("VALUE: ");
+            printf("VALUE:  ");
             if (src_type & SINGLETON)
                 print_instance_vals(monosend);
             if (src_type & INSTANCED)
@@ -460,11 +484,31 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
             if (dst_type & INSTANCED)
                 print_instance_vals(multirecv);
             printf("\n");
+
+            printf("STATUS: ");
+            if (src_type & SINGLETON)
+                print_instance_status(monosend);
+            if (src_type & INSTANCED)
+                print_instance_status(multisend);
+            if (dst_type & SINGLETON)
+                print_instance_status(monorecv);
+            if (dst_type & INSTANCED)
+                print_instance_status(multirecv);
+            printf("\n");
         }
         else {
             printf("\r  Iteration: %4d, Received: %4d", i, received);
             fflush(stdout);
         }
+    }
+    if (src_type & INSTANCED) {
+            for (j = 0; j < num_parallel_inst; j++) {
+                inst = (inst + 1) % 10;
+                eprintf("--> Releasing multisend instance %"PR_MPR_ID"\n", inst);
+                mpr_sig_release_inst(multisend, inst);
+            }
+            mpr_dev_update_maps(src);
+            mpr_dev_poll(dst, 100);
     }
     return ret;
 }
