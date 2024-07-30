@@ -670,7 +670,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     mpr_local_sig src_sig;
     mpr_sig dst_sig;
     mpr_id_map id_map = 0;
-    mpr_value *src_vals, dst_val;
+    mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
     mpr_bitflags has_value;
 
     assert(m->obj.is_local);
@@ -682,7 +682,6 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
      * permanent solution: move id_maps to map? */
     src_slot = m->src[0];
     src_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)src_slot);
-    src_vals = alloca(m->num_src * sizeof(mpr_value));
     for (i = 0; i < m->num_src; i++) {
         mpr_local_sig comp = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)m->src[i]);
         if (  mpr_sig_get_num_inst_internal((mpr_sig)comp)
