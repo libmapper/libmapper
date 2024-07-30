@@ -198,6 +198,9 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
             if (!(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE))
                 continue;
 
+            /* reset associated output memory */
+            mpr_slot_set_value(dst_slot, inst_idx, NULL, *time);
+
             for (j = 0; j < mpr_map_get_num_src((mpr_map)map); j++) {
                 mpr_local_slot src_slot = (mpr_local_slot)mpr_map_get_src_slot((mpr_map)map, j);
 
@@ -219,21 +222,24 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
             map = (mpr_local_map)mpr_slot_get_map((mpr_slot)src_slot);
             if (!(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE))
                 continue;
-            if (   !mpr_map_get_use_inst((mpr_map)map)
-                || !mpr_local_map_get_has_scope(map, id_map->GID))
-                continue;
-
-            dst_slot = (mpr_local_slot)mpr_map_get_dst_slot((mpr_map)map);
 
             /* reset associated output memory */
+            dst_slot = (mpr_local_slot)mpr_map_get_dst_slot((mpr_map)map);
             mpr_slot_set_value(dst_slot, inst_idx, NULL, *time);
 
-            if (!mpr_local_map_get_has_scope(map, id_map->GID))
-                continue;
+            /* reset associated input memory */
+            mpr_slot_set_value(src_slot, inst_idx, NULL, *time);
 
             /* send release to downstream */
-            msg = mpr_map_build_msg(map, src_slot, 0, 0, id_map);
-            mpr_local_slot_send_msg(dst_slot, msg, *time, mpr_map_get_protocol((mpr_map)map));
+            if (   MPR_LOC_SRC == mpr_map_get_process_loc((mpr_map)map)
+                && !mpr_map_get_use_inst((mpr_map)map)) {
+                mpr_local_map_set_updated(map, inst_idx);
+            }
+            else if (mpr_local_map_get_has_scope(map, id_map->GID)) {
+                /* need to send immediately since id_map won't be available later */
+                msg = mpr_map_build_msg(map, src_slot, 0, 0, id_map);
+                mpr_local_slot_send_msg(dst_slot, msg, *time, mpr_map_get_protocol((mpr_map)map));
+            }
         }
         *locked = 0;
         return;
@@ -537,7 +543,9 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
 
     for (; id_map_idx < sig->num_id_maps; id_map_idx++) {
         /* check if instance is active */
-        if ((si = _get_inst_by_id_map_idx(sig, id_map_idx)) && (si->status & MPR_STATUS_ACTIVE)) {
+        if (   (id_map = sig->id_maps[id_map_idx].id_map)
+            && (si = _get_inst_by_id_map_idx(sig, id_map_idx))
+            && (si->status & MPR_STATUS_ACTIVE)) {
             uint16_t status = 0;
             if (!(si->status & MPR_STATUS_HAS_VALUE)) {
                 /* we can't use mpr_value_set() here since some vector elements may be missing */
@@ -551,7 +559,6 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
                     status = MPR_STATUS_NEW_VALUE;
                 mpr_bitflags_set(si->has_value_flags, i);
             }
-            id_map = sig->id_maps[id_map_idx].id_map;
             if (!mpr_bitflags_compare(si->has_value_flags, sig->vec_known, sig->len)) {
                 si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM | status);
                 sig->obj.status |= si->status;
