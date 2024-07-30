@@ -43,6 +43,10 @@ void mpr_net_remove_dev_server_method(mpr_net net, mpr_local_dev dev, const char
 
 int mpr_net_poll(mpr_net n, int block_ms);
 
+int mpr_net_start_polling(mpr_net net, int block_ms);
+
+int mpr_net_stop_polling(mpr_net net);
+
 int mpr_net_init(mpr_net n, const char *iface, const char *group, int port);
 
 void mpr_net_use_bus(mpr_net n);
