@@ -30,7 +30,7 @@ void mpr_sig_call_handler(mpr_local_sig sig, int evt, mpr_id inst, unsigned int 
 int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg);
 
 /*! Free memory used by a `mpr_sig`. Call this only for signals that are not
- *  registered with a device. Registered signals will be freed by `mpr_sig_free()`.
+ *  registered with a device. Registered signals should be freed using `mpr_sig_free()`.
  *  \param sig      The signal to free. */
 void mpr_sig_free_internal(mpr_sig sig);
 

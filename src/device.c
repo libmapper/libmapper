@@ -328,6 +328,18 @@ int mpr_dev_get_is_registered(mpr_dev dev)
     return !dev->obj.is_local || check_registration((mpr_local_dev)dev);
 }
 
+void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir)
+{
+    /* TODO: use & instead? */
+    if (dir == MPR_DIR_IN)
+        ++dev->num_inputs;
+    else
+        ++dev->num_outputs;
+
+    mpr_obj_increment_version((mpr_obj)dev);
+    dev->obj.status |= MPR_DEV_SIG_CHANGED;
+}
+
 void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig)
 {
     mpr_dir dir = mpr_sig_get_dir(sig);
@@ -335,6 +347,10 @@ void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig)
         --dev->num_inputs;
     if (dir & MPR_DIR_OUT)
         --dev->num_outputs;
+    if (dev->obj.is_local) {
+        mpr_obj_increment_version((mpr_obj)dev);
+        dev->obj.status |= MPR_DEV_SIG_CHANGED;
+    }
 }
 
 mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir)
@@ -1052,16 +1068,20 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
 void mpr_dev_update_subscribers(mpr_local_dev ldev)
 {
     mpr_net net = mpr_graph_get_net(ldev->obj.graph);
-    if (ldev->subscribers && mpr_tbl_get_is_dirty(ldev->obj.props.synced)) {
-        /* inform device subscribers of changed properties */
-        mpr_net_use_subscribers(net, ldev, MPR_DEV);
-        mpr_dev_send_state((mpr_dev)ldev, MSG_DEV);
+    if (ldev->subscribers) {
+        if (mpr_tbl_get_is_dirty(ldev->obj.props.synced)) {
+            /* inform device subscribers of changed properties */
+            mpr_net_use_subscribers(net, ldev, MPR_DEV);
+            mpr_dev_send_state((mpr_dev)ldev, MSG_DEV);
+        }
+        if (ldev->obj.status & MPR_DEV_SIG_CHANGED) {
+            /* TODO: add sig_dirty flag to device */
+            mpr_net_use_subscribers(net, ldev, MPR_SIG);
+            mpr_dev_send_sigs(ldev, MPR_DIR_ANY, 0);
+            ldev->obj.status &= ~MPR_DEV_SIG_CHANGED;
+        }
+        ldev->time_is_stale = 1;
     }
-    /* TODO: add sig_dirty flag to device */
-    mpr_net_use_subscribers(net, ldev, MPR_SIG);
-    mpr_dev_send_sigs(ldev, MPR_DIR_ANY, 0);
-
-    ldev->time_is_stale = 1;
 }
 
 int mpr_dev_check_synced(mpr_dev dev, mpr_time time)
@@ -1220,22 +1240,5 @@ void mpr_local_dev_handler_logout(mpr_local_dev dev, mpr_dev remote, const char 
         int diff = ordinal - dev->ordinal_allocator.val - 1;
         if (diff >= 0 && diff < 8)
             dev->ordinal_allocator.hints[diff] = 0;
-    }
-}
-
-void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir)
-{
-    /* TODO: use & instead? */
-    if (dir == MPR_DIR_IN)
-        ++dev->num_inputs;
-    else
-        ++dev->num_outputs;
-
-    mpr_obj_increment_version((mpr_obj)dev);
-    if (dev->registered) {
-        /* Notify subscribers */
-        mpr_net_use_subscribers(mpr_graph_get_net(dev->obj.graph), dev,
-                                ((dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT));
-        mpr_sig_send_state((mpr_sig)sig, MSG_SIG);
     }
 }

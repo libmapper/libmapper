@@ -14,6 +14,8 @@ typedef struct _mpr_local_dev *mpr_local_dev;
 #include "mpr_time.h"
 #include "network.h"
 
+#define MPR_DEV_SIG_CHANGED 0x2000
+
 /**** Debug macros ****/
 
 /*! Debug tracer */

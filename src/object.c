@@ -41,10 +41,13 @@ void mpr_obj_increment_version(mpr_obj o)
     if (o->is_local) {
         ++o->version;
         mpr_tbl_set_is_dirty(o->props.synced, 1);
+        if (o->type == MPR_SIG)
+            ((mpr_obj)mpr_sig_get_dev((mpr_sig)o))->status |= MPR_DEV_SIG_CHANGED;
     }
     else if (o->props.staged)
         mpr_tbl_set_is_dirty(o->props.staged, 1);
     o->status |= MPR_STATUS_MODIFIED;
+
     mpr_obj_set_status((mpr_obj)o->graph, MPR_STATUS_MODIFIED, 0);
 }
 

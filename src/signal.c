@@ -746,7 +746,6 @@ void mpr_sig_free(mpr_sig sig)
     mpr_value_free(lsig->value);
 
     mpr_graph_remove_sig(sig->obj.graph, sig, MPR_STATUS_REMOVED);
-    mpr_obj_increment_version((mpr_obj)ldev);
 }
 
 void mpr_sig_free_internal(mpr_sig sig)
@@ -1736,7 +1735,7 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
         }
     }
     if (updated)
-        sig->obj.status |= MPR_STATUS_MODIFIED;
+        mpr_obj_increment_version((mpr_obj)sig);
     return updated;
 }
 
