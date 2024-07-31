@@ -709,7 +709,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         /* TODO: Check if this instance has enough history to process the expression */
-        status = mpr_expr_eval(mpr_graph_get_expr_stack(m->obj.graph), m->expr,
+        status = mpr_expr_eval(mpr_graph_get_expr_eval_buffer(m->obj.graph), m->expr,
                                src_vals, m->vars, dst_val, &time, has_value, i);
         if (!status)
             continue;
@@ -806,7 +806,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         void *value;
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
-        status = mpr_expr_eval(mpr_graph_get_expr_stack(m->obj.graph), m->expr,
+        status = mpr_expr_eval(mpr_graph_get_expr_eval_buffer(m->obj.graph), m->expr,
                                src_vals, m->vars, dst_val, &time, has_value, i);
         if (!status)
             continue;
@@ -1020,7 +1020,7 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
         src_lens[i] = mpr_sig_get_len(src);
     }
     dst = mpr_slot_get_sig((mpr_slot)m->dst);
-    expr = mpr_expr_new_from_str(mpr_graph_get_expr_stack(m->obj.graph), expr_str, m->num_src,
+    expr = mpr_expr_new_from_str(mpr_graph_get_expr_eval_buffer(m->obj.graph), expr_str, m->num_src,
                                  src_types, src_lens, mpr_sig_get_type(dst), mpr_sig_get_len(dst));
     RETURN_ARG_UNLESS(expr, 1);
 
@@ -1398,7 +1398,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
         /* evaluate expression to initialise literals */
         mpr_time_set(&now, MPR_NOW);
         for (i = 0; i < m->num_inst; i++)
-            mpr_expr_eval(mpr_graph_get_expr_stack(m->obj.graph), m->expr, 0,
+            mpr_expr_eval(mpr_graph_get_expr_eval_buffer(m->obj.graph), m->expr, 0,
                           m->vars, mpr_slot_get_value(m->dst), &now, has_value, i);
         mpr_bitflags_free(has_value);
     }

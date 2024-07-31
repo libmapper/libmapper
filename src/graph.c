@@ -67,7 +67,7 @@ typedef struct _mpr_graph {
     /*! Linked-list of autorenewing device subscriptions. */
     mpr_subscription subscriptions;
 
-    mpr_expr_stack expr_stack;
+    mpr_expr_eval_buffer expr_eval_buff;
 
     /*! Flags indicating whether information on signals and mappings should
      *  be automatically subscribed to when a new device is seen.*/
@@ -275,7 +275,7 @@ mpr_graph mpr_graph_new(int subscribe_flags)
     mpr_tbl_add_record(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
     /* TODO: add object queries as properties. */
 
-    g->expr_stack = mpr_expr_stack_new();
+    g->expr_eval_buff = mpr_expr_new_eval_buffer();
 
     return g;
 }
@@ -353,7 +353,7 @@ void mpr_graph_free(mpr_graph g)
             mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_STATUS_REMOVED);
     }
 
-    FUNC_IF(mpr_expr_stack_free, g->expr_stack);
+    FUNC_IF(mpr_expr_free_eval_buffer, g->expr_eval_buff);
     mpr_net_free(g->net);
     mpr_obj_free(&g->obj);
     free(g);
@@ -1124,9 +1124,9 @@ int mpr_graph_get_autosub(mpr_graph g)
     return g->autosub;
 }
 
-mpr_expr_stack mpr_graph_get_expr_stack(mpr_graph g)
+mpr_expr_eval_buffer mpr_graph_get_expr_eval_buffer(mpr_graph g)
 {
-    return g->expr_stack;
+    return g->expr_eval_buff;
 }
 
 void mpr_graph_reset_obj_statuses(mpr_graph g)

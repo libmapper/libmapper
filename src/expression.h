@@ -3,7 +3,7 @@
 #define __MPR_EXPRESSION_H__
 
 typedef struct _mpr_expr *mpr_expr;
-typedef struct _mpr_expr_stack *mpr_expr_stack;
+typedef struct _mpr_expr_eval_buffer *mpr_expr_eval_buffer;
 
 #include "bitflags.h"
 #include "mpr_time.h"
@@ -15,7 +15,7 @@ typedef struct _mpr_expr_stack *mpr_expr_stack;
 #define EXPR_UPDATE                0x10
 #define EXPR_EVAL_DONE             0x20
 
-mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int num_in,
+mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int num_in,
                                const mpr_type *in_types, const int *in_vec_lens,
                                mpr_type out_type, int out_vec_len);
 
@@ -44,7 +44,7 @@ void printexpr(const char*, mpr_expr);
 #endif
 
 /*! Evaluate the given inputs using the compiled expression.
- *  \param stk          A preallocated expression eval stack.
+ *  \param buff         A preallocated expression evaluation buffer.
  *  \param expr         The expression to use.
  *  \param srcs         An array of `mpr_value` structures for sources.
  *  \param expr_vars    An array of `mpr_value` structures for user variables.
@@ -59,15 +59,15 @@ void printexpr(const char*, mpr_expr);
  *                      expression will not generate different results for different source
  *                      instances because all instances are reduced using e.g.
  *                      `y=x.instance.mean()`). */
-int mpr_expr_eval(mpr_expr_stack stk, mpr_expr expr, mpr_value *srcs, mpr_value *expr_vars,
+int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *srcs, mpr_value *expr_vars,
                   mpr_value result, mpr_time *time, mpr_bitflags has_value, int inst_idx);
 
 int mpr_expr_get_num_input_slots(mpr_expr expr);
 
 void mpr_expr_free(mpr_expr expr);
 
-mpr_expr_stack mpr_expr_stack_new(void);
+mpr_expr_eval_buffer mpr_expr_new_eval_buffer(void);
 
-void mpr_expr_stack_free(mpr_expr_stack stk);
+void mpr_expr_free_eval_buffer(mpr_expr_eval_buffer eval_buff);
 
 #endif /* __MPR_EXPRESSION_H__ */

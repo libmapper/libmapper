@@ -42,8 +42,8 @@ double total_elapsed_time = 0;
 
 mpr_time time_in = {0, 0}, time_out = {0, 0};
 
-/* evaluation stack */
-mpr_expr_stack eval_stk = 0;
+/* evaluation buffer */
+mpr_expr_eval_buffer eval_buff = 0;
 
 /* signal_history structures */
 mpr_value inh[SRC_ARRAY_LEN], outh, user_vars[MAX_VARS];
@@ -314,7 +314,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         printf("\rExpression %d", expression_count++);
         fflush(stdout);
     }
-    e = mpr_expr_new_from_str(eval_stk, str, n_sources, src_types, src_lens, dst_type, dst_len);
+    e = mpr_expr_new_from_str(eval_buff, str, n_sources, src_types, src_lens, dst_type, dst_len);
     if (!e) {
         eprintf("Parser FAILED (expression %d)\n", expression_count - 1);
         goto fail;
@@ -386,7 +386,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     updated_values = mpr_bitflags_new(DST_ARRAY_LEN);
 
     eprintf("Try evaluation once... ");
-    status = mpr_expr_eval(eval_stk, e, inh, user_vars, outh, &time_in, has_value, 0);
+    status = mpr_expr_eval(eval_buff, e, inh, user_vars, outh, &time_in, has_value, 0);
 
     if (!status) {
         eprintf("FAILED.\n");
@@ -421,7 +421,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
                     assert(0);
             }
         }
-        status = mpr_expr_eval(eval_stk, e, inh, user_vars, outh, &time_in, has_value, 0);
+        status = mpr_expr_eval(eval_buff, e, inh, user_vars, outh, &time_in, has_value, 0);
         if (status & EXPR_UPDATE) {
             ++update_count;
             mpr_bitflags_cpy(updated_values, has_value, DST_ARRAY_LEN);
@@ -1880,9 +1880,9 @@ int main(int argc, char **argv)
     }
     eprintf("\b\b]\n");
 
-    eval_stk = mpr_expr_stack_new();
+    eval_buff = mpr_expr_new_eval_buffer();
     result = run_tests();
-    mpr_expr_stack_free(eval_stk);
+    mpr_expr_free_eval_buffer(eval_buff);
 
     for (i = 0; i < SRC_ARRAY_LEN; i++)
         mpr_value_free(inh[i]);
