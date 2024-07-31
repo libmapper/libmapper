@@ -2,6 +2,13 @@
 noinst_HEADERS = bitflags.h \
     device.h \
     expression.h \
+    expression_constant.h \
+    expression_function.h \
+    expression_operator.h \
+    expression_token.h \
+    expression_trace.h \
+    expression_value.h \
+    expression_variable.h \
     graph.h \
     id.h \
     id_map.h \

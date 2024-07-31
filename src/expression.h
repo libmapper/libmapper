@@ -70,4 +70,8 @@ mpr_expr_eval_buffer mpr_expr_new_eval_buffer(void);
 
 void mpr_expr_free_eval_buffer(mpr_expr_eval_buffer eval_buff);
 
+#if DEBUG
+void mpr_expr_print(mpr_expr expr);
+#endif /* DEBUG */
+
 #endif /* __MPR_EXPRESSION_H__ */

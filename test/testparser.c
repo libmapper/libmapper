@@ -373,7 +373,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
 
 #ifdef DEBUG
     if (verbose) {
-        printexpr(NULL, e);
+        mpr_expr_print(e);
     }
 #endif
 
