@@ -1,5 +1,38 @@
 # libmapper NEWS
 
+Version 2.4.9
+-------------
+
+We are pleased to announce the release of version 2.4.9 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This release provides several fixes and optimizations that make libmapper more stable and faster. Internally there has also been some refactoring to improve maintainability and support future development.
+
+Fixes:
+
+- Fixed inconsistent `mpr_bitflags` usage when calling `mpr_expr_eval()`.
+- Added more length/type checking for static object properties.
+- Ensure slot values are reset appropriately so that active instance count is accurate.
+
+Optimization:
+
+- Store local maps at the front of the list to save iterating over non-local maps during processing.
+- Store device flag indicating whether child signals have been modified; use flag to decide when to update subscribers.
+
+Refactoring:
+
+- Removed alloca() call in `map.c`.
+- Moved threaded polling into `network.c` to match earlier shared-graph work.
+- Renamed internal expression structures and variables.
+- Refactored `expression.c` to split into multiple smaller files.
+
+Documentation:
+
+- Added line documenting output of `schmitt()` function in expression syntax.
+
+Tests:
+
+- `testinstance.c`: added additional test configurations; print instance statuses.
+
 Version 2.4.8
 -------------
 

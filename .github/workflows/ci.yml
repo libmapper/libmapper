@@ -223,7 +223,7 @@ jobs:
       - name: install wheel
         run:
           ls
-          && python3 -m pip install libmapper-2.4.8-py3-none-win_amd64.whl
+          && python3 -m pip install libmapper-2.4.9-py3-none-win_amd64.whl
       - name: checkout
         uses: actions/checkout@v4
         with:
