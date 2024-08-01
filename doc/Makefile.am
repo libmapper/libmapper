@@ -11,6 +11,9 @@ EXTRA_DIST=bela_installation.md expression_syntax.md how_to_compile_and_run.md \
            images/dest_value_reference.png images/full_convergent.png \
            images/naive_convergent.png images/partial_vector_updates.png \
            images/shared_instance_pools.png \
+           integration_examples/Blender/Blender_and_libmapper.md \
+           integration_examples/Blender/blender.libmapper.py \
+           integration_examples/Blender/simple_example.blend \
            integration_examples/MediaPipe/mediapipe_integration.md \
            integration_examples/MediaPipe/images/landmarks_model.jpg \
            integration_examples/MediaPipe/images/pong_scene.png \
