@@ -5,9 +5,9 @@ MOSTLYCLEANFILES = installed_files.log
 
 install-exec-hook:
 	if test -n "$(DESTDIR)"; then\
-		$(PYTHON) -m pipx install --root=$(DESTDIR) --prefix=$(prefix) --report=@top_builddir@/bindings/python/report.log ./libmapper; \
+		$(PYTHON) setup.py install --root=$(DESTDIR) --prefix=$(prefix) --record=@top_builddir@/bindings/python/installed_files.log; \
 	else \
-		$(PYTHON) -m pipx install --prefix=$(prefix) --report=@top_builddir@/bindings/python/report.log ./libmapper; \
+		$(PYTHON) setup.py install --prefix=$(prefix) --record=@top_builddir@/bindings/python/installed_files.log; \
 	fi
 
 uninstall-hook:
