@@ -22,6 +22,6 @@ varargs_wrapper.dylib: varargs_wrapper.s
 MOSTLYCLEANFILES = *.dll *.exe *.dylib
 
 EXTRA_DIST = varargs_wrapper.s Mapper.NET.sln README.md Demo/Demo.csproj Demo/Program.cs \
-             Mapper.NET/Assets/libmapper_logo_black_512px.png Mapper.NET/Mapper.Net.csproj \
+             Mapper.NET/Assets/libmapper_logo_black_512px.png Mapper.NET/Mapper.NET.csproj \
              Mapper.NET/Device.cs Mapper.NET/Graph.cs Mapper.NET/Map.cs Mapper.NET/MapperList.cs \
              Mapper.NET/MapperObject.cs Mapper.NET/Signal.cs Mapper.NET/Time.cs Mapper.NET/Types.cs
