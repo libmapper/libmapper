@@ -30,10 +30,10 @@
  * con: timetags wasted
  * option: create version with unallocated timetags */
 struct _mpr_expr_eval_buffer {
-    mpr_expr_value vals;
+    expr_value vals;
     mpr_type *types;
-    uint8_t *dims;
-    int size;
+    uint8_t *lens;
+    unsigned int size;
 };
 
 mpr_expr_eval_buffer mpr_expr_new_eval_buffer(void) {
@@ -45,28 +45,28 @@ static void mpr_expr_realloc_eval_buffer(mpr_expr_eval_buffer buff, int num_samp
     if (num_samps > buff->size) {
         buff->size = num_samps;
         if (buff->vals)
-            buff->vals = realloc(buff->vals, buff->size * sizeof(mpr_expr_value_t));
+            buff->vals = realloc(buff->vals, buff->size * sizeof(expr_value_t));
         else
-            buff->vals = malloc(buff->size * sizeof(mpr_expr_value_t));
+            buff->vals = malloc(buff->size * sizeof(expr_value_t));
         if (buff->types)
             buff->types = realloc(buff->types, buff->size * sizeof(mpr_type));
         else
             buff->types = malloc(buff->size * sizeof(mpr_type));
-        if (buff->dims)
-            buff->dims = realloc(buff->dims, buff->size * sizeof(uint8_t));
+        if (buff->lens)
+            buff->lens = realloc(buff->lens, buff->size * sizeof(uint8_t));
         else
-            buff->dims = malloc(buff->size * sizeof(uint8_t));
+            buff->lens = malloc(buff->size * sizeof(uint8_t));
     }
 }
 
 void mpr_expr_free_eval_buffer(mpr_expr_eval_buffer buff) {
     FUNC_IF(free, buff->vals);
     FUNC_IF(free, buff->types);
-    FUNC_IF(free, buff->dims);
+    FUNC_IF(free, buff->lens);
     free(buff);
 }
 
-static int var_lookup(mpr_token_t *tok, const char *s, int len)
+static int var_lookup(expr_tok_t *tok, const char *s, int len)
 {
     if ('t' != *s || '_' != *(s+1))
         tok->toktype = TOK_VAR;
@@ -103,7 +103,7 @@ static int var_lookup(mpr_token_t *tok, const char *s, int len)
     return 0;
 }
 
-static int expr_lex(const char *str, int idx, mpr_token_t *tok)
+static int expr_lex(const char *str, int idx, expr_tok_t *tok)
 {
     int n=idx, i=idx;
     char c = str[idx];
@@ -119,6 +119,10 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         return idx;
     }
 
+#if TRACE_PARSE
+        printf("lexing string '%s'\n", str + idx);
+#endif
+
   again:
 
     i = idx;
@@ -129,9 +133,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         n = atoi(str+i);
         integer_found = 1;
         if (c!='.' && c!='e') {
-            tok->lit.val.i = n;
-            tok->toktype = TOK_LITERAL;
-            tok->lit.datatype = MPR_INT32;
+            expr_tok_set_int32(tok, n);
             return idx;
         }
     }
@@ -141,9 +143,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         c = str[++idx];
         if (!isdigit(c) && c!='e') {
             if (integer_found) {
-                tok->toktype = TOK_LITERAL;
-                tok->lit.val.f = (float)n;
-                tok->lit.datatype = MPR_FLT;
+                expr_tok_set_flt(tok, (float)n);
                 return idx;
             }
             while (c && (isalpha(c)))
@@ -164,10 +164,8 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         do {
             c = str[++idx];
         } while (c && isdigit(c));
-        if (c!='e') {
-            tok->lit.val.f = atof(str+i);
-            tok->toktype = TOK_LITERAL;
-            tok->lit.datatype = MPR_FLT;
+        if (c != 'e') {
+            expr_tok_set_flt(tok, atof(str+i));
             return idx;
         }
         /* continue to next case 'e' */
@@ -196,12 +194,10 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
             c = str[++idx];
         while (c && isdigit(c))
             c = str[++idx];
-        tok->toktype = TOK_LITERAL;
-        tok->lit.datatype = MPR_DBL;
-        tok->lit.val.d = atof(str+i);
+        expr_tok_set_dbl(tok, atof(str+i));
         return idx;
     case '+':
-        SET_TOK_OPTYPE(OP_ADD);
+        expr_tok_set_op(tok, OP_ADD);
         return ++idx;
     case '-':
         /* could be either subtraction, negation, or lambda */
@@ -213,27 +209,27 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         i = idx - 2;
         /* back up one character */
         while (i && strchr(" \t\r\n", str[i]))
-           --i;
+            --i;
         if (isalpha(str[i]) || isdigit(str[i]) || strchr(")]}", str[i])) {
-            SET_TOK_OPTYPE(OP_SUBTRACT);
+            expr_tok_set_op(tok, OP_SUBTRACT);
         }
         else
             tok->toktype = TOK_NEGATE;
         return idx;
     case '/':
-        SET_TOK_OPTYPE(OP_DIVIDE);
+        expr_tok_set_op(tok, OP_DIVIDE);
         return ++idx;
     case '*':
-        SET_TOK_OPTYPE(OP_MULTIPLY);
+        expr_tok_set_op(tok, OP_MULTIPLY);
         return ++idx;
     case '%':
-        SET_TOK_OPTYPE(OP_MODULO);
+        expr_tok_set_op(tok, OP_MODULO);
         return ++idx;
     case '=':
         /* could be '=', '==' */
         c = str[++idx];
         if (c == '=') {
-            SET_TOK_OPTYPE(OP_IS_EQUAL);
+            expr_tok_set_op(tok, OP_IS_EQUAL);
             ++idx;
         }
         else
@@ -241,7 +237,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         return idx;
     case '<':
         /* could be '<', '<=', '<<' */
-        SET_TOK_OPTYPE(OP_IS_LESS_THAN);
+        expr_tok_set_op(tok, OP_IS_LESS_THAN);
         c = str[++idx];
         if (c == '=') {
             tok->op.idx = OP_IS_LESS_THAN_OR_EQUAL;
@@ -254,7 +250,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         return idx;
     case '>':
         /* could be '>', '>=', '>>' */
-        SET_TOK_OPTYPE(OP_IS_GREATER_THAN);
+        expr_tok_set_op(tok, OP_IS_GREATER_THAN);
         c = str[++idx];
         if (c == '=') {
             tok->op.idx = OP_IS_GREATER_THAN_OR_EQUAL;
@@ -268,7 +264,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
     case '!':
         /* could be '!', '!=' */
         /* TODO: handle factorial case */
-        SET_TOK_OPTYPE(OP_LOGICAL_NOT);
+        expr_tok_set_op(tok, OP_LOGICAL_NOT);
         c = str[++idx];
         if (c == '=') {
             tok->op.idx = OP_IS_NOT_EQUAL;
@@ -277,7 +273,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         return idx;
     case '&':
         /* could be '&', '&&' */
-        SET_TOK_OPTYPE(OP_BITWISE_AND);
+        expr_tok_set_op(tok, OP_BITWISE_AND);
         c = str[++idx];
         if (c == '&') {
             tok->op.idx = OP_LOGICAL_AND;
@@ -286,7 +282,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         return idx;
     case '|':
         /* could be '|', '||' */
-        SET_TOK_OPTYPE(OP_BITWISE_OR);
+        expr_tok_set_op(tok, OP_BITWISE_OR);
         c = str[++idx];
         if (c == '|') {
             tok->op.idx = OP_LOGICAL_OR;
@@ -295,7 +291,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         return idx;
     case '^':
         /* bitwise XOR */
-        SET_TOK_OPTYPE(OP_BITWISE_XOR);
+        expr_tok_set_op(tok, OP_BITWISE_XOR);
         return ++idx;
     case '(':
         tok->toktype = TOK_OPEN_PAREN;
@@ -329,7 +325,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         return ++idx;
     case '?':
         /* conditional */
-        SET_TOK_OPTYPE(OP_IF);
+        expr_tok_set_op(tok, OP_IF);
         c = str[++idx];
         if (c == ':') {
             tok->op.idx = OP_IF_ELSE;
@@ -369,9 +365,9 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
 
 struct _mpr_expr
 {
-    mpr_token tokens;
-    mpr_token start;
-    mpr_var vars;
+    expr_tok_t *tokens;
+    expr_tok_t *start;
+    expr_var_t *vars;
     uint8_t offset;
     uint8_t n_tokens;
     uint8_t stack_size;
@@ -385,7 +381,7 @@ struct _mpr_expr
     uint16_t max_in_hist_size;
 };
 
-static void free_stack_vliterals(mpr_token_t *tokens, int top)
+static void free_stack_vliterals(expr_tok_t *tokens, int top)
 {
     while (top >= 0) {
         if (TOK_VLITERAL == tokens[top].toktype && tokens[top].lit.val.ip)
@@ -409,8 +405,8 @@ void mpr_expr_free(mpr_expr expr)
 }
 
 #if TRACE_PARSE
-static void print_stack(const char *s, mpr_token_t *tokens, int sp,
-                        mpr_var_t *vars, int show_init_line)
+static void print_stack(const char *s, expr_tok_t *tokens, int sp,
+                        expr_var_t *vars, int show_init_line)
 {
     int i, j, indent = 0, can_advance = 1;
     if (s)
@@ -473,9 +469,10 @@ void mpr_expr_print(mpr_expr e)
 }
 #endif /* DEBUG */
 
-static mpr_type promote_token(mpr_token_t *tokens, int sp, mpr_type type, int vec_len, mpr_var_t *vars)
+static mpr_type promote_token(expr_tok_t *tokens, int sp, mpr_type type, int vec_len,
+                              expr_var_t *vars)
 {
-    mpr_token_t *tok;
+    expr_tok_t *tok;
 
     /* don't promote type of variable indices */
     if (tokens[sp].gen.datatype == type && tokens[sp].gen.casttype == MPR_INT32)
@@ -488,15 +485,12 @@ static mpr_type promote_token(mpr_token_t *tokens, int sp, mpr_type type, int ve
             tokens[sp].gen.vec_len = vec_len;
         while (offset > 0 && sp > 0) {
             --sp;
-            /* TODO: merge TOK_SP_ADD into tok_arity fn */
-            if (TOK_SP_ADD == tokens[sp].toktype)
-                offset -= tokens[sp].lit.val.i;
-            else if (TOK_LOOP_START == tokens[sp].toktype && tokens[sp].con.flags & RT_INSTANCE)
-                --offset;
-            else if (TOK_LOOP_END == tokens[sp].toktype && tokens[sp].con.flags & RT_INSTANCE)
-                ++offset;
+            if (TOK_LOOP_START == tokens[sp].toktype || TOK_SP_ADD == tokens[sp].toktype)
+                offset -= expr_tok_get_arity(&tokens[sp]);
+            else if (TOK_LOOP_END == tokens[sp].toktype)
+                offset += expr_tok_get_arity(&tokens[sp]);
             else if (tokens[sp].toktype <= TOK_MOVE)
-                offset += tok_arity(tokens[sp]) - 1;
+                offset += expr_tok_get_arity(&tokens[sp]) - 1;
         }
         assert(sp >= 0);
     }
@@ -611,7 +605,7 @@ static mpr_type promote_token(mpr_token_t *tokens, int sp, mpr_type type, int ve
     return type;
 }
 
-static void lock_vec_len(mpr_token_t *tokens, int sp)
+static void lock_vec_len(expr_tok_t *tokens, int sp)
 {
     int i = sp, arity = 1;
     while ((i >= 0) && arity--) {
@@ -626,7 +620,7 @@ static void lock_vec_len(mpr_token_t *tokens, int sp)
     }
 }
 
-static int replace_special_constants(mpr_token_t *tokens, int sp)
+static int replace_special_constants(expr_tok_t *tokens, int sp)
 {
     while (sp >= 0) {
         if (tokens[sp].toktype != TOK_LITERAL || !(tokens[sp].gen.flags & CONST_SPECIAL)) {
@@ -678,7 +672,7 @@ error:
     return -1;
 }
 
-static int precompute(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int len, int vec_len)
+static int precompute(mpr_expr_eval_buffer buff, expr_tok_t *tokens, int len, int vec_len)
 {
     int i;
     mpr_type type = tokens[len - 1].gen.datatype;
@@ -738,7 +732,7 @@ static int precompute(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int len, i
     return len - 1;
 }
 
-static int check_type(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int sp, mpr_var_t *vars,
+static int check_type(mpr_expr_eval_buffer buff, expr_tok_t *tokens, int sp, expr_var_t *vars,
                       int enable_optimize)
 {
     /* TODO: enable precomputation of const-only vectors */
@@ -808,11 +802,11 @@ static int check_type(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int sp, mp
                 int j;
                 if (enable_optimize && tokens[i].toktype == TOK_LITERAL && tokens[sp].toktype == TOK_OP
                     && depth <= op_tbl[tokens[sp].op.idx].arity) {
-                    if (const_tok_is_zero(tokens[i])) {
+                    if (const_tok_is_zero(&tokens[i])) {
                         /* mask and bitshift, depth == 1 or 2 */
                         optimize = (op_tbl[tokens[sp].op.idx].optimize_const_ops >> (depth - 1) * 4) & 0xF;
                     }
-                    else if (const_tok_equals_one(tokens[i])) {
+                    else if (const_tok_equals_one(&tokens[i])) {
                         optimize = (op_tbl[tokens[sp].op.idx].optimize_const_ops >> (depth + 1) * 4) & 0xF;
                     }
                     if (optimize == GET_OPER) {
@@ -828,7 +822,7 @@ static int check_type(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int sp, mp
                 }
                 j = i;
                 do {
-                    type = compare_token_datatype(tokens[j], type);
+                    type = expr_tok_cmp_datatype(&tokens[j], type);
                     if (tokens[j].gen.vec_len > vec_len)
                         vec_len = tokens[j].gen.vec_len;
                     if (TOK_COPY_FROM == tokens[j].toktype) {
@@ -851,8 +845,8 @@ static int check_type(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int sp, mp
                                     --vec_reduce;
                             }
                             else if (tokens[j].toktype <= TOK_MOVE)
-                                offset += tok_arity(tokens[j]) - 1;
-                            type = compare_token_datatype(tokens[j], type);
+                                offset += expr_tok_get_arity(&tokens[j]) - 1;
+                            type = expr_tok_cmp_datatype(&tokens[j], type);
                             if (vec_reduce <= 0 && tokens[j].gen.vec_len > vec_len)
                                 vec_len = tokens[j].gen.vec_len;
                         }
@@ -895,13 +889,11 @@ static int check_type(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int sp, mp
                 case GET_ONE: {
                     /* finish walking down compound arity */
                     int _arity = 0;
-                    while ((_arity += tok_arity(tokens[i])) && i >= 0) {
+                    while ((_arity += expr_tok_get_arity(&tokens[i])) && i >= 0) {
                         --_arity;
                         --i;
                     }
-                    tokens[i].toktype = TOK_LITERAL;
-                    tokens[i].gen.datatype = MPR_INT32;
-                    tokens[i].lit.val.i = optimize == GET_ZERO ? 0 : 1;
+                    expr_tok_set_int32(&tokens[i], (optimize == GET_ZERO) ? 0 : 1);
                     /* clear locks and casttype */
                     tokens[i].gen.flags &= ~(VEC_LEN_LOCKED | TYPE_LOCKED);
                     tokens[i].gen.casttype = 0;
@@ -962,7 +954,7 @@ static int check_type(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int sp, mp
                         else if (TOK_LOOP_END == tokens[j].toktype && tokens[j].con.flags & RT_INSTANCE)
                             ++offset;
                         else if (tokens[j].toktype <= TOK_MOVE)
-                            offset += tok_arity(tokens[j]) - 1;
+                            offset += expr_tok_get_arity(&tokens[j]) - 1;
                         promote_token(tokens, j, type, 0, 0);
                     }
                     assert(j >= 0);
@@ -1027,13 +1019,13 @@ static int check_type(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int sp, mp
         return sp;
 }
 
-static int substack_len(mpr_token_t *tokens, int sp)
+static int substack_len(expr_tok_t *tokens, int sp)
 {
     int idx = sp, arity = 0;
     do {
         if (tokens[idx].toktype < TOK_LOOP_END)
             --arity;
-        arity += tok_arity(tokens[idx]);
+        arity += expr_tok_get_arity(&tokens[idx]);
         if (TOK_ASSIGN & tokens[idx].toktype)
             ++arity;
         --idx;
@@ -1041,8 +1033,8 @@ static int substack_len(mpr_token_t *tokens, int sp)
     return sp - idx;
 }
 
-static int check_assign_type_and_len(mpr_expr_eval_buffer buff, mpr_token_t *tokens, int sp,
-                                     mpr_var_t *vars)
+static int check_assign_type_and_len(mpr_expr_eval_buffer buff, expr_tok_t *tokens, int sp,
+                                     expr_var_t *vars)
 {
     int i = sp, j, optimize = 1, expr_len = 0, vec_len = 0;
     int8_t var = tokens[sp].var.idx;
@@ -1120,7 +1112,7 @@ static int check_assign_type_and_len(mpr_expr_eval_buffer buff, mpr_token_t *tok
 
     if (i > 0) {
         /* This expression statement needs to be moved. */
-        mpr_token_t *temp = alloca(expr_len * TOKEN_SIZE);
+        expr_tok_t *temp = alloca(expr_len * TOKEN_SIZE);
         memcpy(temp, tokens + sp - expr_len + 1, expr_len * TOKEN_SIZE);
         sp = sp - expr_len + 1;
         for (; sp >= 0; sp = sp - expr_len) {
@@ -1137,32 +1129,46 @@ static int check_assign_type_and_len(mpr_expr_eval_buffer buff, mpr_token_t *tok
     return 0;
 }
 
-static int _eval_buffer_size(mpr_token_t *token_stack, int token_stack_len)
+static int _eval_buffer_size(expr_tok_t *token_stack, int token_stack_len)
 {
     int i = 0, sp = 0, eval_buffer_len = 0;
-    mpr_token_t *tok = token_stack;
+    expr_tok_t *tok = token_stack;
     while (i < token_stack_len && tok->toktype != TOK_END) {
         switch (tok->toktype) {
-            case TOK_LOOP_START:
-            case TOK_LITERAL:           ++sp;                                   break;
+            case TOK_LITERAL:
             case TOK_VAR:
-            case TOK_TT:                sp -= NUM_VAR_IDXS(tok->gen.flags) - 1; break;
-            case TOK_OP:                sp -= op_tbl[tok->op.idx].arity - 1;    break;
-            case TOK_FN:                sp -= fn_tbl[tok->fn.idx].arity - 1;    break;
-            case TOK_VFN:               sp -= vfn_tbl[tok->fn.idx].arity - 1;   break;
-            case TOK_SP_ADD:            sp += tok->lit.val.i;                   break;
-            case TOK_LOOP_END:          --sp;                                   break;
-            case TOK_VECTORIZE:         sp -= tok->fn.arity - 1;                break;
+            case TOK_TT:
+            case TOK_COPY_FROM:
+            case TOK_OP:
+            case TOK_FN:
+            case TOK_VFN:
+            case TOK_VECTORIZE:
+            case TOK_MOVE:
+                /* keep one stack element for the result */
+                ++sp;
+                /* continue... */
+                /* consume operands/arguments but keep one stack element for the result */
+                sp -= expr_tok_get_arity(tok);
+                break;
+
             case TOK_ASSIGN:
-            case TOK_ASSIGN_USE:
             case TOK_ASSIGN_CONST:
             case TOK_ASSIGN_TT:
-                sp -= NUM_VAR_IDXS(tok->gen.flags);
-                if (tok->toktype != TOK_ASSIGN_USE)
-                    --sp;
+                --sp;
+                /* continue... */
+            case TOK_ASSIGN_USE:
+                sp -= expr_tok_get_arity(tok);
                 break;
-            case TOK_COPY_FROM:         ++sp;                                   break;
-            case TOK_MOVE:              sp -= tok->con.cache_offset;            break;
+
+            case TOK_LOOP_START:
+                /* may need to cache instance */
+            case TOK_SP_ADD:
+                sp += expr_tok_get_arity(tok);
+                break;
+            case TOK_LOOP_END:
+                /* may need to uncache instance */
+                sp -= expr_tok_get_arity(tok);
+                break;
             default:
                 return -1;
         }
@@ -1193,13 +1199,11 @@ static int _eval_buffer_size(mpr_token_t *token_stack, int token_stack_len)
 
 #define PUSH_INT_TO_OUTPUT(x)   \
 {                               \
-    mpr_token_t t;              \
-    t.toktype = TOK_LITERAL;    \
-    t.gen.datatype = MPR_INT32; \
+    expr_tok_t t;               \
+    expr_tok_set_int32(&t, x);  \
     t.gen.casttype = 0;         \
     t.gen.vec_len = 1;          \
     t.gen.flags = 0;            \
-    t.lit.val.i = x;            \
     PUSH_TO_OUTPUT(t);          \
 }
 
@@ -1252,16 +1256,16 @@ static int _eval_buffer_size(mpr_token_t *token_stack, int token_stack_len)
     }                                                               \
 }
 
-int _squash_to_vector(mpr_token_t *tokens, int idx)
+int _squash_to_vector(expr_tok_t *tokens, int idx)
 {
-    mpr_token_t *a = tokens + idx, *b = a - 1;
+    expr_tok_t *a = tokens + idx, *b = a - 1;
     if (idx < 1 || b->gen.flags & VEC_LEN_LOCKED)
         return 0;
     if (TOK_LITERAL == b->toktype) {
 
         int i;
         void *tmp;
-        mpr_type type = compare_token_datatype(*a, b->lit.datatype);
+        mpr_type type = expr_tok_cmp_datatype(a, b->lit.datatype);
         switch (type) {
             case MPR_INT32:
                 tmp = malloc(2 * sizeof(int));
@@ -1298,7 +1302,7 @@ int _squash_to_vector(mpr_token_t *tokens, int idx)
     else if (TOK_VLITERAL == b->toktype && !(b->gen.flags & VEC_LEN_LOCKED)) {
         int i, vec_len = b->lit.vec_len;
         void *tmp = 0;
-        mpr_type type = compare_token_datatype(*a, b->lit.datatype);
+        mpr_type type = expr_tok_cmp_datatype(a, b->lit.datatype);
         ++b->lit.vec_len;
         switch (type) {
             case MPR_INT32:
@@ -1367,8 +1371,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                                const mpr_type *in_types, const int *in_vec_lens, mpr_type out_type,
                                int out_vec_len)
 {
-    mpr_token_t out[STACK_SIZE];
-    mpr_token_t op[STACK_SIZE];
+    expr_tok_t out[STACK_SIZE];
+    expr_tok_t op[STACK_SIZE];
     int i, lex_idx = 0, out_idx = -1, op_idx = -1;
     int oldest_in[MAX_NUM_MAP_SRC], oldest_out = 0, max_vector = 1;
 
@@ -1380,13 +1384,13 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
     int allow_toktype = 0x2FFFFF;
     int vec_len_ctx = 0;
 
-    mpr_var_t vars[N_USER_VARS];
+    expr_var_t vars[N_USER_VARS];
     temp_var_cache temp_vars = NULL;
     /* TODO: optimise these vars */
     int n_vars = 0;
     int inst_ctl = -1;
     int mute_ctl = -1;
-    mpr_token_t tok;
+    expr_tok_t tok;
     mpr_type var_type;
     mpr_expr expr;
 
@@ -1417,9 +1421,6 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
 #endif
 
     while (str[lex_idx]) {
-#if TRACE_PARSE
-        printf("lexing string '%s'\n", str + lex_idx);
-#endif
         GET_NEXT_TOKEN(tok);
         /* TODO: streamline handling assigning and lambda_allowed flags */
         if (TOK_LAMBDA == tok.toktype) {
@@ -1490,7 +1491,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                     i = found_in->loop_start_pos + 1;
                     while (i <= out_idx) {
                         if (out[i].toktype <= TOK_MOVE)
-                            offset += 1 - tok_arity(out[i]);
+                            offset += 1 - expr_tok_get_arity(&out[i]);
                         ++i;
                     }
                     tok.toktype = TOK_COPY_FROM;
@@ -1535,7 +1536,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                                  && out[pos].con.flags & RT_INSTANCE)
                             --stack_offset;
                         else if (out[pos].toktype < TOK_LAMBDA)
-                            stack_offset += 1 - tok_arity(out[pos]);
+                            stack_offset += 1 - expr_tok_get_arity(&out[pos]);
                         ++pos;
                     }
 
@@ -1646,7 +1647,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                 break;
             }
             case TOK_FN: {
-                mpr_token_t newtok;
+                expr_tok_t newtok;
                 tok.gen.datatype = fn_tbl[tok.fn.idx].fn_int ? MPR_INT32 : MPR_FLT;
                 tok.fn.arity = fn_tbl[tok.fn.idx].arity;
                 if (fn_tbl[tok.fn.idx].memory) {
@@ -1727,7 +1728,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
             case TOK_RFN: {
                 int pre, sslen;
                 expr_rfn_t rfn;
-                mpr_token_t newtok;
+                expr_tok_t newtok;
                 uint8_t rt;
                 uint8_t idx;
                 if (tok.fn.idx >= RFN_HISTORY) {
@@ -1768,7 +1769,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                                     assert(idx > 0 && idx <= out_idx);
                                     tok = out[idx];
                                 }
-                                len += tok_arity(tok);
+                                len += expr_tok_get_arity(&tok);
                                 if (tok.toktype != TOK_VAR)
                                     continue;
                                 {FAIL_IF(tok.gen.flags & VAR_HIST_IDX,
@@ -1823,7 +1824,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                                     assert(idx > 0 && idx <= out_idx);
                                     tok = out[idx];
                                 }
-                                len += tok_arity(tok);
+                                len += expr_tok_get_arity(&tok);
                                 if (tok.toktype != TOK_VAR && tok.toktype != TOK_TT)
                                     continue;
                                 if (tok.var.idx >= VAR_Y) {
@@ -1894,7 +1895,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                                          "Vector indexes not allowed within vector reduce function.");}
                                 if (out[out_idx - i].gen.vec_len > vec_len)
                                     vec_len = out[out_idx - i].gen.vec_len;
-                                /* Set token dim to 1 since we will be iterating over elements */
+                                /* Set token vec_len to 1 since we will be iterating over elements */
                                 out[out_idx - i].gen.vec_len = 1;
                                 out[out_idx - i].gen.flags |= VEC_LEN_LOCKED;
                             }
@@ -2066,10 +2067,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                     }
                     else if (TOK_LAMBDA == tok.toktype) {
                         /* default to zero for accumulator initialization */
-                        tok.toktype = TOK_LITERAL;
-                        tok.lit.datatype = MPR_INT32;
+                        expr_tok_set_int32(&tok, 0);
                         tok.lit.vec_len = 1;
-                        tok.lit.val.i = 0;
                         PUSH_TO_OUTPUT(tok);
 
                         /* Restack reduce input */
@@ -2091,7 +2090,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                     break;
                 }
                 else if (RFN_CONCAT == rfn) {
-                    mpr_token_t newtok;
+                    expr_tok_t newtok;
                     GET_NEXT_TOKEN(newtok);
                     {FAIL_IF(TOK_LITERAL != newtok.toktype || MPR_INT32 != newtok.gen.datatype,
                              "concat() requires an integer argument");}
@@ -2169,8 +2168,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                 }
 
                 if (OP_UNKNOWN != rfn_tbl[rfn].op) {
-                    tok.toktype = TOK_OP;
-                    tok.op.idx = rfn_tbl[rfn].op;
+                    expr_tok_set_op(&tok, rfn_tbl[rfn].op);
                     /* don't use macro here since we don't want to optimize away initialization args */
                     PUSH_TO_OUTPUT(tok);
                     out_idx = check_type(buff, out, out_idx, vars, 0);
@@ -2213,29 +2211,25 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
                 PUSH_TO_OUTPUT(tok);
 
                 if (RFN_CENTER == rfn) {
-                    tok.toktype = TOK_OP;
-                    tok.op.idx = OP_ADD;
+                    expr_tok_set_op(&tok, OP_ADD);
                     PUSH_TO_OPERATOR(tok);
+
                     POP_OPERATOR_TO_OUTPUT();
-                    tok.toktype = TOK_LITERAL;
+                    expr_tok_set_flt(&tok, 0.5f);
                     tok.gen.flags &= ~CONST_SPECIAL;
-                    tok.gen.datatype = MPR_FLT;
-                    tok.lit.val.f = 0.5;
                     PUSH_TO_OUTPUT(tok);
-                    tok.toktype = TOK_OP;
-                    tok.op.idx = OP_MULTIPLY;
+
+                    expr_tok_set_op(&tok, OP_MULTIPLY);
                     PUSH_TO_OPERATOR(tok);
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 else if (RFN_MEAN == rfn) {
-                    tok.toktype = TOK_OP;
-                    tok.op.idx = OP_DIVIDE;
+                    expr_tok_set_op(&tok, OP_DIVIDE);
                     PUSH_TO_OPERATOR(tok);
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 else if (RFN_SIZE == rfn) {
-                    tok.toktype = TOK_OP;
-                    tok.op.idx = OP_SUBTRACT;
+                    expr_tok_set_op(&tok, OP_SUBTRACT);
                     PUSH_TO_OPERATOR(tok);
                     POP_OPERATOR_TO_OUTPUT();
                 }
@@ -2785,13 +2779,12 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
             }
             case TOK_NEGATE:
                 /* push '-1' to output stack, and '*' to operator stack */
-                tok.toktype = TOK_LITERAL;
-                tok.gen.datatype = MPR_INT32;
-                tok.lit.val.i = -1;
+                expr_tok_set_int32(&tok, -1);
                 PUSH_TO_OUTPUT(tok);
-                tok.toktype = TOK_OP;
-                tok.op.idx = OP_MULTIPLY;
+
+                expr_tok_set_op(&tok, OP_MULTIPLY);
                 PUSH_TO_OPERATOR(tok);
+
                 allow_toktype = OBJECT_TOKENS & ~TOK_NEGATE;
                 break;
             case TOK_ASSIGN:
@@ -2977,8 +2970,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int n
     }
     if (n_vars) {
         /* copy user-defined variables */
-        expr->vars = malloc(sizeof(mpr_var_t) * n_vars);
-        memcpy(expr->vars, vars, sizeof(mpr_var_t) * n_vars);
+        expr->vars = malloc(sizeof(expr_var_t) * n_vars);
+        memcpy(expr->vars, vars, sizeof(expr_var_t) * n_vars);
     }
     else
         expr->vars = NULL;
@@ -3007,7 +3000,6 @@ error:
     free_stack_vliterals(out, out_idx);
     free_stack_vliterals(op, op_idx);
     return 0;
-
 }
 
 int mpr_expr_get_in_hist_size(mpr_expr expr, int idx)
@@ -3048,7 +3040,7 @@ int mpr_expr_get_var_type(mpr_expr expr, int idx)
 int mpr_expr_get_src_is_muted(mpr_expr expr, int idx)
 {
     int i, found = 0, muted = VAR_MUTED;
-    mpr_token_t *tok = expr->tokens;
+    expr_tok_t *tok = expr->tokens;
     for (i = 0; i < expr->n_tokens; i++) {
         if (tok[i].toktype == TOK_VAR && tok[i].var.idx == idx + VAR_X) {
             found = 1;
@@ -3080,29 +3072,29 @@ void mpr_expr_var_updated(mpr_expr expr, int var_idx)
 
 #define UNARY_OP_CASE(OP, SYM, T)               \
     case OP:                                    \
-        for (i = sp; i < sp + dims[dp]; i++)    \
+        for (i = sp; i < sp + lens[dp]; i++)    \
             vals[i].T SYM vals[i].T;            \
         break;
 
 #define BINARY_OP_CASE(OP, SYM, T)                                  \
     case OP:                                                        \
-        for (i = 0, j = sp; i < dims[dp]; i++, j++)                 \
-            vals[j].T = vals[j].T SYM vals[sp + vlen + i % rdim].T; \
+        for (i = 0, j = sp; i < lens[dp]; i++, j++)                 \
+            vals[j].T = vals[j].T SYM vals[sp + vlen + i % rlen].T; \
         break;
 
 #define CONDITIONAL_CASES(T)                                        \
     case OP_IF_ELSE:                                                \
-        for (i = 0, j = sp; i < dims[dp]; i++, j++) {               \
+        for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
             if (!vals[j].T)                                         \
-                vals[j].T = vals[sp + vlen + i % rdim].T;           \
+                vals[j].T = vals[sp + vlen + i % rlen].T;           \
         }                                                           \
         break;                                                      \
     case OP_IF_THEN_ELSE:                                           \
-        for (i = 0, j = sp; i < dims[dp]; i++, j++) {               \
+        for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
             if (vals[j].T)                                          \
-                vals[j].T = vals[sp + vlen + i % rdim].T;           \
+                vals[j].T = vals[sp + vlen + i % rlen].T;           \
             else                                                    \
-                vals[j].T = vals[sp + 2 * vlen + i % dims[dp + 2]].T;\
+                vals[j].T = vals[sp + 2 * vlen + i % lens[dp + 2]].T;\
         }                                                           \
         break;
 
@@ -3126,22 +3118,39 @@ MPR_INLINE static int _max(int a, int b)
     return a > b ? a : b;
 }
 
+#define SET_STACK_PTR(ADDEND)           \
+    dp = ADDEND;                        \
+    assert(dp >= 0 || dp < buff_size);  \
+    sp = dp * vlen;
+
+#define INCR_STACK_PTR(ADDEND)          \
+    dp += ADDEND;                       \
+    assert(dp >= 0 || dp < buff_size);  \
+    sp = dp * vlen;
+
+#define SET_TYPE(TYPE)  \
+    types[dp] = TYPE;
+
+#define SET_LEN(LEN)    \
+    lens[dp] = LEN;
+
 int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                   mpr_value v_out, mpr_time *time, mpr_bitflags has_value, int inst_idx)
 {
 #if TRACE_EVAL
     printf("evaluating expression...\n");
 #endif
-    mpr_token_t *tok, *end;
+    expr_tok_t *tok, *end;
     int status = 1 | EXPR_EVAL_DONE, cache = 0, vlen;
     int i, j, sp, dp = -1;
     /* Note: signal, history, and vector reduce are currently limited to 255 items here */
     uint8_t alive = 1, muted = 0, can_advance = 1, hist_offset = 0, sig_offset = 0, vec_offset = 0;
     mpr_value x = NULL;
 
-    mpr_expr_value vals = buff->vals;
-    uint8_t *dims = buff->dims;
+    expr_value vals = buff->vals;
+    uint8_t *lens = buff->lens;
     mpr_type *types = buff->types;
+    unsigned int buff_size = buff->size;
 
     if (!expr) {
 #if TRACE_EVAL
@@ -3207,21 +3216,19 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
         switch (tok->toktype) {
         case TOK_LITERAL:
         case TOK_VLITERAL:
-            sp += vlen;
-            ++dp;
-            assert(dp < buff->size);
-            dims[dp] = tok->gen.vec_len;
-            types[dp] = tok->gen.datatype;
-                /* TODO: remove vector building? */
+            INCR_STACK_PTR(1);
+            SET_TYPE(tok->gen.datatype);
+            SET_LEN(tok->gen.vec_len);
+            /* TODO: remove vector building? */
             switch (types[dp]) {
 #define TYPED_CASE(MTYPE, T)                                            \
                 case MTYPE:                                             \
                     if (TOK_LITERAL == tok->toktype) {                  \
-                        for (i = sp; i < sp + dims[dp]; i++)            \
+                        for (i = sp; i < sp + lens[dp]; i++)            \
                             vals[i].T = tok->lit.val.T;                 \
                     }                                                   \
                     else {                                              \
-                        for (i = sp, j = 0; i < sp + dims[dp]; i++, j++)\
+                        for (i = sp, j = 0; i < sp + lens[dp]; i++, j++)\
                             vals[i].T = tok->lit.val.T##p[j];           \
                     }                                                   \
                     break;
@@ -3233,7 +3240,7 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                     goto error;
             }
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
         case TOK_VAR: {
@@ -3371,11 +3378,9 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                 ...
             } */
 
-            dp = idxp + 1;
-            assert(dp >= 0 && dp < buff->size);
-            sp = dp * vlen;
-            dims[dp] = tok->gen.vec_len ? tok->gen.vec_len : mpr_value_get_vlen(v);
-            types[dp] = mpr_value_get_type(v);
+            SET_STACK_PTR(idxp + 1);
+            SET_TYPE(mpr_value_get_type(v));
+            SET_LEN(tok->gen.vec_len ? tok->gen.vec_len : mpr_value_get_vlen(v));
 
             switch (mpr_value_get_type(v)) {
 #define COPY_TYPED(MTYPE, TYPE, T)                                                  \
@@ -3385,7 +3390,7 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                     if (vwt) {                                                      \
                         register TYPE temp;                                         \
                         register float ivwt = 1 - vwt;                              \
-                        for (j = 0, k = sp; j < dims[dp]; j++, k++) {               \
+                        for (j = 0, k = sp; j < lens[dp]; j++, k++) {               \
                             int vec_idx = (j + vidx) % vlen;                        \
                             if (vec_idx < 0) vec_idx += vlen;                       \
                             temp = a[vec_idx] * vwt;                                \
@@ -3395,7 +3400,7 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                         }                                                           \
                     }                                                               \
                     else {                                                          \
-                        for (j = 0, k = sp; j < dims[dp]; j++, k++) {               \
+                        for (j = 0, k = sp; j < lens[dp]; j++, k++) {               \
                             int vec_idx = (j + vidx) % vlen;                        \
                             if (vec_idx < 0) vec_idx += vlen;                       \
                             vals[k].T = a[vec_idx];                                 \
@@ -3407,7 +3412,7 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                         if (vwt) {                                                  \
                             register TYPE temp;                                     \
                             register float ivwt = 1 - vwt;                          \
-                            for (j = 0, k = sp; j < dims[dp]; j++, k++) {           \
+                            for (j = 0, k = sp; j < lens[dp]; j++, k++) {           \
                                 int vec_idx = (j + vidx) % vlen;                    \
                                 if (vec_idx < 0) vec_idx += vlen;                   \
                                 temp = a[vec_idx] * vwt;                            \
@@ -3417,7 +3422,7 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                             }                                                       \
                         }                                                           \
                         else {                                                      \
-                            for (j = 0, k = sp; j < dims[dp]; j++, k++) {           \
+                            for (j = 0, k = sp; j < lens[dp]; j++, k++) {           \
                                 int vec_idx = (j + vidx) % vlen;                    \
                                 if (vec_idx < 0) vec_idx += vlen;                   \
                                 vals[j].T = vals[j].T * hwt + a[vec_idx] * (1 - hwt);\
@@ -3434,16 +3439,14 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                     goto error;
             }
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
         }
         case TOK_VAR_NUM_INST: {
-            ++dp;
-            assert(dp < buff->size);
-            sp += vlen;
-            dims[dp] = tok->gen.vec_len;
-            types[dp] = MPR_INT32;
+            INCR_STACK_PTR(1);
+            SET_TYPE(MPR_INT32);
+            SET_LEN(tok->gen.vec_len);
             if (tok->var.idx == VAR_Y) {
                 RETURN_ARG_UNLESS(v_out, status);
                 vals[sp].i = mpr_value_get_num_active_inst(v_out);
@@ -3460,21 +3463,18 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                 vals[sp + i].i = vals[sp].i;
             can_advance = 0;
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
         }
         case TOK_TT: {
             int hidx = 0;
-            double weight = 0.0;
+            double hwt = 0.0;
             double t_d;
             if (!(tok->gen.flags & VAR_HIST_IDX)) {
-                sp += vlen;
-                ++dp;
-                assert(dp < buff->size);
+                INCR_STACK_PTR(1);
             }
-            assert(dp >= 0);
-            dims[dp] = tok->gen.vec_len;
+            SET_LEN(tok->gen.vec_len);
 #if TRACE_EVAL
             if (tok->var.idx == VAR_Y)
                 printf("\n\t\ttt.y");
@@ -3495,19 +3495,10 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
 #endif
             if (tok->gen.flags & VAR_HIST_IDX) {
                 switch (types[dp]) {
-                    case MPR_INT32:
-                        hidx = vals[sp].i;
-                        break;
-                    case MPR_FLT:
-                        hidx = (int)vals[sp].f;
-                        weight = fabsf(vals[sp].f - hidx);
-                        break;
-                    case MPR_DBL:
-                        hidx = (int)vals[sp].d;
-                        weight = fabs(vals[sp].d - hidx);
-                        break;
-                    default:
-                        goto error;
+                    case MPR_INT32: hidx = vals[sp].i;                                      break;
+                    case MPR_FLT:   hidx = (int)vals[sp].f; hwt = fabsf(vals[sp].f - hidx); break;
+                    case MPR_DBL:   hidx = (int)vals[sp].d; hwt = fabs(vals[sp].d - hidx);  break;
+                    default:        goto error;
                 }
             }
             if (tok->var.idx == VAR_Y) {
@@ -3515,9 +3506,9 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                 RETURN_ARG_UNLESS(v_out, status);
                 t = mpr_value_get_time(v_out, inst_idx, hidx);
                 t_d = mpr_time_as_dbl(*t);
-                if (weight) {
+                if (hwt) {
                     t = mpr_value_get_time(v_out, inst_idx, hidx - 1);
-                    t_d = t_d * weight + mpr_time_as_dbl(*t) * (1 - weight);
+                    t_d = t_d * hwt + mpr_time_as_dbl(*t) * (1 - hwt);
                 }
             }
             else if (tok->var.idx >= VAR_X) {
@@ -3527,9 +3518,9 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                 v = v_in[tok->var.idx - VAR_X];
                 t = mpr_value_get_time(v, inst_idx, hidx);
                 t_d = mpr_time_as_dbl(*t);
-                if (weight) {
+                if (hwt) {
                     t = mpr_value_get_time(v, inst_idx, hidx);
-                    t_d = t_d * weight + mpr_time_as_dbl(*t) * (1 - weight);
+                    t_d = t_d * hwt + mpr_time_as_dbl(*t) * (1 - hwt);
                 }
             }
             else if (v_vars) {
@@ -3541,40 +3532,37 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                 goto error;
             for (i = sp; i < sp + tok->gen.vec_len; i++)
                 vals[i].d = t_d;
-            types[dp] = tok->gen.datatype;
+            SET_TYPE(tok->gen.datatype);
             can_advance = 0;
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
         }
         case TOK_OP: {
-            int maxlen;
-            unsigned int rdim;
-            dp -= (op_tbl[tok->op.idx].arity - 1);
-            assert(dp >= 0);
-            sp = dp * vlen;
+            uint8_t max_len, rlen;
+            INCR_STACK_PTR(1 - op_tbl[tok->op.idx].arity);
             /* first copy vals[sp] elements if necessary */
-            maxlen = dims[dp];
+            max_len = lens[dp];
             for (i = 1; i < op_tbl[tok->op.idx].arity; i++)
-                maxlen = _max(maxlen, dims[dp + i]);
+                max_len = _max(max_len, lens[dp + i]);
             for (i = 0; i < op_tbl[tok->op.idx].arity; i++) {
-                int diff = maxlen - dims[dp];
+                int diff = max_len - lens[dp];
                 while (diff > 0) {
-                    int mindiff = dims[dp] > diff ? diff : dims[dp];
-                    memcpy(&vals[sp + dims[dp]], &vals[sp], mindiff * sizeof(mpr_expr_value_t));
-                    dims[dp] += mindiff;
-                    diff -= mindiff;
+                    int min_diff = lens[dp] > diff ? diff : lens[dp];
+                    expr_value_cpy(&vals[sp + lens[dp]], &vals[sp], min_diff);
+                    lens[dp] += min_diff;
+                    diff -= min_diff;
                 }
             }
-            rdim = dims[dp + 1];
+            rlen = lens[dp + 1];
             switch (types[dp]) {
                 case MPR_INT32: {
                     switch (tok->op.idx) {
                         OP_CASES_META(i);
                         case OP_DIVIDE:
                             /* Check for divide-by-zero */
-                            for (i = 0, j = 0; i < maxlen; i++, j = (j + 1) % rdim) {
+                            for (i = 0, j = 0; i < max_len; i++, j = (j + 1) % rlen) {
                                 if (vals[sp + vlen + j].i)
                                     vals[sp + i].i /= vals[sp + vlen + j].i;
                                 else {
@@ -3612,8 +3600,8 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                         OP_CASES_META(f);
                         BINARY_OP_CASE(OP_DIVIDE, /, f);
                         case OP_MODULO:
-                            for (i = 0; i < maxlen; i++)
-                                vals[sp + i].f = fmodf(vals[sp + i].f, vals[sp + vlen + i % rdim].f);
+                            for (i = 0; i < max_len; i++)
+                                vals[sp + i].f = fmodf(vals[sp + i].f, vals[sp + vlen + i % rlen].f);
                             break;
                         default: goto error;
                     }
@@ -3624,8 +3612,8 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                         OP_CASES_META(d);
                         BINARY_OP_CASE(OP_DIVIDE, /, d);
                         case OP_MODULO:
-                            for (i = 0; i < maxlen; i++)
-                                vals[sp + i].d = fmod(vals[sp + i].d, vals[sp + vlen + i % rdim].d);
+                            for (i = 0; i < max_len; i++)
+                                vals[sp + i].d = fmod(vals[sp + i].d, vals[sp + vlen + i % rlen].d);
                             break;
                         default: goto error;
                     }
@@ -3634,63 +3622,61 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                 default:
                     goto error;
             }
-            types[dp] = tok->gen.datatype;
+            SET_TYPE(tok->gen.datatype);
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
         }
         case TOK_FN: {
-            int maxlen, diff;
-            unsigned int ldim, rdim;
-            dp -= (fn_tbl[tok->fn.idx].arity - 1);
-            assert(dp >= 0);
-            sp = dp * vlen;
+            int diff;
+            unsigned int max_len, llen, rlen;
+            INCR_STACK_PTR(1 - fn_tbl[tok->fn.idx].arity);
             /* TODO: use preprocessor macro or inline func here */
             /* first copy vals[sp] elements if necessary */
-            maxlen = dims[dp];
+            max_len = lens[dp];
             for (i = 1; i < fn_tbl[tok->fn.idx].arity; i++)
-                maxlen = _max(maxlen, dims[dp + i]);
-            diff = maxlen - dims[dp];
+                max_len = _max(max_len, lens[dp + i]);
+            diff = max_len - lens[dp];
             while (diff > 0) {
-                int mindiff = dims[dp] > diff ? diff : dims[dp];
-                memcpy(&vals[sp + dims[dp]], &vals[sp], mindiff * sizeof(mpr_expr_value_t));
-                dims[dp] += mindiff;
-                diff -= mindiff;
+                int min_diff = lens[dp] > diff ? diff : lens[dp];
+                expr_value_cpy(&vals[sp + lens[dp]], &vals[sp], min_diff);
+                lens[dp] += min_diff;
+                diff -= min_diff;
             }
-            ldim = dims[dp];
-            rdim = dims[dp + 1];
-            types[dp] = tok->gen.datatype;
+            llen = lens[dp];
+            rlen = lens[dp + 1];
+            SET_TYPE(tok->gen.datatype);
             switch (types[dp]) {
 #define TYPED_CASE(MTYPE, FN, T)                                                        \
             case MTYPE:                                                                 \
                 switch (fn_tbl[tok->fn.idx].arity) {                                    \
                 case 0:                                                                 \
-                    for (i = 0; i < ldim; i++)                                          \
+                    for (i = 0; i < llen; i++)                                          \
                         vals[sp + i].T = ((FN##_arity0*)fn_tbl[tok->fn.idx].FN)();      \
                     break;                                                              \
                 case 1:                                                                 \
-                    for (i = 0; i < ldim; i++)                                          \
+                    for (i = 0; i < llen; i++)                                          \
                         vals[sp + i].T = (((FN##_arity1*)fn_tbl[tok->fn.idx].FN)        \
                                           (vals[sp + i].T));                            \
                     break;                                                              \
                 case 2:                                                                 \
-                    for (i = 0; i < ldim; i++)                                          \
+                    for (i = 0; i < llen; i++)                                          \
                         vals[sp + i].T = (((FN##_arity2*)fn_tbl[tok->fn.idx].FN)        \
-                                          (vals[sp + i].T, vals[sp + vlen + i % rdim].T));\
+                                          (vals[sp + i].T, vals[sp + vlen + i % rlen].T));\
                     break;                                                              \
                 case 3:                                                                 \
-                    for (i = 0; i < ldim; i++)                                          \
+                    for (i = 0; i < llen; i++)                                          \
                         vals[sp + i].T = (((FN##_arity3*)fn_tbl[tok->fn.idx].FN)        \
-                                          (vals[sp + i].T, vals[sp + vlen + i % rdim].T,\
-                                           vals[sp + 2 * vlen + i % dims[dp + 2]].T));  \
+                                          (vals[sp + i].T, vals[sp + vlen + i % rlen].T,\
+                                           vals[sp + 2 * vlen + i % lens[dp + 2]].T));  \
                     break;                                                              \
                 case 4:                                                                 \
-                    for (i = 0; i < ldim; i++)                                          \
+                    for (i = 0; i < llen; i++)                                          \
                         vals[sp + i].T = (((FN##_arity4*)fn_tbl[tok->fn.idx].FN)        \
-                                          (vals[sp + i].T, vals[sp + vlen + i % rdim].T,\
-                                           vals[sp + 2 * vlen + i % dims[dp + 2]].T,    \
-                                           vals[sp + 3 * vlen + i % dims[dp + 3]].T));  \
+                                          (vals[sp + i].T, vals[sp + vlen + i % rlen].T,\
+                                           vals[sp + 2 * vlen + i % lens[dp + 2]].T,    \
+                                           vals[sp + 3 * vlen + i % lens[dp + 3]].T));  \
                     break;                                                              \
                 default: goto error;                                                    \
                 }                                                                       \
@@ -3705,36 +3691,34 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
             if (tok->fn.idx > FN_DEL_IDX)
                 can_advance = 0;
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
         }
         case TOK_VFN:
-            dp -= (vfn_tbl[tok->fn.idx].arity - 1);
-            assert(dp >= 0);
-            sp = dp * vlen;
+            INCR_STACK_PTR(1 - vfn_tbl[tok->fn.idx].arity);
             if (VFN_CONCAT != tok->fn.idx
                 && (vfn_tbl[tok->fn.idx].arity > 1 || VFN_DOT == tok->fn.idx)) {
-                int maxdim = tok->gen.vec_len;
+                int max_len = tok->gen.vec_len;
                 for (i = 0; i < vfn_tbl[tok->fn.idx].arity; i++)
-                    maxdim = maxdim > dims[dp + i] ? maxdim : dims[dp + i];
+                    max_len = max_len > lens[dp + i] ? max_len : lens[dp + i];
                 for (i = 0; i < vfn_tbl[tok->fn.idx].arity; i++) {
                     /* we need to ensure the vector lengths are equal */
-                    while (dims[dp + i] < maxdim) {
-                        int diff = maxdim - dims[dp + i];
-                        diff = diff < dims[dp + i] ? diff : dims[dp + i];
-                        memcpy(&vals[sp + dims[dp + i]], &vals[sp], diff * sizeof(mpr_expr_value_t));
-                        dims[dp + i] += diff;
+                    while (lens[dp + i] < max_len) {
+                        int diff = max_len - lens[dp + i];
+                        diff = diff < lens[dp + i] ? diff : lens[dp + i];
+                        expr_value_cpy(&vals[sp + lens[dp + i]], &vals[sp], diff);
+                        lens[dp + i] += diff;
                     }
                     sp += vlen;
                 }
                 sp = dp * vlen;
             }
-            types[dp] = tok->gen.datatype;
+            SET_TYPE(tok->gen.datatype);
             switch (types[dp]) {
 #define TYPED_CASE(MTYPE, FN)                                                               \
                 case MTYPE:                                                                 \
-                    (((vfn_template*)vfn_tbl[tok->fn.idx].FN)(vals + sp, dims + dp, vlen)); \
+                    (((vfn_template*)vfn_tbl[tok->fn.idx].FN)(vals + sp, lens + dp, vlen)); \
                     break;
                 TYPED_CASE(MPR_INT32, fn_int)
                 TYPED_CASE(MPR_FLT, fn_flt)
@@ -3749,14 +3733,14 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                     vals[sp + i].d = vals[sp].d;
             }
             if (vfn_tbl[tok->fn.idx].reduce)
-                dims[dp] = tok->gen.vec_len;
+                SET_LEN(tok->gen.vec_len);
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
             if (   VFN_MAXMIN == tok->fn.idx
                 || VFN_SUMNUM == tok->fn.idx
                 || VFN_CONCAT == tok->fn.idx) {
                 printf("\t\t\t\t\t");
-                mpr_expr_value_print(vals + sp + vlen, types[dp + 1], dims[dp + 1], dp + 1);
+                expr_value_print(vals + sp + vlen, types[dp + 1], lens[dp + 1], dp + 1);
             }
 #endif
             break;
@@ -3786,14 +3770,12 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                     break;
                 case RT_INSTANCE:
                     /* cache previous instance idx */
-                    ++dp;
-                    assert(dp < buff->size);
-                    sp += vlen;
+                    INCR_STACK_PTR(1);
                     vals[sp].i = inst_idx;
                     ++cache;
 #if TRACE_EVAL
                     printf("Caching instance idx %d on the eval stack: ", inst_idx);
-                    mpr_expr_value_print(vals + sp, MPR_INT32, 1, dp);
+                    expr_value_print(vals + sp, MPR_INT32, 1, dp);
 #endif
                     if (x) {
                         /* find first active instance idx */
@@ -3815,9 +3797,7 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
             }
             break;
         case TOK_SP_ADD:
-            dp += tok->lit.val.i;
-            assert(dp < buff->size);
-            sp = dp * vlen;
+            INCR_STACK_PTR(tok->lit.val.i);
 #if TRACE_EVAL
             printf("\n");
 #endif
@@ -3860,8 +3840,8 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
 #if TRACE_EVAL
                         printf("Instance loop done; restoring instance idx from offset %d: ",
                                tok->con.cache_offset * -1);
-                        mpr_expr_value_print(vals + sp - tok->con.cache_offset * vlen, MPR_INT32, 1,
-                                             dp - tok->con.cache_offset);
+                        expr_value_print(vals + sp - tok->con.cache_offset * vlen, MPR_INT32, 1,
+                                         dp - tok->con.cache_offset);
 #endif
                         inst_idx = vals[sp - tok->con.cache_offset * vlen].i;
                         if (x && inst_idx >= mpr_value_get_num_inst(x))
@@ -3870,14 +3850,11 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                             int dp_temp = dp - tok->con.cache_offset;
                             for (dp_temp = dp - tok->con.cache_offset; dp_temp < dp; dp_temp++) {
                                 int sp_temp = dp_temp * vlen;
-                                memcpy(vals + sp_temp, vals + sp_temp + vlen,
-                                       sizeof(mpr_expr_value_t) * vlen);
-                                dims[dp_temp] = dims[dp_temp + 1];
+                                expr_value_cpy(vals + sp_temp, vals + sp_temp + vlen, vlen);
+                                lens[dp_temp] = lens[dp_temp + 1];
                                 types[dp_temp] = types[dp_temp + 1];
                             }
-                            sp -= vlen;
-                            --dp;
-                            assert(dp >= 0);
+                            INCR_STACK_PTR(-1);
                         }
                         --cache;
                     }
@@ -3939,50 +3916,41 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
         case TOK_COPY_FROM: {
             int dp_from = dp - tok->con.cache_offset;
             int sp_from = dp_from * vlen;
-            assert(dp_from >= 0 && dp_from < buff->size);
-            ++dp;
-            assert(dp < buff->size);
-            sp += vlen;
-            dims[dp] = tok->gen.vec_len;
-            types[dp] = tok->gen.datatype;
-            if (dims[dp] < dims[dp_from])
-                memcpy(&vals[sp], &vals[sp_from + vec_offset],
-                       tok->gen.vec_len * sizeof(mpr_expr_value_t));
+            assert(dp_from >= 0 && dp_from < buff_size);
+            INCR_STACK_PTR(1);
+            SET_TYPE(tok->gen.datatype);
+            SET_LEN(tok->gen.vec_len);
+            if (lens[dp] < lens[dp_from])
+                expr_value_cpy(&vals[sp], &vals[sp_from + vec_offset], tok->gen.vec_len);
             else
-                memcpy(&vals[sp], &vals[sp_from], tok->gen.vec_len * sizeof(mpr_expr_value_t));
+                expr_value_cpy(&vals[sp], &vals[sp_from], tok->gen.vec_len);
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
         }
         case TOK_MOVE: {
             int dp_from = dp;
             int sp_from = sp;
-            dp -= tok->con.cache_offset;
-            assert(dp >= 0 && dp < buff->size && dp_from >= 0);
-            sp = dp * vlen;
-            memcpy(&vals[sp], &vals[sp_from], vlen * sizeof(mpr_expr_value_t));
-            dims[dp] = dims[dp_from];
-            types[dp] = types[dp_from];
+            INCR_STACK_PTR(-tok->con.cache_offset);
+            expr_value_cpy(&vals[sp], &vals[sp_from], vlen);
+            SET_TYPE(types[dp_from]);
+            SET_LEN(lens[dp_from]);
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
         }
         case TOK_VECTORIZE:
             /* don't need to copy vector elements from first token */
-            dp -= tok->fn.arity - 1;
-            assert(dp >= 0);
-            sp = dp * vlen;
-            j = dims[dp];
-            for (i = 1; i < tok->fn.arity; i++) {
-                memcpy(&vals[sp + j], &vals[sp + i * vlen], dims[dp + i] * sizeof(mpr_expr_value_t));
-                j += dims[dp + i];
+            INCR_STACK_PTR(1 - tok->fn.arity);
+            for (i = 1, j = lens[dp]; i < tok->fn.arity; i++, j += lens[dp + i]) {
+                expr_value_cpy(&vals[sp + j], &vals[sp + i * vlen], lens[dp + i]);
             }
-            dims[dp] = j;
-            types[dp] = tok->gen.datatype;
+            SET_TYPE(tok->gen.datatype);
+            SET_LEN(j);
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
         case TOK_ASSIGN:
@@ -3995,9 +3963,7 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
             int idxp, hidx = tok->gen.flags & VAR_HIST_IDX, vidx = tok->gen.flags & VAR_VEC_IDX;
             int num_flags = NUM_VAR_IDXS(tok->gen.flags);
             if (num_flags) {
-                dp -= num_flags;
-                assert(dp >= 0);
-                sp = dp * vlen;
+                INCR_STACK_PTR(-num_flags);
             }
             idxp = dp + 1;
 
@@ -4066,14 +4032,14 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
 
             /* Copy time from input */
             if (time)
-                mpr_value_set_time_hist(v, *time, inst_idx, hidx);
+                mpr_value_set_time(v, *time, inst_idx, hidx);
 
             switch (mpr_value_get_type(v)) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                                              \
                 case MTYPE: {                                                                   \
                     TYPE *a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx);                    \
                     for (i = vidx, j = tok->var.offset; i < tok->gen.vec_len + vidx; i++, j++) {\
-                        if (j >= dims[dp]) j = 0;                                               \
+                        if (j >= lens[dp]) j = 0;                                               \
                         a[i] = vals[sp + j].T;                                                  \
                     }                                                                           \
                     break;                                                                      \
@@ -4147,7 +4113,7 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
             assert(types[dp] == MPR_DBL && types[dp - 1] == MPR_INT32);
             hidx = vals[sp - vlen].i;
             mpr_time_set_dbl(&t, vals[sp].d);
-            mpr_value_set_time_hist(v_out, t, inst_idx, hidx);
+            mpr_value_set_time(v_out, t, inst_idx, hidx);
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */
             if (1) {
@@ -4161,10 +4127,8 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
             if (tok->gen.flags & CLEAR_STACK)
                 dp = -1;
             else {
-                --dp;
-                assert(dp >= 0);
+                INCR_STACK_PTR(-1);
             }
-            sp = dp * vlen;
             break;
         }
         default: goto error;
@@ -4180,11 +4144,11 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                 case MTYPE0:                                        \
                     switch (tok->gen.casttype) {                    \
                         case MTYPE1:                                \
-                            for (i = sp; i < sp + dims[dp]; i++)    \
+                            for (i = sp; i < sp + lens[dp]; i++)    \
                                 vals[i].T1 = (TYPE1)vals[i].T0;     \
                             break;                                  \
                         case MTYPE2:                                \
-                            for (i = sp; i < sp + dims[dp]; i++)    \
+                            for (i = sp; i < sp + lens[dp]; i++)    \
                                 vals[i].T2 = (TYPE2)vals[i].T0;     \
                             break;                                  \
                         default:                                    \
@@ -4196,9 +4160,9 @@ int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *v_in, mpr
                 TYPED_CASE(MPR_DBL, d, MPR_INT32, int, i, MPR_FLT, float, f)
 #undef TYPED_CASE
             }
-            types[dp] = tok->gen.casttype;
+            SET_TYPE(tok->gen.casttype);
 #if TRACE_EVAL
-            mpr_expr_value_print(vals + sp, types[dp], dims[dp], dp);
+            expr_value_print(vals + sp, types[dp], lens[dp], dp);
 #endif
         }
         ++tok;

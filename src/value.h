@@ -32,7 +32,7 @@ int mpr_value_set_next_coerced(mpr_value v, unsigned int inst_idx, unsigned int 
 
 mpr_time* mpr_value_get_time(mpr_value v, unsigned int inst_idx, int hist_idx);
 
-void mpr_value_set_time_hist(mpr_value v, mpr_time t, unsigned int inst_idx, int hist_idx);
+void mpr_value_set_time(mpr_value v, mpr_time t, unsigned int inst_idx, int hist_idx);
 
 void mpr_value_incr_idx(mpr_value v, unsigned int inst_idx);
 

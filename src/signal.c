@@ -562,7 +562,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             if (!mpr_bitflags_compare(si->has_value_flags, sig->vec_known, sig->len)) {
                 si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM | status);
                 sig->obj.status |= si->status;
-                mpr_value_set_time_hist(sig->value, time, si->idx, 0);
+                mpr_value_set_time(sig->value, time, si->idx, 0);
                 mpr_bitflags_unset(sig->updated_inst, si->idx);
                 mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, id_map->LID, si->idx, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */

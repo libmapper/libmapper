@@ -32,21 +32,21 @@ typedef enum {
     VAR_X_NEWEST,
     VAR_X,
     N_VARS
-} expr_var_t;
+} expr_var_idx;
 
 #define VAR_ASSIGNED    0x0001
 #define VAR_INSTANCED   0x0002
 #define VAR_LEN_LOCKED  0x0004
 #define VAR_SET_EXTERN  0x0008
 
-typedef struct _var {
+typedef struct _expr_var {
     char *name;
     mpr_type datatype;
     uint8_t vec_len;
     uint8_t flags;
-} mpr_var_t, *mpr_var;
+} expr_var_t, *expr_var;
 
-static int find_var_by_name(mpr_var_t *vars, int n_vars, const char *str, int len)
+static int find_var_by_name(expr_var_t *vars, int n_vars, const char *str, int len)
 {
     /* check if variable name matches known variable */
     int i;

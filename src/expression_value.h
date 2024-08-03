@@ -3,14 +3,19 @@
 
 #include "expression_trace.h"
 
-typedef union _mpr_expr_value {
+typedef union _expr_value {
     float f;
     double d;
     int i;
-} mpr_expr_value_t, *mpr_expr_value;
+} expr_value_t, *expr_value;
+
+MPR_INLINE static void expr_value_cpy(void *dst, const void *src, size_t size)
+{
+    memcpy(dst, src, size * sizeof(expr_value_t));
+}
 
 #if TRACE_EVAL
-static void mpr_expr_value_print(mpr_expr_value val, mpr_type type, int len, int prefix)
+static void expr_value_print(expr_value val, mpr_type type, int len, int prefix)
 {
     int i;
     printf("%d|", prefix);
