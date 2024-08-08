@@ -1,6 +1,7 @@
 #ifndef __MPR_EXPRESSION_FUNCTION_H__
 #define __MPR_EXPRESSION_FUNCTION_H__
 
+#include <ctype.h>
 #include "expression_operator.h"
 #include "expression_value.h"
 

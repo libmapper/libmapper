@@ -20,8 +20,10 @@
 #include <assert.h>
 
 #define MAX_STR_LEN 256
-#define SRC_ARRAY_LEN 3
-#define DST_ARRAY_LEN 6
+#define MAX_NUM_SRC 3
+#define MAX_NUM_DST 1
+#define MAX_SRC_ARRAY_LEN 3
+#define MAX_DST_ARRAY_LEN 6
 #define MAX_VARS 8
 
 int verbose = 1;
@@ -32,11 +34,12 @@ int expression_count = 1;
 int token_count = 0;
 int update_count;
 int start_index = -1;
+int stop_index = -1;
 
-int src_int[SRC_ARRAY_LEN], dst_int[DST_ARRAY_LEN], expect_int[DST_ARRAY_LEN];
-float src_flt[SRC_ARRAY_LEN], dst_flt[DST_ARRAY_LEN], expect_flt[DST_ARRAY_LEN];
-double src_dbl[SRC_ARRAY_LEN], dst_dbl[DST_ARRAY_LEN], expect_dbl[DST_ARRAY_LEN];
-mpr_type expect_type[DST_ARRAY_LEN];
+int src_int[MAX_SRC_ARRAY_LEN], dst_int[MAX_DST_ARRAY_LEN], expect_int[MAX_DST_ARRAY_LEN];
+float src_flt[MAX_SRC_ARRAY_LEN], dst_flt[MAX_DST_ARRAY_LEN], expect_flt[MAX_DST_ARRAY_LEN];
+double src_dbl[MAX_SRC_ARRAY_LEN], dst_dbl[MAX_DST_ARRAY_LEN], expect_dbl[MAX_DST_ARRAY_LEN];
+mpr_type expect_type[MAX_DST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
 
@@ -46,9 +49,9 @@ mpr_time time_in = {0, 0}, time_out = {0, 0};
 mpr_expr_eval_buffer eval_buff = 0;
 
 /* signal_history structures */
-mpr_value inh[SRC_ARRAY_LEN], outh, user_vars[MAX_VARS];
-mpr_type src_types[SRC_ARRAY_LEN], dst_type;
-int src_lens[SRC_ARRAY_LEN], n_sources, dst_len;
+mpr_value inh[MAX_SRC_ARRAY_LEN], outh, user_vars[MAX_VARS];
+mpr_type src_types[MAX_NUM_SRC], dst_type;
+unsigned int src_lens[MAX_NUM_SRC], n_sources, dst_len;
 
 #ifdef WIN32
 #include <windows.h>
@@ -88,19 +91,19 @@ typedef struct _var {
 struct _mpr_expr
 {
     void *tokens;
-    void *start;
     mpr_var vars;
     uint8_t offset;
-    uint8_t n_tokens;
+    uint8_t num_tok;
     uint8_t stack_size;
     uint8_t vec_size;
-    uint16_t *in_mem;
-    uint16_t out_mem;
-    uint8_t n_vars;
+    uint16_t *src_mlen;
+    uint16_t max_src_mlen;
+    uint16_t dst_mlen;
+    uint8_t num_var;
     int8_t inst_ctl;
     int8_t mute_ctl;
-    int8_t n_ins;
-    uint16_t max_in_mem;
+    int8_t num_src;
+    int8_t own_tokens;
 };
 
 /*! A helper function to seed the random number generator. */
@@ -241,8 +244,10 @@ int check_result(mpr_bitflags updated, mpr_value value, int check)
         eprintf("\b\b]");
     else
         eprintf("\b\b");
-    if (!check)
+    if (!check) {
+        eprintf("... not checked\n");
         return 0;
+    }
     if (error) {
         eprintf("... error at index %d ", error_idx);
         if (error == TYPE_ERROR) {
@@ -275,9 +280,11 @@ void setup_test_multisource(int _n_sources, mpr_type *_src_types, int *_src_lens
                             mpr_type _dst_type, int _dst_len)
 {
     int i;
+    assert(_n_sources <= MAX_NUM_SRC);
     n_sources = _n_sources;
     for (i = 0; i < _n_sources; i++) {
         src_types[i] = _src_types[i];
+        assert(_src_lens[i] <= MAX_SRC_ARRAY_LEN);
         src_lens[i] = _src_lens[i];
     }
     dst_len = _dst_len;
@@ -296,13 +303,13 @@ void setup_test(mpr_type in_type, int in_len, mpr_type out_type, int out_len)
 #define EXPECT_SUCCESS 0
 #define EXPECT_FAILURE 1
 
-int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
+int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
 {
     /* clear output arrays */
     int i, j, result = 0, mlen, status;
     mpr_bitflags has_value = 0, updated_values = 0;
 
-    if (start_index >= 0 && expression_count != start_index) {
+    if (start_index >= 0 && (expression_count < start_index || expression_count > stop_index)) {
         ++expression_count;
         return 0;
     }
@@ -314,7 +321,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         printf("\rExpression %d", expression_count++);
         fflush(stdout);
     }
-    e = mpr_expr_new_from_str(eval_buff, str, n_sources, src_types, src_lens, dst_type, dst_len);
+    e = mpr_expr_new_from_str(str, n_sources, src_types, src_lens, 1, &dst_type, &dst_len);
     if (!e) {
         eprintf("Parser FAILED (expression %d)\n", expression_count - 1);
         goto fail;
@@ -324,10 +331,11 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         result = 1;
         goto free;
     }
+    mpr_expr_realloc_eval_buffer(e, eval_buff);
     mpr_time_set(&time_in, MPR_NOW);
     for (i = 0; i < n_sources; i++) {
         mpr_value_reset_inst(inh[i], 0, time_in);
-        mlen = mpr_expr_get_in_hist_size(e, i);
+        mlen = mpr_expr_get_src_mlen(e, i);
         mpr_value_realloc(inh[i], src_lens[i], src_types[i], mlen, 1, 0);
         switch (src_types[i]) {
             case MPR_INT32:
@@ -344,7 +352,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         }
     }
     mpr_value_reset_inst(outh, 0, time_in);
-    mlen = mpr_expr_get_out_hist_size(e);
+    mlen = mpr_expr_get_dst_mlen(e, 0);
     mpr_value_realloc(outh, dst_len, dst_type, mlen, 1, 1);
 
     if (mpr_expr_get_num_vars(e) > MAX_VARS) {
@@ -353,17 +361,17 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     }
 
     /* reallocate variable value histories */
-    for (i = 0; i < e->n_vars; i++) {
-        int vlen = mpr_expr_get_var_vec_len(e, i);
+    for (i = 0; i < e->num_var; i++) {
+        int vlen = mpr_expr_get_var_vlen(e, i);
         mpr_type type = mpr_expr_get_var_type(e, i);
         mpr_value_reset_inst(user_vars[i], 0, time_in);
         mpr_value_realloc(user_vars[i], vlen, type, 1, 1, 0);
         mpr_value_incr_idx(user_vars[i], 0);
     }
 
-    eprintf("Parser returned %d tokens...", e->n_tokens);
-    if (max_tokens && e->n_tokens > max_tokens) {
-        eprintf(" (expected %d)\n", max_tokens);
+    eprintf("Parser returned %d tokens...", e->num_tok);
+    if (max_tok && e->num_tok > max_tok) {
+        eprintf(" (expected %d)\n", max_tok);
         result = 1;
         goto free;
     }
@@ -377,16 +385,16 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     }
 #endif
 
-    token_count += e->n_tokens;
+    token_count += e->num_tok;
 
     update_count = 0;
     then = mpr_get_current_time();
 
-    has_value = mpr_bitflags_new(DST_ARRAY_LEN);
-    updated_values = mpr_bitflags_new(DST_ARRAY_LEN);
+    has_value = mpr_bitflags_new(MAX_DST_ARRAY_LEN);
+    updated_values = mpr_bitflags_new(MAX_DST_ARRAY_LEN);
 
     eprintf("Try evaluation once... ");
-    status = mpr_expr_eval(eval_buff, e, inh, user_vars, outh, &time_in, has_value, 0);
+    status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, has_value, 0);
 
     if (!status) {
         eprintf("FAILED.\n");
@@ -395,7 +403,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     }
     else if (status & EXPR_UPDATE) {
         ++update_count;
-        mpr_bitflags_cpy(updated_values, has_value, DST_ARRAY_LEN);
+        mpr_bitflags_cpy(updated_values, has_value, MAX_DST_ARRAY_LEN);
     }
     eprintf("OK\n");
 
@@ -421,10 +429,10 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
                     assert(0);
             }
         }
-        status = mpr_expr_eval(eval_buff, e, inh, user_vars, outh, &time_in, has_value, 0);
+        status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, has_value, 0);
         if (status & EXPR_UPDATE) {
             ++update_count;
-            mpr_bitflags_cpy(updated_values, has_value, DST_ARRAY_LEN);
+            mpr_bitflags_cpy(updated_values, has_value, MAX_DST_ARRAY_LEN);
         }
         /* sleep here stops compiler from optimizing loop away */
         usleep(1);
@@ -1736,18 +1744,18 @@ int run_tests()
 
     /* 131) Concatenate source values over time */
     set_expr_str("i{-1}=0; a{-1}=[0,0,0,0,0,0]; a[i]=i; i=i+1; muted=i%6; y=a;");
-    setup_test(MPR_FLT, 1, MPR_FLT, DST_ARRAY_LEN);
-    for (i = 0; i < DST_ARRAY_LEN; i++) {
+    setup_test(MPR_FLT, 1, MPR_FLT, MAX_DST_ARRAY_LEN);
+    for (i = 0; i < MAX_DST_ARRAY_LEN; i++) {
         expect_flt[i] = floor(iterations / 6) * 6 + i;
         if (expect_flt[i] >= iterations)
             expect_flt[i] -= 6;
     }
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations / DST_ARRAY_LEN))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations / MAX_DST_ARRAY_LEN))
         return 1;
 
     /* 132) Vector median value (precomputed by the optimizer in this case) */
     set_expr_str("y=[0,1,2,3,4,5].median();");
-    setup_test(MPR_FLT, 4, MPR_INT32, 2);
+    setup_test(MPR_FLT, 3, MPR_INT32, 2);
     expect_int[0] = expect_int[1] = floor(2.5f);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
@@ -1835,7 +1843,11 @@ int main(int argc, char **argv)
                         break;
                     case 'i':
                         if (++i < argc)
-                            start_index = atoi(argv[i]);
+                            start_index = stop_index = atoi(argv[i]);
+                        if (i + 1 < argc && strcmp(argv[i + 1], "...")==0) {
+                            stop_index = 1000000;
+                            ++i;
+                        }
                         break;
                     case '-':
                         if (++j < len && strcmp(argv[i]+j, "num_iterations")==0)
@@ -1850,7 +1862,7 @@ int main(int argc, char **argv)
         }
     }
 
-    for (i = 0; i < SRC_ARRAY_LEN; i++)
+    for (i = 0; i < MAX_SRC_ARRAY_LEN; i++)
         inh[i] = mpr_value_new(1, MPR_INT32, 1, 0);
     outh = mpr_value_new(1, MPR_INT32, 1, 0);
     for (i = 0; i < MAX_VARS; i++)
@@ -1860,21 +1872,21 @@ int main(int argc, char **argv)
     seed_srand();
     eprintf("Generating random inputs:\n");
     eprintf("  int: [");
-    for (i = 0; i < SRC_ARRAY_LEN; i++) {
+    for (i = 0; i < MAX_SRC_ARRAY_LEN; i++) {
         src_int[i] = random_int();
         eprintf("%i, ", src_int[i]);
     }
     eprintf("\b\b]\n");
 
     eprintf("  flt: [");
-    for (i = 0; i < SRC_ARRAY_LEN; i++) {
+    for (i = 0; i < MAX_SRC_ARRAY_LEN; i++) {
         src_flt[i] = random_flt();
         eprintf("%g, ", src_flt[i]);
     }
     eprintf("\b\b]\n");
 
     eprintf("  dbl: [");
-    for (i = 0; i < SRC_ARRAY_LEN; i++) {
+    for (i = 0; i < MAX_SRC_ARRAY_LEN; i++) {
         src_dbl[i] = random_dbl();
         eprintf("%g, ", src_dbl[i]);
     }
@@ -1884,7 +1896,7 @@ int main(int argc, char **argv)
     result = run_tests();
     mpr_expr_free_eval_buffer(eval_buff);
 
-    for (i = 0; i < SRC_ARRAY_LEN; i++)
+    for (i = 0; i < MAX_SRC_ARRAY_LEN; i++)
         mpr_value_free(inh[i]);
     mpr_value_free(outh);
     for (i = 0; i < MAX_VARS; i++)

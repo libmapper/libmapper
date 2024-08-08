@@ -1,6 +1,8 @@
 #ifndef __MPR_EXPRESSION_VARIABLE_H__
 #define __MPR_EXPRESSION_VARIABLE_H__
 
+#include <ctype.h>
+
 #define MAX_HIST_SIZE 100
 #define N_USER_VARS 16
 
@@ -46,11 +48,30 @@ typedef struct _expr_var {
     uint8_t flags;
 } expr_var_t, *expr_var;
 
-static int find_var_by_name(expr_var_t *vars, int n_vars, const char *str, int len)
+void expr_var_set(expr_var var, const char *name, uint8_t name_len,
+                  mpr_type type, uint8_t len, uint8_t flags)
+{
+    if (name_len) {
+        var->name = malloc(name_len + 1);
+        snprintf(var->name, name_len + 1, "%s", name);
+    }
+    else
+        var->name = strdup(name);
+    var->datatype = type;
+    var->vec_len = len;
+    var->flags = flags;
+}
+
+static void expr_var_free_mem(expr_var var)
+{
+    FUNC_IF(free, var->name);
+}
+
+static int find_var_by_name(expr_var_t *vars, int num_var, const char *str, int len)
 {
     /* check if variable name matches known variable */
     int i;
-    for (i = 0; i < n_vars; i++) {
+    for (i = 0; i < num_var; i++) {
         if (strlen(vars[i].name) == len && strncmp(vars[i].name, str, len) == 0)
             return i;
     }

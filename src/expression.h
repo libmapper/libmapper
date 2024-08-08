@@ -15,17 +15,22 @@ typedef struct _mpr_expr_eval_buffer *mpr_expr_eval_buffer;
 #define EXPR_UPDATE                0x10
 #define EXPR_EVAL_DONE             0x20
 
-mpr_expr mpr_expr_new_from_str(mpr_expr_eval_buffer buff, const char *str, int num_in,
-                               const mpr_type *in_types, const int *in_vec_lens,
-                               mpr_type out_type, int out_vec_len);
+mpr_expr mpr_expr_new(unsigned int num_src, unsigned int num_dst,
+                      void *tokens, unsigned int num_tok, unsigned int vlen);
 
-int mpr_expr_get_in_hist_size(mpr_expr expr, int idx);
+mpr_expr mpr_expr_new_from_str(const char *str, unsigned int num_src, const mpr_type *src_types,
+                               const unsigned int *src_lens, unsigned int num_dst,
+                               const mpr_type *dst_types, const unsigned int *dst_lens);
 
-int mpr_expr_get_out_hist_size(mpr_expr expr);
+void mpr_expr_free(mpr_expr expr);
+
+int mpr_expr_get_src_mlen(mpr_expr expr, int idx);
+
+int mpr_expr_get_dst_mlen(mpr_expr expr, int idx);
 
 int mpr_expr_get_num_vars(mpr_expr expr);
 
-int mpr_expr_get_var_vec_len(mpr_expr expr, int idx);
+int mpr_expr_get_var_vlen(mpr_expr expr, int idx);
 
 int mpr_expr_get_var_type(mpr_expr expr, int idx);
 
@@ -37,7 +42,7 @@ const char *mpr_expr_get_var_name(mpr_expr expr, int idx);
 
 int mpr_expr_get_manages_inst(mpr_expr expr);
 
-void mpr_expr_var_updated(mpr_expr expr, int var_idx);
+void mpr_expr_set_var_updated(mpr_expr expr, int var_idx);
 
 #ifdef DEBUG
 void printexpr(const char*, mpr_expr);
@@ -59,16 +64,20 @@ void printexpr(const char*, mpr_expr);
  *                      expression will not generate different results for different source
  *                      instances because all instances are reduced using e.g.
  *                      `y=x.instance.mean()`). */
-int mpr_expr_eval(mpr_expr_eval_buffer buff, mpr_expr expr, mpr_value *srcs, mpr_value *expr_vars,
+int mpr_expr_eval(mpr_expr expr, mpr_expr_eval_buffer buff, mpr_value *srcs, mpr_value *expr_vars,
                   mpr_value result, mpr_time *time, mpr_bitflags has_value, int inst_idx);
 
 int mpr_expr_get_num_input_slots(mpr_expr expr);
 
-void mpr_expr_free(mpr_expr expr);
-
 mpr_expr_eval_buffer mpr_expr_new_eval_buffer(void);
-
+void mpr_expr_realloc_eval_buffer(mpr_expr expr, mpr_expr_eval_buffer buff);
 void mpr_expr_free_eval_buffer(mpr_expr_eval_buffer eval_buff);
+
+void mpr_expr_update_vlen(mpr_expr expr, unsigned int vlen);
+void mpr_expr_update_mlen(mpr_expr expr, int idx, unsigned int mlen);
+
+void mpr_expr_cpy_tokens(mpr_expr expr, void *tokens, unsigned int num_tok);
+void mpr_expr_cpy_vars(mpr_expr expr, void *vars, int num_var);
 
 #if DEBUG
 void mpr_expr_print(mpr_expr expr);

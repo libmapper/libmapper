@@ -206,6 +206,12 @@ MPR_INLINE static void expr_tok_set_dbl(expr_tok tok, double val)
     tok->lit.val.d = val;
 }
 
+MPR_INLINE static void expr_tok_free(expr_tok tok)
+{
+    if (TOK_VLITERAL == tok->toktype && tok->lit.val.ip)
+        free(tok->lit.val.ip);
+}
+
 #if TRACE_PARSE || TRACE_EVAL
 static void print_token(expr_tok tok, expr_var_t *vars, int show_locks)
 {
@@ -394,6 +400,62 @@ static void print_token(expr_tok tok, expr_var_t *vars, int show_locks)
     }
 }
 #endif /* TRACE_PARSE || TRACE_EVAL */
+
+#if TRACE_PARSE
+static void print_stack(const char *s, expr_tok_t *tokens, int sp,
+                        expr_var_t *vars, int show_init_line)
+{
+    int i, j, indent = 0, can_advance = 1;
+    if (s)
+        printf("%s:\n", s);
+    if (sp < 0) {
+        printf("  --- <EMPTY> ---\n");
+        return;
+    }
+    for (i = 0; i <= sp; i++) {
+        if (show_init_line && can_advance) {
+            switch (tokens[i].toktype) {
+                case TOK_ASSIGN_CONST:
+                case TOK_ASSIGN:
+                case TOK_ASSIGN_USE:
+                case TOK_ASSIGN_TT:
+                    /* look ahead for future assignments */
+                    for (j = i + 1; j <= sp; j++) {
+                        if (tokens[j].toktype < TOK_ASSIGN)
+                            continue;
+                        if (TOK_ASSIGN_CONST == tokens[j].toktype && tokens[j].var.idx != VAR_Y)
+                            break;
+                        if (tokens[j].gen.flags & VAR_HIST_IDX)
+                            break;
+                        for (j = 0; j < indent; j++)
+                            printf(" ");
+                        can_advance = 0;
+                        break;
+                    }
+                    break;
+                case TOK_RFN:
+                case TOK_VAR:
+                    if (tokens[i].var.idx >= VAR_X_NEWEST)
+                        can_advance = 0;
+                    break;
+                default:
+                    break;
+            }
+            printf(" %2d: ", i);
+            print_token(&tokens[i], vars, 1);
+            printf("\n");
+            if (i && !can_advance)
+                printf("  --- <INITIALISATION DONE> ---\n");
+        }
+        else {
+            printf(" %2d: ", i);
+            print_token(&tokens[i], vars, 1);
+            printf("\n");
+        }
+    }
+}
+
+#endif /* TRACE_PARSE */
 
 static mpr_type expr_tok_cmp_datatype(expr_tok tok, mpr_type type)
 {

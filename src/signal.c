@@ -425,8 +425,9 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
                 mpr_value_set_next(v, 0, argv[0], &time);
                 for (i = 0; i < num_src; i++)
                     src[i] = (i == slot_id) ? v : 0;
-                eval_status = mpr_expr_eval(mpr_graph_get_expr_eval_buffer(sig->obj.graph),
-                                            mpr_local_map_get_expr(map), src, 0, 0, 0, 0, 0);
+                eval_status = mpr_expr_eval(mpr_local_map_get_expr(map),
+                                            mpr_graph_get_expr_eval_buffer(sig->obj.graph),
+                                            src, 0, 0, 0, 0, 0);
                 mpr_value_free(v);
                 if (eval_status & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;

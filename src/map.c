@@ -709,7 +709,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         /* TODO: Check if this instance has enough history to process the expression */
-        status = mpr_expr_eval(mpr_graph_get_expr_eval_buffer(m->obj.graph), m->expr,
+        status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
                                src_vals, m->vars, dst_val, &time, has_value, i);
         if (!status)
             continue;
@@ -806,7 +806,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         void *value;
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
-        status = mpr_expr_eval(mpr_graph_get_expr_eval_buffer(m->obj.graph), m->expr,
+        status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
                                src_vals, m->vars, dst_val, &time, has_value, i);
         if (!status)
             continue;
@@ -887,7 +887,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
     /* TODO: check if this filters non-local processing.
      * if so we can eliminate process_loc tests below
      * if not we are allocating variable memory when we don't need to */
-    int i, j, hist_size, num_inst = 0, num_vars;
+    int i, j, mlen, num_inst = 0, num_vars;
     mpr_expr e = m->expr;
     mpr_value *vars;
     const char **var_names;
@@ -905,24 +905,24 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
     /* check if slot values need to be reallocated */
     for (i = 0; i < m->num_src; i++) {
         sig = mpr_slot_get_sig((mpr_slot)m->src[i]);
-        hist_size = mpr_expr_get_in_hist_size(e, i);
-        mpr_slot_alloc_values(m->src[i], 0, hist_size);
+        mlen = mpr_expr_get_src_mlen(e, i);
+        mpr_slot_alloc_values(m->src[i], 0, mlen);
         num_inst = mpr_max(mpr_sig_get_num_inst_internal(sig), num_inst);
     }
     sig = mpr_slot_get_sig((mpr_slot)m->dst);
     num_inst = mpr_max(mpr_sig_get_num_inst_internal(sig), num_inst);
-    hist_size = mpr_expr_get_out_hist_size(e);
+    mlen = mpr_expr_get_dst_mlen(e, 0);
 
     /* If the dst slot is remote, we need to allocate enough dst slot and variable instances for
      * the most multitudinous source signal. In the case where the dst slot is associated with a
      * local signal the call below will default to using the signal's instance count. */
-    mpr_slot_alloc_values(m->dst, num_inst, hist_size);
+    mpr_slot_alloc_values(m->dst, num_inst, mlen);
 
     num_vars = mpr_expr_get_num_vars(e);
     vars = (mpr_value*) malloc(sizeof(mpr_value) * num_vars);
     var_names = malloc(sizeof(char*) * num_vars);
     for (i = 0; i < num_vars; i++) {
-        int vlen = mpr_expr_get_var_vec_len(e, i);
+        int vlen = mpr_expr_get_var_vlen(e, i);
         int var_num_inst = mpr_expr_get_var_is_instanced(e, i) ? num_inst : 1;
         var_names[i] = strdup(mpr_expr_get_var_name(e, i));
         /* check if var already exists */
@@ -1007,9 +1007,8 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
  * parses successfully. Returns 0 on success, non-zero on error. */
 static int replace_expr_str(mpr_local_map m, const char *expr_str)
 {
-    int i, out_mem, src_lens[MAX_NUM_MAP_SRC];
-    char src_types[MAX_NUM_MAP_SRC];
-    mpr_sig dst;
+    unsigned int i, out_mem, src_lens[MAX_NUM_MAP_SRC], dst_lens[1];
+    mpr_type src_types[MAX_NUM_MAP_SRC], dst_types[1];
     mpr_expr expr;
     if (m->expr && m->expr_str && strcmp(m->expr_str, expr_str)==0)
         return 1;
@@ -1019,18 +1018,26 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
         src_types[i] = mpr_sig_get_type(src);
         src_lens[i] = mpr_sig_get_len(src);
     }
-    dst = mpr_slot_get_sig((mpr_slot)m->dst);
-    expr = mpr_expr_new_from_str(mpr_graph_get_expr_eval_buffer(m->obj.graph), expr_str, m->num_src,
-                                 src_types, src_lens, mpr_sig_get_type(dst), mpr_sig_get_len(dst));
+    for (i = 0; i < 1; i++) {
+        mpr_sig dst = mpr_slot_get_sig((mpr_slot)m->dst);
+        dst_types[i] = mpr_sig_get_type(dst);
+        dst_lens[i] = mpr_sig_get_len(dst);
+    }
+
+    expr = mpr_expr_new_from_str(expr_str, m->num_src, src_types, src_lens,
+                                 1, dst_types, dst_lens);
     RETURN_ARG_UNLESS(expr, 1);
+
+    /* reallocate the central evaluation buffer if necessary */
+    mpr_expr_realloc_eval_buffer(expr, mpr_graph_get_expr_eval_buffer(m->obj.graph));
 
     /* expression update may force processing location to change
      * e.g. if expression combines signals from different devices
      * e.g. if expression refers to current/past value of destination */
-    out_mem = mpr_expr_get_out_hist_size(expr);
+    out_mem = mpr_expr_get_dst_mlen(expr, 0);
     if (MPR_LOC_BOTH != m->locality && (out_mem > 1 && MPR_LOC_SRC == m->process_loc)) {
         m->process_loc = MPR_LOC_DST;
-        if (!mpr_obj_get_is_local((mpr_obj)dst)) {
+        if (!mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig((mpr_slot)m->dst))) {
             /* copy expression string but do not execute it */
             mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str,
                                MOD_REMOTE);
@@ -1398,7 +1405,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
         /* evaluate expression to initialise literals */
         mpr_time_set(&now, MPR_NOW);
         for (i = 0; i < m->num_inst; i++)
-            mpr_expr_eval(mpr_graph_get_expr_eval_buffer(m->obj.graph), m->expr, 0,
+            mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph), 0,
                           m->vars, mpr_slot_get_value(m->dst), &now, has_value, i);
         mpr_bitflags_free(has_value);
     }
@@ -1699,7 +1706,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                                 default:
                                     --updated;
                             }
-                            mpr_expr_var_updated(lm->expr, j);
+                            mpr_expr_set_var_updated(lm->expr, j);
                             break;
                         }
                     }
