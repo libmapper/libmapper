@@ -275,7 +275,7 @@ mpr_graph mpr_graph_new(int subscribe_flags)
     mpr_tbl_add_record(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
     /* TODO: add object queries as properties. */
 
-    g->expr_eval_buff = mpr_expr_new_eval_buffer();
+    g->expr_eval_buff = mpr_expr_new_eval_buffer(NULL);
 
     return g;
 }

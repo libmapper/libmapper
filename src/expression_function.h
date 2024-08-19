@@ -2,6 +2,7 @@
 #define __MPR_EXPRESSION_FUNCTION_H__
 
 #include <ctype.h>
+#include <math.h>
 #include "expression_operator.h"
 #include "expression_value.h"
 
@@ -26,18 +27,18 @@ UNARY_FUNC(int, sign, i, x >= 0 ? 1 : -1)
 UNARY_FUNC(float, sign, f, x >= 0.f ? 1.f : -1.f)
 UNARY_FUNC(double, sign, d, x >= 0. ? 1. : -1.)
 
-#define COMP_VFUNC(NAME, TYPE, OP, CMP, RET, T)         \
-static void NAME(expr_value val, uint8_t *dim, int inc) \
-{                                                       \
-    register TYPE ret = 1 - RET;                        \
-    int i, len = dim[0];                                \
-    for (i = 0; i < len; i++) {                         \
-        if (val[i].T OP CMP) {                          \
-            ret = RET;                                  \
-            break;                                      \
-        }                                               \
-    }                                                   \
-    val[0].T = ret;                                     \
+#define COMP_VFUNC(NAME, TYPE, OP, CMP, RET, T)     \
+static void NAME(evalue val, uint8_t *dim, int inc) \
+{                                                   \
+    register TYPE ret = 1 - RET;                    \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++) {                     \
+        if (val[i].T OP CMP) {                      \
+            ret = RET;                              \
+            break;                                  \
+        }                                           \
+    }                                               \
+    val[0].T = ret;                                 \
 }
 COMP_VFUNC(valli, int, ==, 0, 0, i)
 COMP_VFUNC(vallf, float, ==, 0.f, 0, f)
@@ -46,66 +47,66 @@ COMP_VFUNC(vanyi, int, !=, 0, 1, i)
 COMP_VFUNC(vanyf, float, !=, 0.f, 1, f)
 COMP_VFUNC(vanyd, double, !=, 0., 1, d)
 
-#define LEN_VFUNC(NAME, TYPE, T)                        \
-static void NAME(expr_value val, uint8_t *dim, int inc) \
-{                                                       \
-    val[0].T = dim[0];                                  \
+#define LEN_VFUNC(NAME, TYPE, T)                    \
+static void NAME(evalue val, uint8_t *dim, int inc) \
+{                                                   \
+    val[0].T = dim[0];                              \
 }
 LEN_VFUNC(vleni, int, i)
 LEN_VFUNC(vlenf, float, f)
 LEN_VFUNC(vlend, double, d)
 
-#define SUM_VFUNC(NAME, TYPE, T)                        \
-static void NAME(expr_value val, uint8_t *dim, int inc) \
-{                                                       \
-    register TYPE aggregate = 0;                        \
-    int i, len = dim[0];                                \
-    for (i = 0; i < len; i++)                           \
-        aggregate += val[i].T;                          \
-    val[0].T = aggregate;                               \
+#define SUM_VFUNC(NAME, TYPE, T)                    \
+static void NAME(evalue val, uint8_t *dim, int inc) \
+{                                                   \
+    register TYPE aggregate = 0;                    \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++)                       \
+        aggregate += val[i].T;                      \
+    val[0].T = aggregate;                           \
 }
 SUM_VFUNC(vsumi, int, i)
 SUM_VFUNC(vsumf, float, f)
 SUM_VFUNC(vsumd, double, d)
 
-#define MEAN_VFUNC(NAME, TYPE, T)                       \
-static void NAME(expr_value val, uint8_t *dim, int inc) \
-{                                                       \
-    register TYPE mean = 0;                             \
-    int i, len = dim[0];                                \
-    for (i = 0; i < len; i++)                           \
-        mean += val[i].T;                               \
-    val[0].T = mean / len;                              \
+#define MEAN_VFUNC(NAME, TYPE, T)                   \
+static void NAME(evalue val, uint8_t *dim, int inc) \
+{                                                   \
+    register TYPE mean = 0;                         \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++)                       \
+        mean += val[i].T;                           \
+    val[0].T = mean / len;                          \
 }
 MEAN_VFUNC(vmeanf, float, f)
 MEAN_VFUNC(vmeand, double, d)
 
-#define CENTER_VFUNC(NAME, TYPE, T)                     \
-static void NAME(expr_value val, uint8_t *dim, int inc) \
-{                                                       \
-    register TYPE max = val[0].T, min = max;            \
-    int i, len = dim[0];                                \
-    for (i = 0; i < len; i++) {                         \
-        if (val[i].T > max)                             \
-            max = val[i].T;                             \
-        if (val[i].T < min)                             \
-            min = val[i].T;                             \
-    }                                                   \
-    val[0].T = (max + min) * 0.5;                       \
+#define CENTER_VFUNC(NAME, TYPE, T)                 \
+static void NAME(evalue val, uint8_t *dim, int inc) \
+{                                                   \
+    register TYPE max = val[0].T, min = max;        \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++) {                     \
+        if (val[i].T > max)                         \
+            max = val[i].T;                         \
+        if (val[i].T < min)                         \
+            min = val[i].T;                         \
+    }                                               \
+    val[0].T = (max + min) * 0.5;                   \
 }
 CENTER_VFUNC(vcenterf, float, f)
 CENTER_VFUNC(vcenterd, double, d)
 
-#define EXTREMA_VFUNC(NAME, OP, TYPE, T)                \
-static void NAME(expr_value val, uint8_t *dim, int inc) \
-{                                                       \
-    register TYPE extrema = val[0].T;                   \
-    int i, len = dim[0];                                \
-    for (i = 1; i < len; i++) {                         \
-        if (val[i].T OP extrema)                        \
-            extrema = val[i].T;                         \
-    }                                                   \
-    val[0].T = extrema;                                 \
+#define EXTREMA_VFUNC(NAME, OP, TYPE, T)            \
+static void NAME(evalue val, uint8_t *dim, int inc) \
+{                                                   \
+    register TYPE extrema = val[0].T;               \
+    int i, len = dim[0];                            \
+    for (i = 1; i < len; i++) {                     \
+        if (val[i].T OP extrema)                    \
+            extrema = val[i].T;                     \
+    }                                               \
+    val[0].T = extrema;                             \
 }
 EXTREMA_VFUNC(vmaxi, >, int, i)
 EXTREMA_VFUNC(vmini, <, int, i)
@@ -116,7 +117,7 @@ EXTREMA_VFUNC(vmind, <, double, d)
 
 #define INC_SORT_FUNC(TYPE, T)                          \
 int inc_sort_func##T (const void * a, const void * b) { \
-    return ((*(expr_value)a).T > (*(expr_value)b).T);   \
+    return ((*(evalue)a).T > (*(evalue)b).T);           \
 }
 INC_SORT_FUNC(int, i)
 INC_SORT_FUNC(float, f)
@@ -124,37 +125,37 @@ INC_SORT_FUNC(double, d)
 
 #define DEC_SORT_FUNC(TYPE, T)                          \
 int dec_sort_func##T (const void * a, const void * b) { \
-    return ((*(expr_value)b).T > (*(expr_value)a).T);   \
+    return ((*(evalue)b).T > (*(evalue)a).T);           \
 }
 DEC_SORT_FUNC(int, i)
 DEC_SORT_FUNC(float, f)
 DEC_SORT_FUNC(double, d)
 
-#define SORT_VFUNC(NAME, TYPE, T)                                   \
-static void NAME(expr_value val, uint8_t *dim, int inc)             \
-{                                                                   \
-    expr_value dir = val + inc;                                     \
-    if (dir[0].T >= 0)                                              \
-        qsort(val, dim[0], sizeof(expr_value_t), inc_sort_func##T); \
-    else                                                            \
-        qsort(val, dim[0], sizeof(expr_value_t), dec_sort_func##T); \
+#define SORT_VFUNC(NAME, TYPE, T)                               \
+static void NAME(evalue val, uint8_t *dim, int inc)             \
+{                                                               \
+    evalue dir = val + inc;                                     \
+    if (dir[0].T >= 0)                                          \
+        qsort(val, dim[0], sizeof(evalue_t), inc_sort_func##T); \
+    else                                                        \
+        qsort(val, dim[0], sizeof(evalue_t), dec_sort_func##T); \
 }
 SORT_VFUNC(vsorti, int, i)
 SORT_VFUNC(vsortf, float, f)
 SORT_VFUNC(vsortd, double, d)
 
-#define MEDIAN_VFUNC(NAME, TYPE, T)                             \
-static void NAME(expr_value val, uint8_t *dim, int inc)         \
-{                                                               \
-    register int idx = floor(dim[0] * 0.5);                     \
-    register double tmp;                                        \
-    qsort(val, dim[0], sizeof(expr_value_t), inc_sort_func##T); \
-    tmp = (double)val[idx].T;                                   \
-    if (dim[0] > 2 && !(dim[0] % 2)) {                          \
-        tmp += val[--idx].T;                                    \
-        tmp *= 0.5;                                             \
-    }                                                           \
-    val[0].T = (TYPE)tmp;                                       \
+#define MEDIAN_VFUNC(NAME, TYPE, T)                         \
+static void NAME(evalue val, uint8_t *dim, int inc)         \
+{                                                           \
+    register int idx = floor(dim[0] * 0.5);                 \
+    register double tmp;                                    \
+    qsort(val, dim[0], sizeof(evalue_t), inc_sort_func##T); \
+    tmp = (double)val[idx].T;                               \
+    if (dim[0] > 2 && !(dim[0] % 2)) {                      \
+        tmp += val[--idx].T;                                \
+        tmp *= 0.5;                                         \
+    }                                                       \
+    val[0].T = (TYPE)tmp;                                   \
 }
 MEDIAN_VFUNC(vmedianf, float, f)
 MEDIAN_VFUNC(vmediand, double, d)
@@ -163,44 +164,44 @@ MEDIAN_VFUNC(vmediand, double, d)
 #define sqrtd sqrt
 #define acosd acos
 
-#define NORM_VFUNC(NAME, TYPE, T)                       \
-static void NAME(expr_value val, uint8_t *dim, int inc) \
-{                                                       \
-    register TYPE tmp = 0;                              \
-    int i, len = dim[0];                                \
-    for (i = 0; i < len; i++)                           \
-        tmp += pow##T(val[i].T, 2);                     \
-    val[0].T = sqrt##T(tmp);                            \
+#define NORM_VFUNC(NAME, TYPE, T)                   \
+static void NAME(evalue val, uint8_t *dim, int inc) \
+{                                                   \
+    register TYPE tmp = 0;                          \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++)                       \
+        tmp += pow##T(val[i].T, 2);                 \
+    val[0].T = sqrt##T(tmp);                        \
 }
 NORM_VFUNC(vnormf, float, f)
 NORM_VFUNC(vnormd, double, d)
 
-#define DOT_VFUNC(NAME, TYPE, T)                        \
-static void NAME(expr_value a, uint8_t *dim, int inc)   \
-{                                                       \
-    register TYPE dot = 0;                              \
-    expr_value b = a + inc;                             \
-    int i, len = dim[0];                                \
-    for (i = 0; i < len; i++)                           \
-        dot += a[i].T * b[i].T;                         \
-    a[0].T = dot;                                       \
+#define DOT_VFUNC(NAME, TYPE, T)                    \
+static void NAME(evalue a, uint8_t *dim, int inc)   \
+{                                                   \
+    register TYPE dot = 0;                          \
+    evalue b = a + inc;                             \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++)                       \
+        dot += a[i].T * b[i].T;                     \
+    a[0].T = dot;                                   \
 }
 DOT_VFUNC(vdoti, int, i)
 DOT_VFUNC(vdotf, float, f)
 DOT_VFUNC(vdotd, double, d)
 
-#define INDEX_VFUNC(NAME, TYPE, T)                      \
-static void NAME(expr_value a, uint8_t *dim, int inc)   \
-{                                                       \
-    expr_value b = a + inc;                             \
-    int i, len = dim[0];                                \
-    for (i = 0; i < len; i++) {                         \
-        if (a[i].T == b[0].T) {                         \
-            a[0].T = (TYPE)i;                           \
-            return;                                     \
-        }                                               \
-    }                                                   \
-    a[0].T = (TYPE)-1;                                  \
+#define INDEX_VFUNC(NAME, TYPE, T)                  \
+static void NAME(evalue a, uint8_t *dim, int inc)   \
+{                                                   \
+    evalue b = a + inc;                             \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++) {                     \
+        if (a[i].T == b[0].T) {                     \
+            a[0].T = (TYPE)i;                       \
+            return;                                 \
+        }                                           \
+    }                                               \
+    a[0].T = (TYPE)-1;                              \
 }
 INDEX_VFUNC(vindexi, int, i)
 INDEX_VFUNC(vindexf, float, f)
@@ -212,10 +213,10 @@ INDEX_VFUNC(vindexd, double, d)
 
 #define atan2d atan2
 #define ANGLE_VFUNC(NAME, TYPE, T)                              \
-static void NAME(expr_value a, uint8_t *dim, int inc)           \
+static void NAME(evalue a, uint8_t *dim, int inc)               \
 {                                                               \
     register TYPE theta;                                        \
-    expr_value b = a + inc;                                     \
+    evalue b = a + inc;                                         \
     theta = atan2##T(b[1].T, b[0].T) - atan2##T(a[1].T, a[0].T);\
     if (theta > M_PI)                                           \
         theta -= 2 * M_PI;                                      \
@@ -226,40 +227,40 @@ static void NAME(expr_value a, uint8_t *dim, int inc)           \
 ANGLE_VFUNC(vanglef, float, f)
 ANGLE_VFUNC(vangled, double, d)
 
-#define MAXMIN_VFUNC(NAME, TYPE, T)                         \
-static void NAME(expr_value max, uint8_t *dim, int inc)     \
-{                                                           \
-    expr_value min = max + inc, new = min + inc;            \
-    int i, len = dim[0];                                    \
-    for (i = 0; i < len; i++) {                             \
-        if (new[i].T > max[i].T)                            \
-            max[i].T = new[i].T;                            \
-        if (new[i].T < min[i].T)                            \
-            min[i].T = new[i].T;                            \
-    }                                                       \
+#define MAXMIN_VFUNC(NAME, TYPE, T)                 \
+static void NAME(evalue max, uint8_t *dim, int inc) \
+{                                                   \
+    evalue min = max + inc, new = min + inc;        \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++) {                     \
+        if (new[i].T > max[i].T)                    \
+            max[i].T = new[i].T;                    \
+        if (new[i].T < min[i].T)                    \
+            min[i].T = new[i].T;                    \
+    }                                               \
 }
 MAXMIN_VFUNC(vmaxmini, int, i)
 MAXMIN_VFUNC(vmaxminf, float, f)
 MAXMIN_VFUNC(vmaxmind, double, d)
 
-#define SUMNUM_VFUNC(NAME, TYPE, T)                         \
-static void NAME(expr_value sum, uint8_t *dim, int inc)     \
-{                                                           \
-    expr_value num = sum + inc, new = num + inc;            \
-    int i, len = dim[0];                                    \
-    for (i = 0; i < len; i++) {                             \
-        sum[i].T += new[i].T;                               \
-        num[i].T += 1;                                      \
-    }                                                       \
+#define SUMNUM_VFUNC(NAME, TYPE, T)                 \
+static void NAME(evalue sum, uint8_t *dim, int inc) \
+{                                                   \
+    evalue num = sum + inc, new = num + inc;        \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++) {                     \
+        sum[i].T += new[i].T;                       \
+        num[i].T += 1;                              \
+    }                                               \
 }
 SUMNUM_VFUNC(vsumnumi, int, i)
 SUMNUM_VFUNC(vsumnumf, float, f)
 SUMNUM_VFUNC(vsumnumd, double, d)
 
 #define CONCAT_VFUNC(NAME, TYPE, T)                                     \
-static void NAME(expr_value cat, uint8_t *dim, int inc)                 \
+static void NAME(evalue cat, uint8_t *dim, int inc)                     \
 {                                                                       \
-    expr_value num = cat + inc, new = num + inc;                        \
+    evalue num = cat + inc, new = num + inc;                            \
     uint8_t i, j, newlen = dim[2];                                      \
     for (i = dim[0], j = 0; j < newlen && i < (int)num[0].T; i++, j++)  \
         cat[i].T = new[j].T;                                            \
@@ -453,9 +454,9 @@ static struct {
     uint8_t arity;
     uint8_t reduce; /* TODO: use bitflags */
     uint8_t dot_notation;
-    void (*fn_int)(expr_value, uint8_t*, int);
-    void (*fn_flt)(expr_value, uint8_t*, int);
-    void (*fn_dbl)(expr_value, uint8_t*, int);
+    void (*fn_int)(evalue, uint8_t*, int);
+    void (*fn_flt)(evalue, uint8_t*, int);
+    void (*fn_dbl)(evalue, uint8_t*, int);
 } vfn_tbl[] = {
     { "all",    1, 1, 1, valli,    vallf,    valld    },
     { "any",    1, 1, 1, vanyi,    vanyf,    vanyd    },
@@ -541,7 +542,7 @@ typedef double fn_dbl_arity1(double);
 typedef double fn_dbl_arity2(double,double);
 typedef double fn_dbl_arity3(double,double,double);
 typedef double fn_dbl_arity4(double,double,double,double);
-typedef void vfn_template(expr_value, uint8_t*, int);
+typedef void vfn_template(evalue, uint8_t*, int);
 
 static int strncmp_lc(const char *a, const char *b, int len)
 {

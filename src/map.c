@@ -1422,8 +1422,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
     /* Special case: if we are the receiver and the new expression evaluates to
      * a constant we can update immediately. */
     /* TODO: should call handler for all instances updated through this map. */
-    if (   mpr_expr_get_num_input_slots(m->expr) <= 0 && !m->use_inst
-        && mpr_obj_get_is_local((mpr_obj)dst_sig)) {
+    if (mpr_expr_get_num_src(m->expr) <= 0 && !m->use_inst && mpr_obj_get_is_local((mpr_obj)dst_sig)) {
         /* call handler if it exists */
         mpr_sig_call_handler((mpr_local_sig)dst_sig, MPR_STATUS_UPDATE_REM, 0, 0, 0);
     }

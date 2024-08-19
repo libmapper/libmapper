@@ -80,30 +80,33 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-typedef struct _var {
+typedef struct _expr_var {
     char *name;
     mpr_type datatype;
-    mpr_type casttype;
     uint8_t vec_len;
     uint8_t flags;
-} mpr_var_t, *mpr_var;
+} expr_var_t, *expr_var;
+
+typedef struct _estack
+{
+    void *tokens;
+    uint8_t offset;
+    uint8_t num_tokens;
+    uint8_t vec_len;
+} estack_t, *estack;
 
 struct _mpr_expr
 {
-    void *tokens;
-    mpr_var vars;
-    uint8_t offset;
-    uint8_t num_tok;
-    uint8_t stack_size;
-    uint8_t vec_size;
+    estack stack;
+    expr_var_t *vars;
     uint16_t *src_mlen;
     uint16_t max_src_mlen;
     uint16_t dst_mlen;
-    uint8_t num_var;
+    uint8_t num_vars;
     int8_t inst_ctl;
     int8_t mute_ctl;
     int8_t num_src;
-    int8_t own_tokens;
+    int8_t own_stack;
 };
 
 /*! A helper function to seed the random number generator. */
@@ -361,7 +364,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     }
 
     /* reallocate variable value histories */
-    for (i = 0; i < e->num_var; i++) {
+    for (i = 0; i < e->num_vars; i++) {
         int vlen = mpr_expr_get_var_vlen(e, i);
         mpr_type type = mpr_expr_get_var_type(e, i);
         mpr_value_reset_inst(user_vars[i], 0, time_in);
@@ -369,8 +372,8 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
         mpr_value_incr_idx(user_vars[i], 0);
     }
 
-    eprintf("Parser returned %d tokens...", e->num_tok);
-    if (max_tok && e->num_tok > max_tok) {
+    eprintf("Parser returned %d tokens...", e->stack->num_tokens);
+    if (max_tok && e->stack->num_tokens > max_tok) {
         eprintf(" (expected %d)\n", max_tok);
         result = 1;
         goto free;
@@ -385,7 +388,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     }
 #endif
 
-    token_count += e->num_tok;
+    token_count += e->stack->num_tokens;
 
     update_count = 0;
     then = mpr_get_current_time();
@@ -1813,7 +1816,18 @@ int run_tests()
             eprintf("... OK\n");
     }
 
-    /* 137) IDEA: map instance reduce to instanced destination */
+//    /* 137) Signal count() */
+//    set_expr_str("y=x / x.signal.count();");
+//    types[0] = MPR_FLT;
+//    types[1] = MPR_INT32;
+//    lens[0] = 1;
+//    lens[1] = 2;
+//    setup_test_multisource(2, types, lens, MPR_FLT, 2);
+//    expect_flt[0] = expect_flt[1] = 2.f;
+//    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+//        return 1;
+
+    /* 138) IDEA: map instance reduce to instanced destination */
     // dst instance should be released when there are zero sources
     // e.g. y = x.instance.mean()
 
@@ -1892,7 +1906,7 @@ int main(int argc, char **argv)
     }
     eprintf("\b\b]\n");
 
-    eval_buff = mpr_expr_new_eval_buffer();
+    eval_buff = mpr_expr_new_eval_buffer(NULL);
     result = run_tests();
     mpr_expr_free_eval_buffer(eval_buff);
 

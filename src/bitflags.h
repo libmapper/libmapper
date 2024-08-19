@@ -62,7 +62,7 @@ MPR_INLINE static void mpr_bitflags_clear(mpr_bitflags bitflags, unsigned int nu
 MPR_INLINE static void mpr_bitflags_cpy(mpr_bitflags dst, mpr_bitflags src,
                                         unsigned int num_flags)
 {
-    memcpy(&dst, src, (num_flags - 1) / 8 + 1);
+    memcpy(dst, src, (num_flags - 1) / 8 + 1);
 }
 
 #endif /* __MPR_BITFLAGS_H__ */

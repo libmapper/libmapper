@@ -1,13 +1,15 @@
 #ifndef __MPR_EXPRESSION_TOKEN_H__
 #define __MPR_EXPRESSION_TOKEN_H__
 
+#include <float.h>
+#include <limits.h>
 #include "expression_constant.h"
 #include "expression_function.h"
 #include "expression_trace.h"
 #include "expression_variable.h"
 #include "util/mpr_inline.h"
 
-#define TOKEN_SIZE sizeof(expr_tok_t)
+#define TOKEN_SIZE sizeof(etoken_t)
 
 #define CLEAR_STACK     0x0010
 #define TYPE_LOCKED     0x0020
@@ -15,7 +17,7 @@
 #define USE_VAR_LEN     0x0040 /* reuse */
 #define VEC_LEN_LOCKED  0x0080
 
-enum expr_tok_type {
+enum etoken_type {
     TOK_UNKNOWN         = 0x0000000,
     TOK_LITERAL         = 0x0000001,    /* Scalar literal */
     TOK_VLITERAL        = 0x0000002,    /* Vector literal */
@@ -55,7 +57,7 @@ enum expr_tok_type {
 };
 
 struct generic_type {
-    enum expr_tok_type toktype;
+    enum etoken_type toktype;
     mpr_type datatype;
     mpr_type casttype;
     uint8_t vec_len;
@@ -63,7 +65,7 @@ struct generic_type {
 };
 
 struct literal_type {
-    enum expr_tok_type toktype;
+    enum etoken_type toktype;
     mpr_type datatype;
     mpr_type casttype;
     uint8_t vec_len;
@@ -80,7 +82,7 @@ struct literal_type {
 };
 
 struct operator_type {
-    enum expr_tok_type toktype;
+    enum etoken_type toktype;
     mpr_type datatype;
     mpr_type casttype;
     uint8_t vec_len;
@@ -90,7 +92,7 @@ struct operator_type {
 };
 
 struct variable_type {
-    enum expr_tok_type toktype;
+    enum etoken_type toktype;
     mpr_type datatype;
     mpr_type casttype;
     uint8_t vec_len;
@@ -102,7 +104,7 @@ struct variable_type {
 };
 
 struct function_type {
-    enum expr_tok_type toktype;
+    enum etoken_type toktype;
     mpr_type datatype;
     mpr_type casttype;
     uint8_t vec_len;
@@ -113,7 +115,7 @@ struct function_type {
 };
 
 struct control_type {
-    enum expr_tok_type toktype;
+    enum etoken_type toktype;
     mpr_type datatype;
     mpr_type casttype;
     uint8_t vec_len;
@@ -126,16 +128,16 @@ struct control_type {
 };
 
 typedef union _token {
-    enum expr_tok_type toktype;
+    enum etoken_type toktype;
     struct generic_type gen;
     struct literal_type lit;
     struct operator_type op;
     struct variable_type var;
     struct function_type fn;
     struct control_type con;
-} expr_tok_t, *expr_tok;
+} etoken_t, *etoken;
 
-static int const_tok_is_zero(expr_tok tok)
+static int etoken_get_is_0(etoken tok)
 {
     switch (tok->gen.datatype) {
         case MPR_INT32:     return tok->lit.val.i == 0;
@@ -145,7 +147,7 @@ static int const_tok_is_zero(expr_tok tok)
     return 0;
 }
 
-static int const_tok_equals_one(expr_tok tok)
+static int etoken_get_is_1(etoken tok)
 {
     switch (tok->gen.datatype) {
         case MPR_INT32:     return tok->lit.val.i == 1;
@@ -155,7 +157,7 @@ static int const_tok_equals_one(expr_tok tok)
     return 0;
 }
 
-static int expr_tok_get_arity(expr_tok tok)
+static int etoken_get_arity(etoken tok)
 {
     switch (tok->toktype) {
         case TOK_VAR:
@@ -179,41 +181,197 @@ static int expr_tok_get_arity(expr_tok tok)
     return 0;
 }
 
-MPR_INLINE static void expr_tok_set_op(expr_tok tok, expr_op_t op)
+MPR_INLINE static void etoken_cpy(etoken dst, etoken src)
+{
+    memcpy(dst, src, TOKEN_SIZE);
+}
+
+MPR_INLINE static void etoken_set_op(etoken tok, expr_op_t op)
 {
     tok->toktype = TOK_OP;
     tok->op.idx = op;
 }
 
-MPR_INLINE static void expr_tok_set_int32(expr_tok tok, int val)
+MPR_INLINE static void etoken_set_int32(etoken tok, int val)
 {
     tok->toktype = TOK_LITERAL;
     tok->gen.datatype = MPR_INT32;
     tok->lit.val.i = val;
 }
 
-MPR_INLINE static void expr_tok_set_flt(expr_tok tok, float val)
+MPR_INLINE static void etoken_set_flt(etoken tok, float val)
 {
     tok->toktype = TOK_LITERAL;
     tok->gen.datatype = MPR_FLT;
     tok->lit.val.f = val;
 }
 
-MPR_INLINE static void expr_tok_set_dbl(expr_tok tok, double val)
+MPR_INLINE static void etoken_set_dbl(etoken tok, double val)
 {
     tok->toktype = TOK_LITERAL;
     tok->gen.datatype = MPR_DBL;
     tok->lit.val.d = val;
 }
 
-MPR_INLINE static void expr_tok_free(expr_tok tok)
+MPR_INLINE static void etoken_free(etoken tok)
 {
     if (TOK_VLITERAL == tok->toktype && tok->lit.val.ip)
         free(tok->lit.val.ip);
 }
 
+static mpr_type etoken_cmp_datatype(etoken tok, mpr_type type)
+{
+    mpr_type type2 = tok->gen.casttype ? tok->gen.casttype : tok->gen.datatype;
+    if (tok->toktype >= TOK_LOOP_START)
+        return type;
+    /* return the higher datatype, 'd' < 'f' < i' */
+    return type < type2 ? type : type2;
+}
+
+int etoken_squash(etoken l, etoken r)
+{
+    if (l->gen.flags & VEC_LEN_LOCKED)
+        return 0;
+    if (TOK_LITERAL == l->toktype) {
+        void *tmp;
+        mpr_type type = etoken_cmp_datatype(l, r->lit.datatype);
+        switch (type) {
+            case MPR_INT32:
+                tmp = malloc(2 * sizeof(int));
+                ((int*)tmp)[0] = l->lit.val.i;
+                ((int*)tmp)[1] = r->lit.val.i;
+                break;
+            case MPR_FLT:
+                tmp = malloc(2 * sizeof(float));
+                switch (l->lit.datatype) {
+                    case MPR_INT32: ((float*)tmp)[0] = (float)l->lit.val.i;     break;
+                    default:        ((float*)tmp)[0] =        l->lit.val.f;     break;
+                }
+                switch (r->lit.datatype) {
+                    case MPR_INT32: ((float*)tmp)[1] = (float)r->lit.val.i;     break;
+                    default:        ((float*)tmp)[1] =        r->lit.val.f;     break;
+                }
+                break;
+            default:
+                tmp = malloc(2 * sizeof(double));
+                switch (l->lit.datatype) {
+                    case MPR_INT32: ((double*)tmp)[0] = (double)l->lit.val.i;   break;
+                    case MPR_FLT:   ((double*)tmp)[0] = (double)l->lit.val.f;   break;
+                    default:        ((double*)tmp)[0] =         l->lit.val.d;   break;
+                }
+                switch (r->lit.datatype) {
+                    case MPR_INT32: ((double*)tmp)[1] = (double)r->lit.val.i;   break;
+                    case MPR_FLT:   ((double*)tmp)[1] = (double)r->lit.val.f;   break;
+                    default:        ((double*)tmp)[1] =         r->lit.val.d;   break;
+                }
+                break;
+        }
+        l->toktype = TOK_VLITERAL;
+        l->lit.val.ip = tmp;
+        l->lit.datatype = type;
+        l->lit.vec_len = 2;
+        return 1;
+    }
+    else if (TOK_VLITERAL == l->toktype) {
+        int i, vec_len = l->lit.vec_len;
+        void *tmp = 0;
+        mpr_type type = etoken_cmp_datatype(l, r->lit.datatype);
+        ++l->lit.vec_len;
+        switch (type) {
+            case MPR_INT32:
+                /* both vector and new scalar are type MPR_INT32 */
+                tmp = malloc(l->lit.vec_len * sizeof(int));
+                for (i = 0; i < vec_len; i++)
+                    ((int*)tmp)[i] = l->lit.val.ip[i];
+                ((int*)tmp)[vec_len] = r->lit.val.i;
+                break;
+            case MPR_FLT:
+                tmp = malloc(l->lit.vec_len * sizeof(float));
+                for (i = 0; i < vec_len; i++) {
+                    switch (l->lit.datatype) {
+                        case MPR_INT32: ((float*)tmp)[i] = (float)l->lit.val.ip[i];     break;
+                        default:        ((float*)tmp)[i] =        l->lit.val.fp[i];     break;
+                    }
+                }
+                switch (r->lit.datatype) {
+                    case MPR_INT32:     ((float*)tmp)[vec_len] = (float)r->lit.val.i;   break;
+                    default:            ((float*)tmp)[vec_len] =        r->lit.val.f;   break;
+                }
+                break;
+            case MPR_DBL:
+                tmp = malloc(l->lit.vec_len * sizeof(double));
+                for (i = 0; i < vec_len; i++) {
+                    switch (l->lit.datatype) {
+                        case MPR_INT32: ((double*)tmp)[i] = (double)l->lit.val.ip[i];   break;
+                        case MPR_FLT:   ((double*)tmp)[i] = (double)l->lit.val.fp[i];   break;
+                        default:        ((double*)tmp)[i] =         l->lit.val.dp[i];   break;
+                    }
+                }
+                switch (r->lit.datatype) {
+                    case MPR_INT32:     ((double*)tmp)[vec_len] = (double)r->lit.val.i; break;
+                    case MPR_FLT:       ((double*)tmp)[vec_len] = (double)r->lit.val.f; break;
+                    default:            ((double*)tmp)[vec_len] =         r->lit.val.d; break;
+                }
+                break;
+        }
+        free(l->lit.val.ip);
+        l->lit.val.ip = tmp;
+        l->lit.datatype = type;
+        return 1;
+    }
+    return 0;
+}
+
+int etoken_replace_special_constants(etoken tok)
+{
+    if (TOK_LITERAL == tok->toktype && (tok->gen.flags & CONST_SPECIAL)) {
+        switch (tok->gen.flags & CONST_SPECIAL) {
+            case CONST_MAXVAL:
+                switch (tok->lit.datatype) {
+                    case MPR_INT32: tok->lit.val.i = INT_MAX;   break;
+                    case MPR_FLT:   tok->lit.val.f = FLT_MAX; 	break;
+                    case MPR_DBL:   tok->lit.val.d = DBL_MAX;   break;
+                    default:                                    goto error;
+                }
+                break;
+            case CONST_MINVAL:
+                switch (tok->lit.datatype) {
+                    case MPR_INT32: tok->lit.val.i = INT_MIN;   break;
+                    case MPR_FLT:   tok->lit.val.f = -FLT_MAX;  break;
+                    case MPR_DBL:   tok->lit.val.d = -DBL_MAX;  break;
+                    default:                                    goto error;
+                }
+                break;
+            case CONST_PI:
+                switch (tok->lit.datatype) {
+                    case MPR_FLT:   tok->lit.val.f = M_PI;      break;
+                    case MPR_DBL:   tok->lit.val.d = M_PI;      break;
+                    default:                                    goto error;
+                }
+                break;
+            case CONST_E:
+                switch (tok->lit.datatype) {
+                    case MPR_FLT:   tok->lit.val.f = M_E;       break;
+                    case MPR_DBL:   tok->lit.val.d = M_E;       break;
+                    default:                                    goto error;
+                }
+                break;
+            default:
+                return 1;
+        }
+        tok->gen.flags &= ~CONST_SPECIAL;
+    }
+    return 0;
+
+error:
+#if TRACE_PARSE
+    printf("Illegal type found when replacing special constants.\n");
+#endif
+    return -1;
+}
+
 #if TRACE_PARSE || TRACE_EVAL
-static void print_token(expr_tok tok, expr_var_t *vars, int show_locks)
+static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
 {
     int i, d = 0, l = 128;
     char s[128];
@@ -265,7 +423,7 @@ static void print_token(expr_tok tok, expr_var_t *vars, int show_locks)
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_USE:
         case TOK_ASSIGN_TT:
-            d = snprintf(s, l, "ASSIGN\t");
+            d = snprintf(s, l, "ASSIGN%s\t", TOK_ASSIGN_USE == tok->toktype ? "_USE" : "");
         case TOK_VAR:
         case TOK_TT: {
             if (TOK_VAR == tok->toktype || TOK_TT == tok->toktype)
@@ -400,70 +558,5 @@ static void print_token(expr_tok tok, expr_var_t *vars, int show_locks)
     }
 }
 #endif /* TRACE_PARSE || TRACE_EVAL */
-
-#if TRACE_PARSE
-static void print_stack(const char *s, expr_tok_t *tokens, int sp,
-                        expr_var_t *vars, int show_init_line)
-{
-    int i, j, indent = 0, can_advance = 1;
-    if (s)
-        printf("%s:\n", s);
-    if (sp < 0) {
-        printf("  --- <EMPTY> ---\n");
-        return;
-    }
-    for (i = 0; i <= sp; i++) {
-        if (show_init_line && can_advance) {
-            switch (tokens[i].toktype) {
-                case TOK_ASSIGN_CONST:
-                case TOK_ASSIGN:
-                case TOK_ASSIGN_USE:
-                case TOK_ASSIGN_TT:
-                    /* look ahead for future assignments */
-                    for (j = i + 1; j <= sp; j++) {
-                        if (tokens[j].toktype < TOK_ASSIGN)
-                            continue;
-                        if (TOK_ASSIGN_CONST == tokens[j].toktype && tokens[j].var.idx != VAR_Y)
-                            break;
-                        if (tokens[j].gen.flags & VAR_HIST_IDX)
-                            break;
-                        for (j = 0; j < indent; j++)
-                            printf(" ");
-                        can_advance = 0;
-                        break;
-                    }
-                    break;
-                case TOK_RFN:
-                case TOK_VAR:
-                    if (tokens[i].var.idx >= VAR_X_NEWEST)
-                        can_advance = 0;
-                    break;
-                default:
-                    break;
-            }
-            printf(" %2d: ", i);
-            print_token(&tokens[i], vars, 1);
-            printf("\n");
-            if (i && !can_advance)
-                printf("  --- <INITIALISATION DONE> ---\n");
-        }
-        else {
-            printf(" %2d: ", i);
-            print_token(&tokens[i], vars, 1);
-            printf("\n");
-        }
-    }
-}
-
-#endif /* TRACE_PARSE */
-
-static mpr_type expr_tok_cmp_datatype(expr_tok tok, mpr_type type)
-{
-    mpr_type type2 = tok->gen.casttype ? tok->gen.casttype : tok->gen.datatype;
-    if (tok->toktype >= TOK_LOOP_START)
-        return type;
-    /* return the higher datatype, 'd' < 'f' < i' */
-    return type < type2 ? type : type2;
-}
 
 #endif /* __MPR_EXPRESSION_TOKEN_H__ */

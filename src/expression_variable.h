@@ -62,12 +62,12 @@ void expr_var_set(expr_var var, const char *name, uint8_t name_len,
     var->flags = flags;
 }
 
-static void expr_var_free_mem(expr_var var)
+static void expr_var_free(expr_var var)
 {
     FUNC_IF(free, var->name);
 }
 
-static int find_var_by_name(expr_var_t *vars, int num_var, const char *str, int len)
+static int expr_var_find_by_name(expr_var_t *vars, int num_var, const char *str, int len)
 {
     /* check if variable name matches known variable */
     int i;

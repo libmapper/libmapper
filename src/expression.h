@@ -3,7 +3,7 @@
 #define __MPR_EXPRESSION_H__
 
 typedef struct _mpr_expr *mpr_expr;
-typedef struct _mpr_expr_eval_buffer *mpr_expr_eval_buffer;
+typedef struct _ebuffer *mpr_expr_eval_buffer;
 
 #include "bitflags.h"
 #include "mpr_time.h"
@@ -15,8 +15,7 @@ typedef struct _mpr_expr_eval_buffer *mpr_expr_eval_buffer;
 #define EXPR_UPDATE                0x10
 #define EXPR_EVAL_DONE             0x20
 
-mpr_expr mpr_expr_new(unsigned int num_src, unsigned int num_dst,
-                      void *tokens, unsigned int num_tok, unsigned int vlen);
+mpr_expr mpr_expr_new(unsigned int num_src, unsigned int num_dst, void *stack);
 
 mpr_expr mpr_expr_new_from_str(const char *str, unsigned int num_src, const mpr_type *src_types,
                                const unsigned int *src_lens, unsigned int num_dst,
@@ -44,10 +43,6 @@ int mpr_expr_get_manages_inst(mpr_expr expr);
 
 void mpr_expr_set_var_updated(mpr_expr expr, int var_idx);
 
-#ifdef DEBUG
-void printexpr(const char*, mpr_expr);
-#endif
-
 /*! Evaluate the given inputs using the compiled expression.
  *  \param buff         A preallocated expression evaluation buffer.
  *  \param expr         The expression to use.
@@ -67,17 +62,15 @@ void printexpr(const char*, mpr_expr);
 int mpr_expr_eval(mpr_expr expr, mpr_expr_eval_buffer buff, mpr_value *srcs, mpr_value *expr_vars,
                   mpr_value result, mpr_time *time, mpr_bitflags has_value, int inst_idx);
 
-int mpr_expr_get_num_input_slots(mpr_expr expr);
+int mpr_expr_get_num_src(mpr_expr expr);
 
-mpr_expr_eval_buffer mpr_expr_new_eval_buffer(void);
+mpr_expr_eval_buffer mpr_expr_new_eval_buffer(mpr_expr expr);
 void mpr_expr_realloc_eval_buffer(mpr_expr expr, mpr_expr_eval_buffer buff);
 void mpr_expr_free_eval_buffer(mpr_expr_eval_buffer eval_buff);
 
-void mpr_expr_update_vlen(mpr_expr expr, unsigned int vlen);
 void mpr_expr_update_mlen(mpr_expr expr, int idx, unsigned int mlen);
 
-void mpr_expr_cpy_tokens(mpr_expr expr, void *tokens, unsigned int num_tok);
-void mpr_expr_cpy_vars(mpr_expr expr, void *vars, int num_var);
+void mpr_expr_cpy_stack_and_vars(mpr_expr expr, void *stack, void *vars, int num_var);
 
 #if DEBUG
 void mpr_expr_print(mpr_expr expr);

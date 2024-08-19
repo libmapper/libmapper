@@ -8,7 +8,7 @@
 #define lex_error trace
 
 /* TODO: move to expression_variable.h */
-static int var_lookup(expr_tok_t *tok, const char *s, int len)
+static int var_lookup(etoken tok, const char *s, int len)
 {
     if ('t' != *s || '_' != *(s+1))
         tok->toktype = TOK_VAR;
@@ -45,7 +45,7 @@ static int var_lookup(expr_tok_t *tok, const char *s, int len)
     return 0;
 }
 
-static int expr_lex(const char *str, int idx, expr_tok_t *tok)
+static int expr_lex(const char *str, int idx, etoken tok)
 {
     int n=idx, i=idx;
     char c = str[idx];
@@ -62,7 +62,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
     }
 
 #if TRACE_PARSE
-        printf("lexing string '%s'\n", str + idx);
+        printf("________________________\nlexing string '%s'\n", str + idx);
 #endif
 
   again:
@@ -75,7 +75,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
         n = atoi(str+i);
         integer_found = 1;
         if (c!='.' && c!='e') {
-            expr_tok_set_int32(tok, n);
+            etoken_set_int32(tok, n);
             return idx;
         }
     }
@@ -85,7 +85,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
         c = str[++idx];
         if (!isdigit(c) && c!='e') {
             if (integer_found) {
-                expr_tok_set_flt(tok, (float)n);
+                etoken_set_flt(tok, (float)n);
                 return idx;
             }
             while (c && (isalpha(c)))
@@ -107,7 +107,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
             c = str[++idx];
         } while (c && isdigit(c));
         if (c != 'e') {
-            expr_tok_set_flt(tok, atof(str+i));
+            etoken_set_flt(tok, atof(str+i));
             return idx;
         }
         /* continue to next case 'e' */
@@ -136,10 +136,10 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
             c = str[++idx];
         while (c && isdigit(c))
             c = str[++idx];
-        expr_tok_set_dbl(tok, atof(str+i));
+        etoken_set_dbl(tok, atof(str+i));
         return idx;
     case '+':
-        expr_tok_set_op(tok, OP_ADD);
+        etoken_set_op(tok, OP_ADD);
         return ++idx;
     case '-':
         /* could be either subtraction, negation, or lambda */
@@ -153,25 +153,25 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
         while (i && strchr(" \t\r\n", str[i]))
             --i;
         if (isalpha(str[i]) || isdigit(str[i]) || strchr(")]}", str[i])) {
-            expr_tok_set_op(tok, OP_SUBTRACT);
+            etoken_set_op(tok, OP_SUBTRACT);
         }
         else
             tok->toktype = TOK_NEGATE;
         return idx;
     case '/':
-        expr_tok_set_op(tok, OP_DIVIDE);
+        etoken_set_op(tok, OP_DIVIDE);
         return ++idx;
     case '*':
-        expr_tok_set_op(tok, OP_MULTIPLY);
+        etoken_set_op(tok, OP_MULTIPLY);
         return ++idx;
     case '%':
-        expr_tok_set_op(tok, OP_MODULO);
+        etoken_set_op(tok, OP_MODULO);
         return ++idx;
     case '=':
         /* could be '=', '==' */
         c = str[++idx];
         if (c == '=') {
-            expr_tok_set_op(tok, OP_IS_EQUAL);
+            etoken_set_op(tok, OP_IS_EQUAL);
             ++idx;
         }
         else
@@ -179,7 +179,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
         return idx;
     case '<':
         /* could be '<', '<=', '<<' */
-        expr_tok_set_op(tok, OP_IS_LESS_THAN);
+        etoken_set_op(tok, OP_IS_LESS_THAN);
         c = str[++idx];
         if (c == '=') {
             tok->op.idx = OP_IS_LESS_THAN_OR_EQUAL;
@@ -192,7 +192,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
         return idx;
     case '>':
         /* could be '>', '>=', '>>' */
-        expr_tok_set_op(tok, OP_IS_GREATER_THAN);
+        etoken_set_op(tok, OP_IS_GREATER_THAN);
         c = str[++idx];
         if (c == '=') {
             tok->op.idx = OP_IS_GREATER_THAN_OR_EQUAL;
@@ -206,7 +206,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
     case '!':
         /* could be '!', '!=' */
         /* TODO: handle factorial case */
-        expr_tok_set_op(tok, OP_LOGICAL_NOT);
+        etoken_set_op(tok, OP_LOGICAL_NOT);
         c = str[++idx];
         if (c == '=') {
             tok->op.idx = OP_IS_NOT_EQUAL;
@@ -215,7 +215,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
         return idx;
     case '&':
         /* could be '&', '&&' */
-        expr_tok_set_op(tok, OP_BITWISE_AND);
+        etoken_set_op(tok, OP_BITWISE_AND);
         c = str[++idx];
         if (c == '&') {
             tok->op.idx = OP_LOGICAL_AND;
@@ -224,7 +224,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
         return idx;
     case '|':
         /* could be '|', '||' */
-        expr_tok_set_op(tok, OP_BITWISE_OR);
+        etoken_set_op(tok, OP_BITWISE_OR);
         c = str[++idx];
         if (c == '|') {
             tok->op.idx = OP_LOGICAL_OR;
@@ -233,7 +233,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
         return idx;
     case '^':
         /* bitwise XOR */
-        expr_tok_set_op(tok, OP_BITWISE_XOR);
+        etoken_set_op(tok, OP_BITWISE_XOR);
         return ++idx;
     case '(':
         tok->toktype = TOK_OPEN_PAREN;
@@ -267,7 +267,7 @@ static int expr_lex(const char *str, int idx, expr_tok_t *tok)
         return ++idx;
     case '?':
         /* conditional */
-        expr_tok_set_op(tok, OP_IF);
+        etoken_set_op(tok, OP_IF);
         c = str[++idx];
         if (c == ':') {
             tok->op.idx = OP_IF_ELSE;
