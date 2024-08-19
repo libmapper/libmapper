@@ -41,8 +41,11 @@ typedef struct {
     void *self;
     void **start;
     struct _query_info *query_ctx;
-    query_type_t query_type;
-    int data[1]; /* stub */
+    union {
+        query_type_t query_type;
+        void *pad;
+    };
+    int *data; /* stub */
 }  mpr_list_header_t;
 
 /*! Function for query comparison */
@@ -64,7 +67,7 @@ typedef struct _query_info {
     int *data; /* stub */
 } query_info_t;
 
-#define LIST_HEADER_SIZE (sizeof(mpr_list_header_t)-sizeof(int[1]))
+#define LIST_HEADER_SIZE (sizeof(mpr_list_header_t)-sizeof(int*))
 
 /*! Reserve memory for a list item.  Reserves an extra pointer at the
  *  beginning of the structure to allow for a list pointer. */
@@ -74,8 +77,7 @@ static mpr_list_header_t* mpr_list_new_item(size_t size)
 
     /* make sure the compiler is doing what we think it's doing with
      * the size of mpr_list_header_t and location of data */
-    die_unless(LIST_HEADER_SIZE == sizeof(void*) * 4 + sizeof(query_type_t),
-               "unexpected size for mpr_list_header_t");
+    die_unless(LIST_HEADER_SIZE == sizeof(void*) * 5, "unexpected size for mpr_list_header_t");
     die_unless(LIST_HEADER_SIZE == ((char*)&lh->data - (char*)lh),
                "unexpected offset for data in mpr_list_header_t");
 
@@ -124,7 +126,7 @@ static void* mpr_list_get_next_internal(void *mem)
 }
 
 /*! Prepend an item to the beginning of a list. */
-static void *mpr_list_prepend_item(void *item, void **list)
+static void *mpr_list_prepend_item(void **list, void *item)
 {
     mpr_list_set_next(item, *list);
     *list = item;
@@ -132,7 +134,7 @@ static void *mpr_list_prepend_item(void *item, void **list)
 }
 
 /*! Append an item to the end of a list. */
-static void *mpr_list_append_item(void *item, void **list)
+static void *mpr_list_append_item(void **list, void *item)
 {
     if (*list) {
         void *last_item, *node = *list;
@@ -152,9 +154,9 @@ void *mpr_list_add_item(void **list, size_t size, int prepend)
 {
     mpr_list_header_t* lh = mpr_list_new_item(size);
     if (prepend)
-        mpr_list_prepend_item(lh, list);
+        mpr_list_prepend_item(list, lh);
     else
-        mpr_list_append_item(lh, list);
+        mpr_list_append_item(list, lh);
     return lh;
 }
 
