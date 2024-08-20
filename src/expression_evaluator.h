@@ -7,32 +7,40 @@
 #include <mapper/mapper.h>
 
 #define UNARY_OP_CASE(OP, SYM, T)               \
-    case OP:                                    \
+    case OP: {                                  \
+        int i;                                  \
         for (i = sp; i < sp + lens[dp]; i++)    \
             vals[i].T SYM vals[i].T;            \
-        break;
+        break;                                  \
+    }
 
 #define BINARY_OP_CASE(OP, SYM, T)                                  \
-    case OP:                                                        \
+    case OP: {                                                      \
+        int i, j;                                                   \
         for (i = 0, j = sp; i < lens[dp]; i++, j++)                 \
             vals[j].T = vals[j].T SYM vals[sp + vlen + i % rlen].T; \
-        break;
+        break;                                                      \
+    }
 
 #define CONDITIONAL_CASES(T)                                        \
-    case OP_IF_ELSE:                                                \
+    case OP_IF_ELSE: {                                              \
+        int i, j;                                                   \
         for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
             if (!vals[j].T)                                         \
                 vals[j].T = vals[sp + vlen + i % rlen].T;           \
         }                                                           \
         break;                                                      \
-    case OP_IF_THEN_ELSE:                                           \
+    }                                                               \
+    case OP_IF_THEN_ELSE: {                                         \
+        int i, j;                                                   \
         for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
             if (vals[j].T)                                          \
                 vals[j].T = vals[sp + vlen + i % rlen].T;           \
             else                                                    \
                 vals[j].T = vals[sp + 2 * vlen + i % lens[dp + 2]].T;\
         }                                                           \
-        break;
+        break;                                                      \
+    }
 
 #define OP_CASES_META(EL)                                   \
     BINARY_OP_CASE(OP_ADD, +, EL);                          \
@@ -56,12 +64,12 @@ MPR_INLINE static int _max(int a, int b)
 
 #define SET_STACK_PTR(ADDEND)           \
     dp = ADDEND;                        \
-    assert(dp >= 0 || dp < buff_size);  \
+    assert(dp >= 0 || dp < buff->size); \
     sp = dp * vlen;
 
 #define INCR_STACK_PTR(ADDEND)          \
     dp += ADDEND;                       \
-    assert(dp >= 0 || dp < buff_size);  \
+    assert(dp >= 0 || dp < buff->size); \
     sp = dp * vlen;
 
 #define SET_TYPE(TYPE)  \
@@ -77,30 +85,17 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     printf("evaluating expression...\n");
 #endif
     estack stk = expr->stack;
-    etoken_t *tok, *end;
-    int status = 1 | EXPR_EVAL_DONE, cache = 0, vlen;
-    int i, j, sp, dp = -1;
+    etoken_t *tok = stk->tokens, *end = tok + stk->num_tokens;
+    int dp = -1, sp = -stk->vec_len, status = 1 | EXPR_EVAL_DONE;
     /* Note: signal, history, and vector reduce are currently limited to 255 items here */
-    uint8_t alive = 1, muted = 0, can_advance = 1, hist_offset = 0, sig_offset = 0, vec_offset = 0;
+    uint8_t alive = 1, muted = 0, can_advance = 1, cache = 0, vlen = stk->vec_len;
+    uint8_t hist_offset = 0, sig_offset = 0, vec_offset = 0;
     mpr_value x = NULL;
 
-    // TODO: check if caching these makes a difference
     evalue vals = buff->vals;
     uint8_t *lens = buff->lens;
     mpr_type *types = buff->types;
-    unsigned int buff_size = buff->size;
 
-    if (!expr) {
-#if TRACE_EVAL
-        printf(" no expression to evaluate!\n");
-#endif
-        return 0;
-    }
-
-    sp = -stk->vec_len;
-    vlen = stk->vec_len;
-    tok = stk->tokens;
-    end = stk->tokens + stk->num_tokens;
     if (v_out && mpr_value_get_num_samps(v_out, inst_idx) > 0) {
         tok += stk->offset;
     }
@@ -132,6 +127,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
      * for now we will choose the input with the highest instance count
      * TODO: consider alternatives */
     if (v_in) {
+        int i;
         x = v_in[0];
         for (i = 1; i < expr->num_src; i++) {
             if (mpr_value_get_num_inst(v_in[i]) > mpr_value_get_num_inst(x))
@@ -162,10 +158,12 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #define TYPED_CASE(MTYPE, T)                                            \
                 case MTYPE:                                             \
                     if (TOK_LITERAL == tok->toktype) {                  \
+                        int i;                                          \
                         for (i = sp; i < sp + lens[dp]; i++)            \
                             vals[i].T = tok->lit.val.T;                 \
                     }                                                   \
                     else {                                              \
+                        int i, j;                                       \
                         for (i = sp, j = 0; i < sp + lens[dp]; i++, j++)\
                             vals[i].T = tok->lit.val.T##p[j];           \
                     }                                                   \
@@ -198,7 +196,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 RETURN_ARG_UNLESS(v_in, status);
                 if (tok->var.idx == VAR_X_NEWEST) {
                     /* Find most recently-updated source signal */
-                    int newest_idx = 0;
+                    int i, newest_idx = 0;
                     for (i = 1; i < expr->num_src; i++) {
 #if TRACE_EVAL
                         mpr_time_print(*mpr_value_get_time(v_in[newest_idx], inst_idx, 0));
@@ -267,8 +265,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 
             if (tok->gen.flags & VAR_HIST_IDX) {
                 double intpart;
+                int i = idxp * vlen;
                 assert(idxp >= 0);
-                i = idxp * vlen;
                 switch (types[idxp]) {
                     case MPR_INT32: hidx = vals[i].i;                                       break;
                     case MPR_FLT:   hwt = -modf(vals[i].f, &intpart); hidx = (int)intpart;  break;
@@ -286,8 +284,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 
             if (tok->gen.flags & VAR_VEC_IDX) {
                 double intpart;
+                int i = idxp * vlen;
                 assert(idxp >= 0);
-                i = idxp * vlen;
                 switch (types[idxp]) {
                     case MPR_INT32: vidx = vals[i].i;                                       break;
                     case MPR_FLT:   vwt = modf(vals[i].f, &intpart); vidx = (int)intpart;   break;
@@ -323,25 +321,25 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             switch (mpr_value_get_type(v)) {
 #define COPY_TYPED(MTYPE, TYPE, T)                                                  \
                 case MTYPE: {                                                       \
-                    int j, k, vlen = mpr_value_get_vlen(v);                         \
+                    int i, j, vlen = mpr_value_get_vlen(v);                         \
                     TYPE *a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx);        \
                     if (vwt) {                                                      \
                         register TYPE temp;                                         \
                         register float ivwt = 1 - vwt;                              \
-                        for (j = 0, k = sp; j < lens[dp]; j++, k++) {               \
-                            int vec_idx = (j + vidx) % vlen;                        \
+                        for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
+                            int vec_idx = (i + vidx) % vlen;                        \
                             if (vec_idx < 0) vec_idx += vlen;                       \
                             temp = a[vec_idx] * vwt;                                \
                             vec_idx = (vec_idx + 1) % vlen;                         \
                             temp += a[vec_idx] * ivwt;                              \
-                            vals[k].T = temp;                                       \
+                            vals[j].T = temp;                                       \
                         }                                                           \
                     }                                                               \
                     else {                                                          \
-                        for (j = 0, k = sp; j < lens[dp]; j++, k++) {               \
-                            int vec_idx = (j + vidx) % vlen;                        \
+                        for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
+                            int vec_idx = (i + vidx) % vlen;                        \
                             if (vec_idx < 0) vec_idx += vlen;                       \
-                            vals[k].T = a[vec_idx];                                 \
+                            vals[j].T = a[vec_idx];                                 \
                         }                                                           \
                     }                                                               \
                     if (hwt) {                                                      \
@@ -350,20 +348,20 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                         if (vwt) {                                                  \
                             register TYPE temp;                                     \
                             register float ivwt = 1 - vwt;                          \
-                            for (j = 0, k = sp; j < lens[dp]; j++, k++) {           \
-                                int vec_idx = (j + vidx) % vlen;                    \
+                            for (i = 0, j = sp; i < lens[dp]; i++, j++) {           \
+                                int vec_idx = (i + vidx) % vlen;                    \
                                 if (vec_idx < 0) vec_idx += vlen;                   \
                                 temp = a[vec_idx] * vwt;                            \
                                 vec_idx = (vec_idx + 1) % vlen;                     \
                                 temp += a[vec_idx] * ivwt;                          \
-                                vals[k].T = vals[k].T * hwt + temp * ihwt;          \
+                                vals[j].T = vals[j].T * hwt + temp * ihwt;          \
                             }                                                       \
                         }                                                           \
                         else {                                                      \
-                            for (j = 0, k = sp; j < lens[dp]; j++, k++) {           \
-                                int vec_idx = (j + vidx) % vlen;                    \
+                            for (i = 0, j = sp; i < lens[dp]; i++, j++) {           \
+                                int vec_idx = (i + vidx) % vlen;                    \
                                 if (vec_idx < 0) vec_idx += vlen;                   \
-                                vals[j].T = vals[j].T * hwt + a[vec_idx] * (1 - hwt);\
+                                vals[i].T = vals[i].T * hwt + a[vec_idx] * (1 - hwt);\
                             }                                                       \
                         }                                                           \
                     }                                                               \
@@ -382,6 +380,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             break;
         }
         case TOK_VAR_NUM_INST: {
+            int i;
             INCR_STACK_PTR(1);
             SET_TYPE(MPR_INT32);
             SET_LEN(tok->gen.vec_len);
@@ -406,9 +405,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             break;
         }
         case TOK_TT: {
-            int hidx = 0;
-            double hwt = 0.0;
-            double t_d;
+            int i, hidx = 0;
+            double t_d, hwt = 0.0;
             if (!(tok->gen.flags & VAR_HIST_IDX)) {
                 INCR_STACK_PTR(1);
             }
@@ -478,7 +476,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             break;
         }
         case TOK_OP: {
-            uint8_t max_len, rlen, arity = op_tbl[tok->op.idx].arity;
+            uint8_t i, max_len, rlen, arity = op_tbl[tok->op.idx].arity;
             INCR_STACK_PTR(1 - arity);
             /* first copy vals[sp] elements if necessary */
             max_len = lens[dp];
@@ -498,8 +496,9 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 case MPR_INT32: {
                     switch (tok->op.idx) {
                         OP_CASES_META(i);
-                        case OP_DIVIDE:
+                        case OP_DIVIDE: {
                             /* Check for divide-by-zero */
+                            int i, j;
                             for (i = 0, j = 0; i < max_len; i++, j = (j + 1) % rlen) {
                                 if (vals[sp + vlen + j].i)
                                     vals[sp + i].i /= vals[sp + vlen + j].i;
@@ -523,6 +522,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                                 }
                             }
                             break;
+                        }
                         BINARY_OP_CASE(OP_MODULO, %, i);
                         BINARY_OP_CASE(OP_LEFT_BIT_SHIFT, <<, i);
                         BINARY_OP_CASE(OP_RIGHT_BIT_SHIFT, >>, i);
@@ -537,10 +537,12 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     switch (tok->op.idx) {
                         OP_CASES_META(f);
                         BINARY_OP_CASE(OP_DIVIDE, /, f);
-                        case OP_MODULO:
+                        case OP_MODULO: {
+                            int i;
                             for (i = 0; i < max_len; i++)
                                 vals[sp + i].f = fmodf(vals[sp + i].f, vals[sp + vlen + i % rlen].f);
                             break;
+                        }
                         default: goto error;
                     }
                     break;
@@ -549,10 +551,12 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     switch (tok->op.idx) {
                         OP_CASES_META(d);
                         BINARY_OP_CASE(OP_DIVIDE, /, d);
-                        case OP_MODULO:
+                        case OP_MODULO: {
+                            int i;
                             for (i = 0; i < max_len; i++)
                                 vals[sp + i].d = fmod(vals[sp + i].d, vals[sp + vlen + i % rlen].d);
                             break;
+                        }
                         default: goto error;
                     }
                     break;
@@ -567,7 +571,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             break;
         }
         case TOK_FN: {
-            int diff;
+            int i, diff;
             uint8_t max_len, llen, rlen, arity = fn_tbl[tok->fn.idx].arity;
             INCR_STACK_PTR(1 - arity);
             /* TODO: use preprocessor macro or inline func here */
@@ -634,7 +638,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             break;
         }
         case TOK_VFN: {
-            uint8_t arity = vfn_tbl[tok->fn.idx].arity;
+            uint8_t i, arity = vfn_tbl[tok->fn.idx].arity;
             INCR_STACK_PTR(1 - arity);
             if (VFN_CONCAT != tok->fn.idx
                 && (arity > 1 || VFN_DOT == tok->fn.idx)) {
@@ -718,6 +722,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     evalue_print(vals + sp, MPR_INT32, 1, dp);
 #endif
                     if (x) {
+                        int i;
                         /* find first active instance idx */
                         for (i = 0; i < mpr_value_get_num_inst(x); i++) {
                             if (mpr_value_get_num_samps(x, i) >= expr->max_src_mlen)
@@ -760,8 +765,9 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #endif
                     }
                     break;
-                case RT_INSTANCE:
+                case RT_INSTANCE: {
                     /* increment instance idx */
+                    int i;
                     if (x) {
                         for (i = inst_idx + 1; i < mpr_value_get_num_inst(x); i++) {
                             if (mpr_value_get_num_samps(x, i) >= expr->max_src_mlen)
@@ -799,6 +805,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                         --cache;
                     }
                     break;
+                }
                 case RT_SIGNAL:
                     ++sig_offset;
                     if (sig_offset < expr->num_src) {
@@ -856,7 +863,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         case TOK_COPY_FROM: {
             int dp_from = dp - tok->con.cache_offset;
             int sp_from = dp_from * vlen;
-            assert(dp_from >= 0 && dp_from < buff_size);
+            assert(dp_from >= 0 && dp_from < buff->size);
             INCR_STACK_PTR(1);
             SET_TYPE(tok->gen.datatype);
             SET_LEN(tok->gen.vec_len);
@@ -881,7 +888,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #endif
             break;
         }
-        case TOK_VECTORIZE:
+        case TOK_VECTORIZE: {
+            int i, j;
             /* don't need to copy vector elements from first token */
             INCR_STACK_PTR(1 - tok->fn.arity);
             for (i = 1, j = lens[dp]; i < tok->fn.arity; i++) {
@@ -894,6 +902,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             evalue_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
+        }
         case TOK_ASSIGN:
         case TOK_ASSIGN_USE:
             if (VAR_Y == tok->var.idx)
@@ -978,6 +987,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             switch (mpr_value_get_type(v)) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                                              \
                 case MTYPE: {                                                                   \
+                    int i, j;                                                                   \
                     TYPE *a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx);                    \
                     for (i = vidx, j = tok->var.offset; i < tok->gen.vec_len + vidx; i++, j++) {\
                         if (j >= lens[dp]) j = 0;                                               \
@@ -1002,6 +1012,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 
             if (tok->var.idx == VAR_Y) {
                 if (has_value) {
+                    int i, j;
                     for (i = 0, j = vidx; i < tok->gen.vec_len; i++, j++) {
                         if (j >= mpr_value_get_vlen(v)) j = 0;
                         mpr_bitflags_set(has_value, j);
@@ -1084,14 +1095,18 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #define TYPED_CASE(MTYPE0, T0, MTYPE1, TYPE1, T1, MTYPE2, TYPE2, T2)\
                 case MTYPE0:                                        \
                     switch (tok->gen.casttype) {                    \
-                        case MTYPE1:                                \
+                        case MTYPE1: {                              \
+                            int i;                                  \
                             for (i = sp; i < sp + lens[dp]; i++)    \
                                 vals[i].T1 = (TYPE1)vals[i].T0;     \
                             break;                                  \
-                        case MTYPE2:                                \
+                        }                                           \
+                        case MTYPE2: {                              \
+                            int i;                                  \
                             for (i = sp; i < sp + lens[dp]; i++)    \
                                 vals[i].T2 = (TYPE2)vals[i].T0;     \
                             break;                                  \
+                        }                                           \
                         default:                                    \
                             break;                                  \
                     }                                               \
@@ -1117,10 +1132,12 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         void *v = mpr_value_get_value(v_out, inst_idx, 0);
         switch (mpr_value_get_type(v_out)) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                          \
-            case MTYPE:                                                     \
+            case MTYPE: {                                                   \
+                int i, j;                                                   \
                 for (i = 0, j = sp; i < mpr_value_get_vlen(v_out); i++, j++)\
                     ((TYPE*)v)[i] = vals[j].T;                              \
-                break;
+                break;                                                      \
+            }
             TYPED_CASE(MPR_INT32, int, i)
             TYPED_CASE(MPR_FLT, float, f)
             TYPED_CASE(MPR_DBL, double, d)

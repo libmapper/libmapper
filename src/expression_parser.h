@@ -739,8 +739,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             if (TOK_LOOP_START == out_top->toktype)
                                 var_cache->loop_start_pos = (out->num_tokens - 1);
                         }
-                        // TODO: remove following line?
-                        {FAIL_IF(op->num_tokens < 0, "Malformed expression (4).");}
                     }
                     else {
                         free(in_name);

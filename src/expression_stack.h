@@ -79,7 +79,6 @@ static void estack_push_int(estack stk, int val, int vec_len, uint8_t flags)
     estack_push(stk, &tok);
 }
 
-// try freeing vectors if necessary?
 static etoken estack_pop(estack stk)
 {
     if (stk->num_tokens) {
@@ -406,7 +405,6 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
             arity = NUM_VAR_IDXS(tokens[sp].gen.flags) + 1;
             can_precompute = 0;
             break;
-//        case TOK_LOOP_END:
         case TOK_COPY_FROM:
         case TOK_MOVE:
             arity = 1;
@@ -558,10 +556,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
         }
         estack_promote_tokens(stk, i, type, 0);
         while (--i >= 0) {
-//            printf("i: %d, skip: %d, depth: %d...", i, skip, depth);
-//            etoken_print(&tokens[i], vars, 1);
-//            printf("\n");
-            int j = i;//, mod = 0;
+            int j = i;
             if (TOK_LOOP_END == tokens[i].toktype && tokens[i].con.flags & RT_VECTOR)
                 vec_reduce = 1;
             else if (TOK_LOOP_START == tokens[i].toktype && tokens[i].con.flags & RT_VECTOR)
@@ -572,7 +567,6 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
             /* promote types within range of compound arity */
             do {
                 if (skip <= 0) {
-//                    mod = estack_promote_tokens(stk, j, type, vec_reduce ? 0 : vec_len);
                     estack_promote_tokens(stk, j, type, vec_reduce ? 0 : vec_len);
                     --depth;
                     if (!vec_reduce && !(tokens[j].gen.flags & VEC_LEN_LOCKED)) {
@@ -582,7 +576,6 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                     }
                 }
                 else {
-//                    mod = estack_promote_tokens(stk, j, type, 0);
                     estack_promote_tokens(stk, j, type, 0);
                 }
 
@@ -598,19 +591,16 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                             ++offset;
                         else if (tokens[j].toktype <= TOK_MOVE)
                             offset += etoken_get_arity(&tokens[j]) - 1;
-//                        mod = estack_promote_tokens(stk, j, type, 0);
                         estack_promote_tokens(stk, j, type, 0);
                     }
                     assert(j >= 0);
                 }
             } while (TOK_COPY_FROM == tokens[j].toktype);
 
-//            printf("mod: %d\n", mod);
             if (TOK_ASSIGN_USE == tokens[i].toktype) {
                 skip += etoken_get_arity(&tokens[i]) + 2;
             }
             if (TOK_VECTORIZE == tokens[i].toktype || TOK_VFN == tokens[i].toktype) {
-//            if (!mod || TOK_VECTORIZE == tokens[i].toktype || TOK_VFN == tokens[i].toktype) {
                 skip += etoken_get_arity(&tokens[i]) + 1;
             }
             else if (skip > 0) {
