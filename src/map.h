@@ -97,4 +97,6 @@ void mpr_map_remove_scope_internal(mpr_map map, mpr_dev dev);
 
 void mpr_map_clear_empty_props(mpr_local_map map);
 
+mpr_id_map mpr_local_map_get_id_map(mpr_local_map map);
+
 #endif /* __MPR_MAP_H__ */

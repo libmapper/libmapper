@@ -63,7 +63,7 @@ typedef struct _mpr_local_map {
     mpr_local_slot *src;
     mpr_local_slot dst;
 
-    mpr_id_map id_map;              /*!< Associated mpr_id_map. */
+    mpr_id_map_t id_map;            /*!< Associated mpr_id_map. */
 
     mpr_expr expr;                  /*!< The mapping expression. */
     mpr_bitflags updated_inst;      /*!< Bitflags to indicate updated instances. */
@@ -375,9 +375,9 @@ void mpr_map_free(mpr_map map)
             }
         }
 
-        if (lmap->id_map) {
+        if (lmap->id_map.LID) {
             /* release map-generated instances */
-            lo_message msg = mpr_map_build_msg(lmap, 0, 0, 0, lmap->id_map);
+            lo_message msg = mpr_map_build_msg(lmap, 0, 0, 0, &lmap->id_map);
             mpr_time time;
             mpr_time_set(&time, MPR_NOW);
             if (lmap->locality & MPR_LOC_DST) {
@@ -390,19 +390,6 @@ void mpr_map_free(mpr_map map)
                 mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(mpr_slot_get_sig(map->src[0]));
                 mpr_local_slot_send_msg(lmap->dst, msg, time, MPR_PROTO_TCP);
                 mpr_local_dev_set_sending(dev);
-            }
-
-            /* TODO: is this the same as (MPR_LOC_SRC | lmap->locality)? */
-            if (MPR_DIR_OUT == mpr_slot_get_dir(map->dst) || MPR_LOC_BOTH == lmap->locality) {
-                /* TODO: link main id_map from graph? */
-                mpr_sig sig;
-                for (i = 0; i < map->num_src; i++) {
-                    sig = mpr_slot_get_sig(map->src[i]);
-                    if (mpr_obj_get_is_local((mpr_obj)sig)) {
-                        mpr_dev_LID_decref((mpr_local_dev)mpr_sig_get_dev(sig), 0, lmap->id_map);
-                        break;
-                    }
-                }
             }
         }
 
@@ -654,7 +641,7 @@ static int update_scope(mpr_map m, mpr_msg_atom a)
  * 3) can bundle map output during iteration
  *
  * Plan of change:
- * 1) move id_maps to maps
+ * 1) move id_maps from signals to maps
  * 2) on release of local instance, can reuse instance resource and mark id_map as "to release"
  * 3) map should iterate through active id_maps instead of instances
  * 4) when it comes to "to release" id_map, send release and decref LID
@@ -669,7 +656,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     mpr_local_slot src_slot;
     mpr_local_sig src_sig;
     mpr_sig dst_sig;
-    mpr_id_map id_map = 0;
+    mpr_id_map sig_id_map = 0;
     mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
     mpr_bitflags has_value;
 
@@ -697,12 +684,14 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
     dst_val = mpr_slot_get_value(m->dst);
 
-    if (m->use_inst && !mpr_sig_get_use_inst((mpr_sig)src_sig)) {
+    if (m->use_inst && mpr_expr_get_manages_inst(m->expr)) {
         map_manages_inst = 1;
-        id_map = m->id_map;
     }
-
     has_value = mpr_bitflags_new(mpr_sig_get_len(dst_sig));
+
+    /* TODO: once releases are added to bitflags, find an instance with a value first to check
+     * whether EXPR_EVAL_DONE flag is added. If not, go back and handle releases for previous
+     * instances */
 
     for (i = 0; i < m->num_inst; i++) {
         /* Check if this instance has been updated */
@@ -714,46 +703,67 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         if (!status)
             continue;
 
-        if (mpr_sig_get_use_inst((mpr_sig)src_sig) && !map_manages_inst) {
-            id_map = mpr_local_sig_get_id_map_by_inst_idx(src_sig, i);
-            if (!id_map) {
+        if (!m->use_inst)
+            status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
+
+        if (mpr_sig_get_use_inst((mpr_sig)src_sig)) {
+            sig_id_map = mpr_local_sig_get_id_map_by_inst_idx(src_sig, i);
+            if (!sig_id_map) {
                 trace("error: couldn't find id_map for signal instance idx %d\n", i);
                 continue;
             }
         }
 
         /* send instance release if dst is instanced and either src or map is also instanced. */
-        if (id_map && status & EXPR_RELEASE_BEFORE_UPDATE && m->use_inst) {
-            msg = mpr_map_build_msg(m, 0, 0, 0, id_map);
-            mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
-            if (map_manages_inst) {
-                mpr_dev_LID_decref(dev, 0, id_map);
-                id_map = m->id_map = 0;
+        if (status & EXPR_RELEASE_BEFORE_UPDATE) {
+            if (!map_manages_inst || !sig_id_map) {
+                msg = mpr_map_build_msg(m, 0, 0, 0, sig_id_map);
+                mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
+            }
+            else if (sig_id_map->GID == m->id_map.LID) {
+                msg = mpr_map_build_msg(m, 0, 0, 0, &m->id_map);
+                mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
+                m->id_map.LID = 0;
             }
         }
+
         if (status & EXPR_UPDATE) {
             /* send instance update */
             void *result = mpr_value_get_value(dst_val, i, 0);
-            if (map_manages_inst && !id_map) {
-                /* create an id_map and store it in the map */
-                id_map = m->id_map = mpr_dev_add_id_map(dev, 0, 0, 0);
+            mpr_time *time = mpr_value_get_time(dst_val, i, 0);
+            if (!map_manages_inst || !sig_id_map) {
+                msg = mpr_map_build_msg(m, 0, result, has_value, sig_id_map);
+                mpr_local_slot_send_msg(m->dst, msg, *time, m->protocol);
             }
-            msg = mpr_map_build_msg(m, 0, result, has_value, id_map);
-            mpr_local_slot_send_msg(m->dst, msg, *(mpr_time*)mpr_value_get_time(dst_val, i, 0),
-                                    m->protocol);
+            else {
+                if (!m->id_map.LID) {
+                    m->id_map.LID = sig_id_map->GID;
+                    m->id_map.GID = mpr_dev_generate_unique_id((mpr_dev)dev);
+                }
+                if (sig_id_map->GID == m->id_map.LID) {
+                    msg = mpr_map_build_msg(m, 0, result, has_value, &m->id_map);
+                    mpr_local_slot_send_msg(m->dst, msg, *time, m->protocol);
+                }
+            }
         }
+
         /* send instance release if dst is instanced and either src or map is also instanced. */
-        if (id_map && status & EXPR_RELEASE_AFTER_UPDATE && m->use_inst) {
-            msg = mpr_map_build_msg(m, 0, 0, 0, id_map);
-            mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
-            if (map_manages_inst) {
-                mpr_dev_LID_decref(dev, 0, id_map);
-                id_map = m->id_map = 0;
+        if (status & EXPR_RELEASE_AFTER_UPDATE) {
+            if (!map_manages_inst || !sig_id_map) {
+                msg = mpr_map_build_msg(m, 0, 0, 0, sig_id_map);
+                mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
+            }
+            else if (sig_id_map->GID == m->id_map.LID) {
+                msg = mpr_map_build_msg(m, 0, 0, 0, &m->id_map);
+                mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
+                m->id_map.LID = 0;
             }
         }
+
         if (status & EXPR_EVAL_DONE)
             break;
     }
+
     mpr_bitflags_free(has_value);
     mpr_bitflags_clear(m->updated_inst, m->num_inst);
     m->updated = 0;
@@ -768,7 +778,6 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     mpr_sig src_sig;
     mpr_local_sig dst_sig;
     mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
-    mpr_id_map id_map = 0;
     mpr_bitflags has_value;
 
     assert(m->obj.is_local);
@@ -793,14 +802,10 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     dst_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)m->dst);
     dst_val = mpr_slot_get_value(m->dst);
 
-    if (!mpr_sig_get_use_inst(src_sig)) {
-        if (mpr_expr_get_manages_inst(m->expr)) {
-            map_manages_inst = 1;
-            id_map = m->id_map;
-        }
-        else
-            id_map = 0;
+    if (mpr_expr_get_manages_inst(m->expr)) {
+        map_manages_inst = 1;
     }
+
     has_value = mpr_bitflags_new(mpr_sig_get_len((mpr_sig)dst_sig));
     for (i = 0; i < m->num_inst; i++) {
         void *value;
@@ -808,17 +813,21 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             continue;
         status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
                                src_vals, m->vars, dst_val, &time, has_value, i);
+        if (!m->use_inst)
+            status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
+
         if (!status)
             continue;
+
         value = mpr_value_get_value(dst_val, i, 0);
-        mpr_local_sig_set_inst_value(dst_sig, value, i, id_map, status, map_manages_inst, time);
+        mpr_local_sig_set_inst_value(dst_sig, value, i, &m->id_map, status, map_manages_inst, time);
 
         if ((status & EXPR_EVAL_DONE) && !m->use_inst) {
             /* Don't need to re-evaluate, but need to apply update to remaining active instances */
             for (++i; i < m->num_inst; i++) {
                 if (!mpr_bitflags_get(m->updated_inst, i))
                     continue;
-                mpr_local_sig_set_inst_value(dst_sig, value, i, id_map, status, map_manages_inst, time);
+                mpr_local_sig_set_inst_value(dst_sig, value, i, &m->id_map, status, map_manages_inst, time);
             }
             break;
         }
@@ -1364,17 +1373,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
 
     trace("setting map expression to '%s'\n", expr_str ? expr_str : "default");
 
-    /* deal with instances activated by the previous expression */
-    if (m->id_map) {
-        mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->src[0]);
-        if (mpr_obj_get_is_local((mpr_obj)sig))
-            mpr_dev_LID_decref((mpr_local_dev)mpr_sig_get_dev(sig), 0, m->id_map);
-        if (MPR_LOC_BOTH != m->locality) {
-            sig = mpr_slot_get_sig((mpr_slot)m->dst);
-            if (mpr_obj_get_is_local((mpr_obj)sig))
-                mpr_dev_LID_decref((mpr_local_dev)mpr_sig_get_dev(sig), 0, m->id_map);
-        }
-    }
+    m->id_map.LID = 0;
 
     if (!(m->process_loc & m->locality)) {
         /* don't need to compile */
@@ -2217,4 +2216,9 @@ void mpr_map_status_decr(mpr_map map)
         map->obj.status &= (map->obj.status >> 1 | 0x3FFF);
     else
         map->obj.status |= MPR_STATUS_EXPIRED;
+}
+
+mpr_id_map mpr_local_map_get_id_map(mpr_local_map map)
+{
+    return &map->id_map;
 }

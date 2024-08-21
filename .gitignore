@@ -65,6 +65,7 @@ test/testcustomtransport
 test/testexpression
 test/testgraph
 test/testinstance
+test/testinstance_no_cb
 test/testinterrupt
 test/testlinear
 test/testlist

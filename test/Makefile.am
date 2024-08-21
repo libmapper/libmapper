@@ -17,6 +17,7 @@ if WINDOWS_DLL
         testgraph \
         testsetiface \
         testinstance \
+        testinstance_no_cb \
         testlinear \
         testlist \
         testlocalmap \
@@ -57,6 +58,7 @@ if WINDOWS_DLL
         testrate \
         testbundle \
         testinstance \
+        testinstance_no_cb \
         testreverse \
         testvector \
         testcustomtransport \
@@ -89,6 +91,7 @@ else
         testgraph \
         testsetiface \
         testinstance \
+        testinstance_no_cb \
         testinterrupt \
         testlinear \
         testlist \
@@ -131,6 +134,7 @@ else
         testrate \
         testbundle \
         testinstance \
+        testinstance_no_cb \
         testreverse \
         testvector \
         testcustomtransport \
@@ -194,6 +198,10 @@ testsetiface_LDADD = $(TEST_LDADD)
 testinstance_CFLAGS = $(TEST_CFLAGS)
 testinstance_SOURCES = testinstance.c
 testinstance_LDADD = $(TEST_LDADD)
+
+testinstance_no_cb_CFLAGS = $(TEST_CFLAGS)
+testinstance_no_cb_SOURCES = testinstance_no_cb.c
+testinstance_no_cb_LDADD = $(TEST_LDADD)
 
 testinterrupt_CFLAGS = $(TEST_CFLAGS)
 testinterrupt_SOURCES = testinterrupt.c
