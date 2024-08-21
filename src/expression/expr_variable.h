@@ -1,5 +1,5 @@
-#ifndef __MPR_EXPRESSION_VARIABLE_H__
-#define __MPR_EXPRESSION_VARIABLE_H__
+#ifndef __MPR_EXPR_VARIABLE_H__
+#define __MPR_EXPR_VARIABLE_H__
 
 #include <ctype.h>
 
@@ -90,4 +90,4 @@ static const char* _get_var_str_and_len(const char* str, int last_char, int *len
     return str + idx + 1;
 }
 
-#endif /* __MPR_EXPRESSION_VARIABLE_H__ */
+#endif /* __MPR_EXPR_VARIABLE_H__ */

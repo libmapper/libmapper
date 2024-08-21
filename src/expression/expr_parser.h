@@ -1,9 +1,9 @@
-#ifndef __MPR_EXPRESSION_PARSER_H__
-#define __MPR_EXPRESSION_PARSER_H__
+#ifndef __MPR_EXPR_PARSER_H__
+#define __MPR_EXPR_PARSER_H__
 
 #include <assert.h>
-#include "expression_lexer.h"
-#include "expression_stack.h"
+#include "expr_lexer.h"
+#include "expr_stack.h"
 
 #define STACK_SIZE 64
 
@@ -1671,4 +1671,4 @@ error:
     return 1;
 }
 
-#endif /* __MPR_EXPRESSION_PARSER_H__ */
+#endif /* __MPR_EXPR_PARSER_H__ */

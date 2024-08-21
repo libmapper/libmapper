@@ -1,7 +1,7 @@
-#ifndef __MPR_EXPRESSION_VALUE_H__
-#define __MPR_EXPRESSION_VALUE_H__
+#ifndef __MPR_EXPR_VALUE_H__
+#define __MPR_EXPR_VALUE_H__
 
-#include "expression_trace.h"
+#include "expr_trace.h"
 
 typedef union _evalue {
     float f;
@@ -45,4 +45,4 @@ static void evalue_print(evalue val, mpr_type type, int len, int prefix)
 }
 #endif
 
-#endif /* __MPR_EXPRESSION_VALUE_H__ */
+#endif /* __MPR_EXPR_VALUE_H__ */

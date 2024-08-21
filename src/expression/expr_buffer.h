@@ -1,7 +1,7 @@
-#ifndef __MPR_EXPRESSION_BUFFER_H__
-#define __MPR_EXPRESSION_BUFFER_H__
+#ifndef __MPR_EXPR_BUFFER_H__
+#define __MPR_EXPR_BUFFER_H__
 
-#include "expression_value.h"
+#include "expr_value.h"
 
 /* could we use mpr_value here instead, with stack idx instead of history idx?
  * pro: vectors, commonality with I/O
@@ -57,4 +57,4 @@ void ebuffer_free(ebuffer buff)
     free(buff);
 }
 
-#endif /* __MPR_EXPRESSION_BUFFER_H__ */
+#endif /* __MPR_EXPR_BUFFER_H__ */

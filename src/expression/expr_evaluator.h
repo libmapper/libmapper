@@ -1,9 +1,9 @@
-#ifndef __MPR_EXPRESSION_EVALUATOR_H__
-#define __MPR_EXPRESSION_EVALUATOR_H__
+#ifndef __MPR_EXPR_EVALUATOR_H__
+#define __MPR_EXPR_EVALUATOR_H__
 
-#include "expression_buffer.h"
-#include "expression_struct.h"
-#include "expression_token.h"
+#include "expr_buffer.h"
+#include "expr_struct.h"
+#include "expr_token.h"
 #include <mapper/mapper.h>
 
 #define UNARY_OP_CASE(OP, SYM, T)               \
@@ -1163,4 +1163,4 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     return 0;
 }
 
-#endif /* __MPR_EXPRESSION_EVALUATOR_H__ */
+#endif /* __MPR_EXPR_EVALUATOR_H__ */

@@ -2,19 +2,19 @@
 noinst_HEADERS = bitflags.h \
     device.h \
     expression.h \
-    expression_buffer.h \
-    expression_constant.h \
-    expression_evaluator.h \
-    expression_function.h \
-    expression_lexer.h \
-    expression_operator.h \
-    expression_parser.h \
-    expression_stack.h \
-    expression_struct.h \
-    expression_token.h \
-    expression_trace.h \
-    expression_value.h \
-    expression_variable.h \
+    expression/expr_buffer.h \
+    expression/expr_constant.h \
+    expression/expr_evaluator.h \
+    expression/expr_function.h \
+    expression/expr_lexer.h \
+    expression/expr_operator.h \
+    expression/expr_parser.h \
+    expression/expr_stack.h \
+    expression/expr_struct.h \
+    expression/expr_token.h \
+    expression/expr_trace.h \
+    expression/expr_value.h \
+    expression/expr_variable.h \
     graph.h \
     id.h \
     id_map.h \

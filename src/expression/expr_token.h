@@ -1,13 +1,13 @@
-#ifndef __MPR_EXPRESSION_TOKEN_H__
-#define __MPR_EXPRESSION_TOKEN_H__
+#ifndef __MPR_EXPR_TOKEN_H__
+#define __MPR_EXPR_TOKEN_H__
 
 #include <float.h>
 #include <limits.h>
-#include "expression_constant.h"
-#include "expression_function.h"
-#include "expression_trace.h"
-#include "expression_variable.h"
-#include "util/mpr_inline.h"
+#include "expr_constant.h"
+#include "expr_function.h"
+#include "expr_trace.h"
+#include "expr_variable.h"
+#include "../util/mpr_inline.h"
 
 #define TOKEN_SIZE sizeof(etoken_t)
 
@@ -559,4 +559,4 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
 }
 #endif /* TRACE_PARSE || TRACE_EVAL */
 
-#endif /* __MPR_EXPRESSION_TOKEN_H__ */
+#endif /* __MPR_EXPR_TOKEN_H__ */

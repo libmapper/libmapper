@@ -1,13 +1,13 @@
-#ifndef __MPR_EXPRESSION_LEXER_H__
-#define __MPR_EXPRESSION_LEXER_H__
+#ifndef __MPR_EXPR_LEXER_H__
+#define __MPR_EXPR_LEXER_H__
 
 #include <ctype.h>
-#include "expression_token.h"
+#include "expr_token.h"
 
 /* TODO: provide feedback to user */
 #define lex_error trace
 
-/* TODO: move to expression_variable.h */
+/* TODO: move to expr_variable.h */
 static int var_lookup(etoken tok, const char *s, int len)
 {
     if ('t' != *s || '_' != *(s+1))
@@ -305,4 +305,4 @@ static int expr_lex(const char *str, int idx, etoken tok)
     return 1;
 }
 
-#endif /* #ifndef __MPR_EXPRESSION_LEXER_H__ */
+#endif /* #ifndef __MPR_EXPR_LEXER_H__ */

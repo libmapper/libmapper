@@ -1,5 +1,5 @@
-#ifndef __MPR_EXPRESSION_OPERATOR_H__
-#define __MPR_EXPRESSION_OPERATOR_H__
+#ifndef __MPR_EXPR_OPERATOR_H__
+#define __MPR_EXPR_OPERATOR_H__
 
 typedef enum {
     OP_UNKNOWN = -1,
@@ -65,4 +65,4 @@ static struct {
     { "IFTHENELSE", 3, 0,  NONE     | NONE     <<4 | NONE     <<8 | NONE     <<12 },
 };
 
-#endif /* __MPR_EXPRESSION_OPERATOR_H__ */
+#endif /* __MPR_EXPR_OPERATOR_H__ */

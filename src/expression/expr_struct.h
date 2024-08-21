@@ -1,8 +1,8 @@
-#ifndef __MPR_EXPRESSION_STRUCT_H__
-#define __MPR_EXPRESSION_STRUCT_H__
+#ifndef __MPR_EXPR_STRUCT_H__
+#define __MPR_EXPR_STRUCT_H__
 
-#include "expression_stack.h"
-#include "expression_variable.h"
+#include "expr_stack.h"
+#include "expr_variable.h"
 
 struct _mpr_expr
 {
@@ -18,4 +18,4 @@ struct _mpr_expr
     int8_t own_stack;
 };
 
-#endif /* __MPR_EXPRESSION_STRUCT_H__ */
+#endif /* __MPR_EXPR_STRUCT_H__ */

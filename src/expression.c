@@ -4,17 +4,17 @@
 
 #include "map.h"
 #include "expression.h"
-#include "expression_buffer.h"
-#include "expression_evaluator.h"
-#include "expression_function.h"
-#include "expression_operator.h"
-#include "expression_parser.h"
-#include "expression_stack.h"
-#include "expression_struct.h"
-#include "expression_token.h"
-#include "expression_trace.h"
-#include "expression_value.h"
-#include "expression_variable.h"
+#include "expression/expr_buffer.h"
+#include "expression/expr_evaluator.h"
+#include "expression/expr_function.h"
+#include "expression/expr_operator.h"
+#include "expression/expr_parser.h"
+#include "expression/expr_stack.h"
+#include "expression/expr_struct.h"
+#include "expression/expr_token.h"
+#include "expression/expr_trace.h"
+#include "expression/expr_value.h"
+#include "expression/expr_variable.h"
 #include <mapper/mapper.h>
 
 #ifdef _MSC_VER

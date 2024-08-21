@@ -1,8 +1,8 @@
-#ifndef __MPR_EXPRESSION_STACK_H__
-#define __MPR_EXPRESSION_STACK_H__
+#ifndef __MPR_EXPR_STACK_H__
+#define __MPR_EXPR_STACK_H__
 
 #include <assert.h>
-#include "expression_token.h"
+#include "expr_token.h"
 
 #define ESTACK_TOP -1
 
@@ -868,4 +868,4 @@ static void estack_print(const char *s, estack stk, expr_var_t *vars, int show_i
 }
 #endif /* TRACE_PARSE */
 
-#endif /* __MPR_EXPRESSION_STACK_H__ */
+#endif /* __MPR_EXPR_STACK_H__ */

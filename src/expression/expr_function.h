@@ -1,10 +1,10 @@
-#ifndef __MPR_EXPRESSION_FUNCTION_H__
-#define __MPR_EXPRESSION_FUNCTION_H__
+#ifndef __MPR_EXPR_FUNCTION_H__
+#define __MPR_EXPR_FUNCTION_H__
 
 #include <ctype.h>
 #include <math.h>
-#include "expression_operator.h"
-#include "expression_value.h"
+#include "expr_operator.h"
+#include "expr_value.h"
 
 #define EXTREMA_FUNC(NAME, TYPE, OP)    \
     static TYPE NAME(TYPE x, TYPE y) { return (x OP y) ? x : y; }
@@ -599,4 +599,4 @@ MPR_INLINE static int _reduce_type_from_fn_idx(int fn)
     }
 }
 
-#endif /* __MPR_EXPRESSION_FUNCTION_H__ */
+#endif /* __MPR_EXPR_FUNCTION_H__ */

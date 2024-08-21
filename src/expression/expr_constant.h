@@ -1,5 +1,5 @@
-#ifndef __MPR_EXPRESSION_CONSTANT_H__
-#define __MPR_EXPRESSION_CONSTANT_H__
+#ifndef __MPR_EXPR_CONSTANT_H__
+#define __MPR_EXPR_CONSTANT_H__
 
 /* Const special flags */
 #define CONST_MINVAL    0x0001
@@ -18,4 +18,4 @@ static int const_lookup(const char *s, int len)
         return 0;
 }
 
-#endif /* __MPR_EXPRESSION_CONSTANT_H__ */
+#endif /* __MPR_EXPR_CONSTANT_H__ */
