@@ -10,6 +10,7 @@
         <PackageIcon>libmapper_logo_black_512px.png</PackageIcon>
         <RepositoryUrl>https://github.com/libmapper/libmapper</RepositoryUrl>
         <PackageLicenseExpression>LGPL-2.1-only</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <NeutralLanguage>en</NeutralLanguage>
         <Version>2.4.9.0</Version>
         <TargetFrameworks>net8.0;netstandard2.1;net6.0;net7.0</TargetFrameworks>
@@ -31,6 +32,7 @@
         <Pack>true</Pack>
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
+      <None Include="..\README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
 </Project>
