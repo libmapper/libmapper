@@ -3,7 +3,7 @@
     <PropertyGroup>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <Title>Mapper.NET</Title>
+        <Title>Libmapper.NET</Title>
         <Authors>Joseph Malloch, Libmapper Contributors, Kyle Smith</Authors>
         <Description>A library for connecting things.</Description>
         <PackageProjectUrl>https://libmapper.github.io</PackageProjectUrl>

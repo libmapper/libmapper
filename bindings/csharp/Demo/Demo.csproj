@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Mapper.NET\Mapper.NET.csproj" />
+      <ProjectReference Include="..\Libmapper.NET\Libmapper.NET.csproj" />
     </ItemGroup>
 
 </Project>
