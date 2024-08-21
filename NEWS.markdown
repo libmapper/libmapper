@@ -1,5 +1,30 @@
 # libmapper NEWS
 
+Version 2.4.10
+--------------
+
+We are pleased to announce the release of version 2.4.10 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This release provides importnat fixes for signal instance management when the instance `status` API is used rather than registering callbacks. It also contains changes to the C# bindings in preparation for publishing to nuget.
+
+Fixes:
+
+- adding missing files to dist
+- fixed memory alignment of objects stored in a `mpr_list`
+- fixes for instance menagement when callbacks are not used and when instances are modified by the map expression.
+
+Refactoring:
+
+- refactoring expression engine
+
+Bindings:
+
+- renamed Mapper.NET -> Libmapper.NET, added README, license in preparation for publishing on Nuget
+
+Tests:
+
+- added `testinstance_no_cb.c` to test suite
+
 Version 2.4.9
 -------------
 

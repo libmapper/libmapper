@@ -12,7 +12,7 @@
         <PackageLicenseExpression>LGPL-2.1-only</PackageLicenseExpression>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <NeutralLanguage>en</NeutralLanguage>
-        <Version>2.4.9.0</Version>
+        <Version>2.4.10.0</Version>
         <TargetFrameworks>net8.0;netstandard2.1;net6.0;net7.0</TargetFrameworks>
         <LangVersion>latest</LangVersion>
         <IncludeSymbols>true</IncludeSymbols>

@@ -477,7 +477,7 @@ In a scenario where `x` represents the touch coordinates on a multitouch surface
 
 <h3 id="reduce">Reduce() with arrow expressions</h3>
 
-In addition to the specialised reducing functions mentioned above, map expression can also include the function `reduce()` with a user-defined arrow function that operates over any of the four signal dimensions:
+In addition to the specialised reducing functions mentioned above, map expressions can also include the function `reduce()` with a user-defined arrow function that operates over any of the four signal dimensions:
 
 dimension        | syntax
 -----------------|---------------------------
