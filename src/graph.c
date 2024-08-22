@@ -882,25 +882,36 @@ void mpr_graph_print(mpr_graph g)
 /* TODO: consider throttling */
 void mpr_graph_housekeeping(mpr_graph g)
 {
-    mpr_list devs = mpr_list_from_data(g->devs);
+    mpr_list list = mpr_list_from_data(g->devs);
     mpr_subscription s;
     mpr_time t;
     mpr_time_set(&t, MPR_NOW);
 
     /* check if any known devices have expired */
     t.sec -= TIMEOUT_SEC;
-    while (devs) {
-        mpr_obj dev = *devs;
-        devs = mpr_list_get_next(devs);
+    while (list) {
+        mpr_obj dev = *list;
+        list = mpr_list_get_next(list);
         /* check if device has "checked in" recently – could be /sync ping or any sent metadata */
-        if (!dev->is_local && !mpr_dev_check_synced((mpr_dev)dev, t)) {
-            /* do nothing if device is linked to local device; will be handled in network.c */
-            if (!mpr_dev_has_local_link((mpr_dev)dev)) {
-                /* remove subscription */
-                mpr_graph_subscribe(g, (mpr_dev)dev, 0, 0);
-                mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_STATUS_EXPIRED);
+        if (!dev->is_local) {
+            if (!mpr_dev_check_synced((mpr_dev)dev, t)) {
+                /* do nothing if device is linked to local device; will be handled in network.c */
+                if (!mpr_dev_has_local_link((mpr_dev)dev)) {
+                    /* remove subscription */
+                    mpr_graph_subscribe(g, (mpr_dev)dev, 0, 0);
+                    mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_STATUS_EXPIRED);
+                }
             }
         }
+    }
+
+    /* check if any signals need to be removed */
+    list = mpr_list_from_data(g->sigs);
+    while (list) {
+        mpr_obj sig = *list;
+        list = mpr_list_get_next(list);
+        if (sig->status & MPR_STATUS_REMOVED)
+            mpr_graph_remove_sig(g, (mpr_sig)sig, MPR_STATUS_REMOVED);
     }
 
     /* check if any subscriptions need to be renewed */

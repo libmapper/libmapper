@@ -765,30 +765,26 @@ void mpr_sig_free(mpr_sig sig)
         mpr_net_add_msg(mpr_graph_get_net(lsig->obj.graph), 0, MSG_SIG_REM, msg);
     }
 
-    /* Free instances */
-    for (i = 0; i < lsig->num_id_maps; i++) {
-        if (lsig->id_maps[i].inst)
-            mpr_sig_release_inst_internal(lsig, i);
-    }
-    free(lsig->id_maps);
-    for (i = 0; i < lsig->num_inst; i++) {
-        mpr_bitflags_free(lsig->inst[i]->has_value_flags);
-        free(lsig->inst[i]);
-    }
-    free(lsig->inst);
-    mpr_bitflags_free(lsig->updated_inst);
-    mpr_bitflags_free(lsig->vec_known);
-    mpr_value_free(lsig->value);
-
-    mpr_graph_remove_sig(sig->obj.graph, sig, MPR_STATUS_REMOVED);
+    sig->obj.status |= MPR_STATUS_REMOVED;
 }
 
 void mpr_sig_free_internal(mpr_sig sig)
 {
+    int i;
     RETURN_UNLESS(sig);
     mpr_dev_remove_sig(sig->dev, sig);
     if (sig->obj.is_local) {
         mpr_local_sig lsig = (mpr_local_sig)sig;
+        free(lsig->id_maps);
+        for (i = 0; i < lsig->num_inst; i++) {
+            mpr_bitflags_free(lsig->inst[i]->has_value_flags);
+            free(lsig->inst[i]);
+        }
+        free(lsig->inst);
+        mpr_bitflags_free(lsig->updated_inst);
+        mpr_bitflags_free(lsig->vec_known);
+        mpr_value_free(lsig->value);
+
         FUNC_IF(free, lsig->slots_in);
         FUNC_IF(free, lsig->slots_out);
     }
