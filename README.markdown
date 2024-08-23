@@ -19,10 +19,23 @@
       src="https://img.shields.io/github/tag/libmapper/libmapper.svg?style=flat-square"
     />
   </a>
-  <a href="https://github.com/libmapper/libmapper/releases">
+  
+  <a href="https://pypi.org/project/libmapper/">
     <img
-      alt="downloads:?"
-      src="https://img.shields.io/github/downloads/libmapper/libmapper/total.svg?style=flat-square"
+      alt="pipi:?"
+      src="https://img.shields.io/pypi/v/libmapper?color=%23f7e11b"
+    />
+  </a>
+  <a href="https://www.nuget.org/packages/Libmapper.NET">
+    <img
+      alt="nuget:?"
+      src="https://img.shields.io/nuget/v/Mapper.NET"
+    />
+  </a>
+  <a href="https://crates.io/crates/libmapper-rs">
+    <img
+      alt="crate:?"
+      src="https://img.shields.io/crates/v/libmapper-rs?color=%23fede9e"
     />
   </a>
   <a href="https://github.com/libmapper/libmapper/actions/workflows/ci.yml">
