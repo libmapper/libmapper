@@ -338,7 +338,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     mpr_local_dev dev;
     mpr_sig_inst si;
     mpr_net net = mpr_graph_get_net(sig->obj.graph);
-    int i, val_len = 0, vals, all;
+    int i, val_len = 0, vals, all = 0;
     int id_map_idx, inst_idx, slot_id = -1, map_manages_inst = 0;
     mpr_id GID = 0;
     mpr_id_map id_map;
@@ -428,17 +428,13 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             GID = id_map->GID;
         }
 
-        id_map_idx = mpr_sig_get_id_map_with_GID(sig, GID, RELEASED_LOCALLY, time, 0);
-        if (id_map_idx < 0) {
-            /* No instance found with this id_map – don't activate instance just to release it again */
-            RETURN_ARG_UNLESS(vals && sig->dir == MPR_DIR_IN, 0);
+        /* don't activate an instance just to release it again */
+        id_map_idx = mpr_sig_get_id_map_with_GID(sig, GID, RELEASED_LOCALLY, time,
+                                                 (vals && sig->dir == MPR_DIR_IN));
+        TRACE_RETURN_UNLESS(id_map_idx >= 0, 0,
+                            "no instances available for GUID %"PR_MPR_ID"\n", GID);
 
-            /* otherwise try to init reserved/stolen instance with device map */
-            id_map_idx = mpr_sig_get_id_map_with_GID(sig, GID, RELEASED_REMOTELY, time, 1);
-            TRACE_RETURN_UNLESS(id_map_idx >= 0, 0,
-                                "no instances available for GUID %"PR_MPR_ID"\n", GID);
-        }
-        else if (sig->id_maps[id_map_idx].status & RELEASED_LOCALLY) {
+        if (sig->id_maps[id_map_idx].status & RELEASED_LOCALLY) {
             /* instance was already released locally, we are only interested in release messages */
             if (0 == vals) {
                 /* we can clear signal's reference to map */
@@ -513,16 +509,13 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
         return 0;
     }
 
-    all = !GID;
-    if (map) {
-        /* Or if this signal slot is non-instanced but the map has other instanced
-         * sources we will need to update all of the destination instances. */
-        all |= (   !mpr_map_get_use_inst((mpr_map)map)
-                || (   mpr_map_get_num_src((mpr_map)map) > 1
-                    && mpr_local_map_get_num_inst(map) > slot_sig->num_inst));
-    }
-    if (all)
+    /* If no instance id was included in the message we will apply this update to all instances */
+    /* Also apply to all instances if the map is convergent and other slot signals are instanced */
+    if (!GID || (map && mpr_local_map_get_num_inst(map) > slot_sig->num_inst)) {
+        all = 1;
         id_map_idx = 0;
+    }
+
     if (map) {
         /* Setting to local timestamp here */
         time = mpr_dev_get_time((mpr_dev)dev);
@@ -816,6 +809,8 @@ void mpr_sig_call_handler(mpr_local_sig lsig, int evt, mpr_id id, unsigned int i
 
 /**** Instances ****/
 
+/* Id the `id` argument is NULL, we have an added requirement to avoid LIDs that are already in use
+ * in the device id_map (i.e. that have a local refcount > 0 */
 static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
 {
     trace("trying to retrieve reserved instance...\n");
@@ -826,8 +821,10 @@ static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
     trace("  checking released instances...\n");
     for (i = 0; i < lsig->num_id_maps; i++) {
         if (!lsig->id_maps[i].id_map && (si = lsig->id_maps[i].inst)) {
-            trace("    found released instance at id_maps[%d]\n", i);
-            goto done;
+            if (!id && !mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, si->id, 0)) {
+                trace("    found released instance at id_maps[%d]\n", i);
+                goto done;
+            }
         }
     }
 
@@ -835,7 +832,8 @@ static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
     /* Next we will try to find an inactive instance */
     for (i = 0; i < lsig->num_inst; i++) {
         si = lsig->inst[i];
-        if (!(si->status & MPR_STATUS_ACTIVE)) {
+        if (  !(si->status & MPR_STATUS_ACTIVE)
+            && (id || !mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, si->id, 0))) {
             trace("    found inactive instance at inst[%d]\n", i);
             goto done;
         }
@@ -850,7 +848,8 @@ static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
         if (id_map && (id_map->GID >> 32 != mpr_obj_get_id((mpr_obj)lsig->dev) >> 32)) {
             continue;
         }
-        if ((si = lsig->id_maps[i].inst)) {
+        if ((si = lsig->id_maps[i].inst)
+            && (id || !mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, si->id, 1))) {
             /* locally claimed instance, allow replacing id_map */
             mpr_dev_LID_decref((mpr_local_dev)lsig->dev, lsig->group, id_map);
             lsig->id_maps[i].id_map = NULL;
@@ -968,7 +967,7 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
     RETURN_ARG_UNLESS(activate, -1);
 
     /* check if device has record of id map */
-    id_map = mpr_dev_get_id_map_by_LID((mpr_local_dev)lsig->dev, lsig->group, LID);
+    id_map = mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, LID, 0);
 
     /* No instance with that id exists - need to try to activate instance and
      * create new id map if necessary. */

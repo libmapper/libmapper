@@ -658,12 +658,17 @@ int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map id_map)
     return 0;
 }
 
-mpr_id_map mpr_dev_get_id_map_by_LID(mpr_local_dev dev, int group, mpr_id LID)
+mpr_id_map mpr_dev_get_id_map_by_LID(mpr_local_dev dev, int group, mpr_id LID, int avoid_local)
 {
     mpr_id_map id_map = dev->id_maps.active[group];
     while (id_map) {
-        if (id_map->LID == LID)
-            return id_map;
+        if (id_map->LID == LID && id_map->LID_refcount > 0) {
+            if (!avoid_local || (id_map->GID >> 32 != dev->obj.id >> 32))
+                return id_map;
+            else {
+                trace_dev(dev, "skipping id_map with local GID\n");
+            }
+        }
         id_map = id_map->next;
     }
     return 0;
@@ -673,7 +678,7 @@ mpr_id_map mpr_dev_get_id_map_by_GID(mpr_local_dev dev, int group, mpr_id GID)
 {
     mpr_id_map id_map = dev->id_maps.active[group];
     while (id_map) {
-        if (id_map->GID == GID)
+        if (id_map->GID == GID && id_map->GID_refcount > 0)
             return id_map;
         id_map = id_map->next;
     }
