@@ -66,6 +66,7 @@ test/testexpression
 test/testgraph
 test/testinstance
 test/testinstance_no_cb
+test/testinstance_coordination
 test/testinterrupt
 test/testlinear
 test/testlist

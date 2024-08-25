@@ -18,6 +18,7 @@ if WINDOWS_DLL
         testsetiface \
         testinstance \
         testinstance_no_cb \
+        testinstance_coordination \
         testlinear \
         testlist \
         testlocalmap \
@@ -57,8 +58,7 @@ if WINDOWS_DLL
         testexpression \
         testrate \
         testbundle \
-        testinstance \
-        testinstance_no_cb \
+        testinstance_coordination \
         testreverse \
         testvector \
         testcustomtransport \
@@ -92,6 +92,7 @@ else
         testsetiface \
         testinstance \
         testinstance_no_cb \
+        testinstance_coordination \
         testinterrupt \
         testlinear \
         testlist \
@@ -133,8 +134,7 @@ else
         testexpression \
         testrate \
         testbundle \
-        testinstance \
-        testinstance_no_cb \
+        testinstance_coordination \
         testreverse \
         testvector \
         testcustomtransport \
@@ -202,6 +202,10 @@ testinstance_LDADD = $(TEST_LDADD)
 testinstance_no_cb_CFLAGS = $(TEST_CFLAGS)
 testinstance_no_cb_SOURCES = testinstance_no_cb.c
 testinstance_no_cb_LDADD = $(TEST_LDADD)
+
+testinstance_coordination_CFLAGS = $(TEST_CFLAGS)
+testinstance_coordination_SOURCES = testinstance_coordination.c
+testinstance_coordination_LDADD = $(TEST_LDADD)
 
 testinterrupt_CFLAGS = $(TEST_CFLAGS)
 testinterrupt_SOURCES = testinterrupt.c
@@ -308,7 +312,26 @@ testvector_SOURCES = testvector.c
 testvector_LDADD = $(TEST_LDADD)
 
 tests: all
+	echo Running tests with separate device graphs
 	for i in $(test_all_ordered); do echo Running $$i; ./$$i -qtf; done
+	echo Running testinstance with ephemeral destination instances
+	./testinstance -qtf
+	echo Running testinstance with persistent destination instances
+	./testinstance -qtfp
+	echo Running testinstance_no_cb with ephemeral destination instances
+	./testinstance_no_cb -qtf
+	echo Running testinstance_no_cb with persistent destination instances
+	./testinstance_no_cb -qtfp
+	echo Running tests with shared device graphs
+	for i in $(test_all_ordered); do echo Running $$i; ./$$i -qtfs; done
+	echo Running testinstance with ephemeral destination instances
+	./testinstance -qtfs
+	echo Running testinstance with persistent destination instances
+	./testinstance -qtfps
+	echo Running testinstance_no_cb with ephemeral destination instances
+	./testinstance_no_cb -qtfs
+	echo Running testinstance_no_cb with persistent destination instances
+	./testinstance_no_cb -qtfps
 	echo Running testmonitor and testsignals; ./testmonitor -qtf & ./testsignals -qtf
 
 memtest: all

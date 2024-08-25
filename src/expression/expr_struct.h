@@ -15,7 +15,7 @@ struct _mpr_expr
     int8_t inst_ctl;
     int8_t mute_ctl;
     int8_t num_src;
-    int8_t own_stack;
+    int8_t flags;
 };
 
 #endif /* __MPR_EXPR_STRUCT_H__ */

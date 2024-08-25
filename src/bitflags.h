@@ -39,6 +39,11 @@ MPR_INLINE static void mpr_bitflags_set(mpr_bitflags bitflags, unsigned int idx)
     bitflags[idx / 8] |= (1 << (idx % 8));
 }
 
+MPR_INLINE static void mpr_bitflags_set_all(mpr_bitflags bitflags, unsigned int num_flags)
+{
+    memset(bitflags, 255, (num_flags - 1) / 8 + 1);
+}
+
 MPR_INLINE static void mpr_bitflags_unset(mpr_bitflags bitflags, unsigned int idx)
 {
     bitflags[idx / 8] &= (0xFF ^ (1 << (idx % 8)));

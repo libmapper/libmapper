@@ -28,10 +28,6 @@
  * signal instances have ids, id_maps (when active), and an idx
  * */
 
-/* TODO: MPR_DEFAULT_INST is actually a valid id - we should use
- * another method for distinguishing non-instanced updates. */
-#define MPR_DEFAULT_INST -1
-
 /* Function prototypes */
 static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map id_map);
 static int mpr_sig_full_name(mpr_sig sig, char *name, int len);
@@ -201,6 +197,12 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
             if (!(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE))
                 continue;
 
+            mpr_id_map tmp = mpr_local_map_get_id_map(map);
+            if (tmp->GID == id_map->GID) {
+                tmp->LID = tmp->GID = 0;
+                mpr_dev_GID_decref(sig->dev, sig->group, id_map);
+            }
+
             /* reset associated output memory */
             mpr_slot_set_value(dst_slot, inst_idx, NULL, *time);
 
@@ -338,7 +340,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     mpr_local_dev dev;
     mpr_sig_inst si;
     mpr_net net = mpr_graph_get_net(sig->obj.graph);
-    int i, val_len = 0, vals, all = 0;
+    int i, val_len = 0, vals;
     int id_map_idx, inst_idx, slot_id = -1, map_manages_inst = 0;
     mpr_id GID = 0;
     mpr_id_map id_map;
@@ -383,6 +385,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     }
 
     if (slot_id >= 0) {
+        mpr_expr expr;
         /* retrieve mapping associated with this slot */
         for (i = 0; i < sig->num_maps_in; i++) {
             map = (mpr_local_map)mpr_slot_get_map((mpr_slot)sig->slots_in[i]);
@@ -393,9 +396,9 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
         slot_sig = mpr_slot_get_sig((mpr_slot)slot);
         TRACE_RETURN_UNLESS(mpr_obj_get_status((mpr_obj)map) & MPR_MAP_STATUS_READY, 0,
                             "error in mpr_sig_osc_handler: map not yet ready.\n");
-        if (mpr_local_map_get_expr(map) && MPR_LOC_BOTH != mpr_map_get_locality((mpr_map)map)) {
+        if ((expr = mpr_local_map_get_expr(map)) && MPR_LOC_BOTH != mpr_map_get_locality((mpr_map)map)) {
             vals = check_types(types, val_len, slot_sig->type, slot_sig->len);
-            map_manages_inst = mpr_expr_get_manages_inst(mpr_local_map_get_expr(map));
+            map_manages_inst = mpr_expr_get_manages_inst(expr);
         }
         else {
             /* value has already been processed at source device */
@@ -413,21 +416,31 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
      *        return 0;
      */
 
-    if (GID) {
-        if (map_manages_inst) {
-            mpr_id_map id_map = mpr_local_map_get_id_map(map);
-            if (!id_map->GID) {
-                /* id_map is currently empty - claim it now */
-                id_map->LID = GID;
-                id_map->GID = mpr_dev_generate_unique_id((mpr_dev)dev);
-            }
-            else if (id_map->LID != GID) {
+    /* TODO: should map_get_use_inst() call be part of map_manages_inst? */
+    if (map_manages_inst && slot_sig->use_inst && mpr_map_get_use_inst((mpr_map)map)) {
+        mpr_id_map id_map = mpr_local_map_get_id_map(map);
+        if (!id_map->GID) {
+            if (!vals) {
                 trace("no map-managed instances available for GUID %"PR_MPR_ID"\n", GID);
                 return 0;
             }
-            GID = id_map->GID;
+            /* id_map is currently empty - claim it now */
+            id_map->LID = GID;
+            id_map->GID = mpr_dev_generate_unique_id((mpr_dev)dev);
         }
+        else if (id_map->LID != GID) {
+            trace("no map-managed instances available for GUID %"PR_MPR_ID"\n", GID);
+            return 0;
+        }
+        GID = id_map->GID;
+        if (!vals) {
+            id_map->LID = id_map->GID = 0;
+        }
+    }
 
+    /* TODO: if dst-processing and the expression is reducing we should enable caching up to slot->num_inst values */
+
+    if (GID) {
         /* don't activate an instance just to release it again */
         id_map_idx = mpr_sig_get_id_map_with_GID(sig, GID, RELEASED_LOCALLY, time,
                                                  (vals && sig->dir == MPR_DIR_IN));
@@ -509,30 +522,27 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
         return 0;
     }
 
-    /* If no instance id was included in the message we will apply this update to all instances */
-    /* Also apply to all instances if the map is convergent and other slot signals are instanced */
-    if (!GID || (map && mpr_local_map_get_num_inst(map) > slot_sig->num_inst)) {
-        all = 1;
-        id_map_idx = 0;
-    }
-
     if (map) {
         /* Setting to local timestamp here */
         time = mpr_dev_get_time((mpr_dev)dev);
-        for (; id_map_idx < sig->num_id_maps; id_map_idx++) {
-            /* check if map instance is active */
-            if ((si = _get_inst_by_id_map_idx(sig, id_map_idx)) && (si->status & MPR_STATUS_ACTIVE)) {
-                inst_idx = si->idx;
-                /* TODO: jitter mitigation etc. */
-                if (mpr_slot_set_value(slot, inst_idx, argv[0], time)) {
-                    mpr_local_map_set_updated(map, inst_idx);
-                    mpr_local_dev_set_receiving(dev);
-                }
+        /* check if map instance is active */
+
+        /* TODO: why are we checking if instance is already active? */
+
+        if ((si = _get_inst_by_id_map_idx(sig, id_map_idx)) && (si->status & MPR_STATUS_ACTIVE)) {
+            inst_idx = si->idx;
+            /* TODO: jitter mitigation etc. */
+            if (mpr_slot_set_value(slot, inst_idx, argv[0], time)) {
+                mpr_local_map_set_updated(map, inst_idx);
+                mpr_local_dev_set_receiving(dev);
             }
-            if (!all)
-                break;
         }
         return 0;
+    }
+
+    /* If no instance id was included in the message we will apply this update to all instances */
+    if (!GID) {
+        id_map_idx = 0;
     }
 
     for (; id_map_idx < sig->num_id_maps; id_map_idx++) {
@@ -566,7 +576,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
                 }
             }
         }
-        if (!all)
+        if (GID)
             break;
     }
     return 0;
@@ -957,7 +967,7 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
     mpr_id_map id_map;
     int i;
     if (!lsig->use_inst)
-        LID = MPR_DEFAULT_INST;
+        LID = MPR_DEFAULT_INST_LID;
     h = (mpr_sig_handler*)lsig->handler;
     for (i = 0; i < lsig->num_id_maps; i++) {
         mpr_sig_id_map sig_id_map = &lsig->id_maps[i];
@@ -1382,11 +1392,14 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
 
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id)
 {
-    int id_map_idx;
+    mpr_sig_inst si;
     RETURN_UNLESS(sig && sig->obj.is_local && sig->ephemeral);
-    id_map_idx = mpr_sig_get_id_map_with_LID((mpr_local_sig)sig, id, RELEASED_REMOTELY, MPR_NOW, 0, 0);
-    if (id_map_idx >= 0)
-        mpr_sig_release_inst_internal((mpr_local_sig)sig, id_map_idx);
+    si = _find_inst_by_id((mpr_local_sig)sig, id);
+    if (si) {
+        int id_map_idx = _get_id_map_idx_by_inst_idx((mpr_local_sig)sig, si->idx);
+        if (id_map_idx >= 0)
+            mpr_sig_release_inst_internal((mpr_local_sig)sig, id_map_idx);
+    }
 }
 
 static void mpr_sig_release_inst_internal(mpr_local_sig lsig, int id_map_idx)
@@ -1496,7 +1509,7 @@ int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
 {
     int i, j;
     RETURN_ARG_UNLESS(sig, 0);
-    RETURN_ARG_UNLESS(sig->obj.is_local && sig->ephemeral, sig->num_inst);
+    RETURN_ARG_UNLESS(sig->obj.is_local, sig->num_inst);
     if (status == MPR_STATUS_ANY)
         return sig->num_inst;
     for (i = 0, j = 0; i < sig->num_inst; i++) {
@@ -1814,71 +1827,84 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst
                                   mpr_time time)
 {
     mpr_sig_inst si;
-    int id_map_idx = 0;
+    int id_map_idx = 0, all = 0;
     double diff;
 
+    if (inst_idx < 0) {
+        all = 1;
+        inst_idx = 0;
+    }
     if (!sig->use_inst)
         inst_idx = 0;
 
-    id_map_idx = _get_id_map_idx_by_inst_idx(sig, inst_idx);
-    if (id_map_idx == -1) {
-        if (eval_status & EXPR_UPDATE)
-            trace("error: couldn't find id_map for signal instance idx %d\n", inst_idx);
-        return;
-    }
-    si = sig->id_maps[id_map_idx].inst;
-    id_map = sig->id_maps[id_map_idx].id_map;
+    for (; inst_idx < sig->num_inst; inst_idx++) {
+        id_map_idx = _get_id_map_idx_by_inst_idx(sig, inst_idx);
+        if (id_map_idx == -1) {
+            if (eval_status & EXPR_UPDATE)
+                trace("error: couldn't find id_map for signal instance idx %d\n", inst_idx);
+            continue;
+        }
+        si = sig->id_maps[id_map_idx].inst;
+        if (all && !(si->status & MPR_STATUS_ACTIVE))
+            continue;
 
-    diff = mpr_time_get_diff(time, *mpr_value_get_time(sig->value, si->idx, 0));
+        id_map = sig->id_maps[id_map_idx].id_map;
 
-    if (eval_status & EXPR_RELEASE_BEFORE_UPDATE) {
-        /* Try to release instance, but do not call process_sig() here, since we don't
-         * know if the local signal instance will actually be released. */
-        si->status |= MPR_STATUS_REL_UPSTRM;
-        sig->obj.status |= MPR_STATUS_REL_UPSTRM;
-        mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx, diff);
-    }
-    if (eval_status & EXPR_UPDATE) {
-        /* copy to signal value and call handler */
-        if (si->status == MPR_STATUS_STAGED) {
-            /* instance was released in previous handler call */
-            assert(map_manages_inst);
-            /* try to re-activate with a new GID */
-            id_map->GID = mpr_dev_generate_unique_id((mpr_dev)sig->dev);
-            id_map_idx = mpr_sig_get_id_map_with_GID(sig, id_map->GID, RELEASED_LOCALLY, time, 1);
-            if (id_map_idx < 0) {
-                trace("error: couldn't find id_map for signal instance idx %d\n", id_map_idx);
-                return;
+        diff = mpr_time_get_diff(time, *mpr_value_get_time(sig->value, si->idx, 0));
+
+        /* TODO: would it be better to release all instance first, then update, etc? */
+
+        if (eval_status & EXPR_RELEASE_BEFORE_UPDATE) {
+            /* Try to release instance, but do not call process_maps() here, since we don't
+             * know if the local signal instance will actually be released. */
+            si->status |= MPR_STATUS_REL_UPSTRM;
+            sig->obj.status |= MPR_STATUS_REL_UPSTRM;
+            mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx, diff);
+        }
+        if (eval_status & EXPR_UPDATE) {
+            /* copy to signal value and call handler */
+            if (si->status == MPR_STATUS_STAGED) {
+                /* instance was released in previous handler call */
+                assert(map_manages_inst);
+                /* try to re-activate with a new GID */
+                id_map->GID = mpr_dev_generate_unique_id((mpr_dev)sig->dev);
+                id_map_idx = mpr_sig_get_id_map_with_GID(sig, id_map->GID, RELEASED_LOCALLY, time, 1);
+                if (id_map_idx < 0) {
+                    trace("error: couldn't find id_map for signal instance idx %d\n", id_map_idx);
+                    continue;
+                }
+                si = sig->id_maps[id_map_idx].inst;
+                id_map = sig->id_maps[id_map_idx].id_map;
             }
-            si = sig->id_maps[id_map_idx].inst;
-            id_map = sig->id_maps[id_map_idx].id_map;
-        }
-        si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM);
-        if (mpr_value_cmp(sig->value, si->idx, 0, value))
-            si->status |= MPR_STATUS_NEW_VALUE;
-        mpr_value_set_next(sig->value, si->idx, value, &time);
-        sig->obj.status |= si->status;
+            si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM);
+            if (mpr_value_cmp(sig->value, si->idx, 0, value))
+                si->status |= MPR_STATUS_NEW_VALUE;
+            mpr_value_set_next(sig->value, si->idx, value, &time);
+            sig->obj.status |= si->status;
 
-        mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, si->id, si->idx, diff);
+            mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, si->id, si->idx, diff);
 
-        /* Pass this update downstream if signal is an input and was not updated in handler. */
-        if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
-            /* mark instance as updated */
-            mpr_local_sig_set_updated(sig, si->idx);
-            process_maps(sig, id_map_idx);
+            /* Pass this update downstream if signal is an input and was not updated in handler. */
+            if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
+                /* mark instance as updated */
+                mpr_local_sig_set_updated(sig, si->idx);
+                process_maps(sig, id_map_idx);
+            }
         }
-    }
 
-    if (eval_status & EXPR_RELEASE_AFTER_UPDATE) {
-        /* Try to release instance, but do not call process_sig() here, since we don't
-         * know if the local signal instance will actually be released. */
-        if (si->status == MPR_STATUS_STAGED) {
-            /* instance was released in previous handler call */
-            return;
+        if (eval_status & EXPR_RELEASE_AFTER_UPDATE) {
+            /* Try to release instance, but do not call process_maps() here, since we don't
+             * know if the local signal instance will actually be released. */
+            if (si->status == MPR_STATUS_STAGED) {
+                /* instance was released in previous handler call */
+                continue;
+            }
+            si->status |= MPR_STATUS_REL_UPSTRM;
+            sig->obj.status |= si->status;
+            mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx, diff);
         }
-        si->status |= MPR_STATUS_REL_UPSTRM;
-        sig->obj.status |= si->status;
-        mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx, diff);
+        if (!all)
+            break;
     }
 }
 
@@ -1962,7 +1988,7 @@ mpr_sig_inst *mpr_local_sig_get_insts(mpr_local_sig sig)
     return sig->inst;
 }
 
-uint8_t mpr_sig_inst_get_idx(mpr_sig_inst si)
+uint8_t mpr_sig_get_inst_idx(mpr_sig_inst si)
 {
     return si->idx;
 }
@@ -1970,4 +1996,9 @@ uint8_t mpr_sig_inst_get_idx(mpr_sig_inst si)
 unsigned int mpr_local_sig_get_num_id_maps(mpr_local_sig sig)
 {
     return sig->num_id_maps;
+}
+
+mpr_sig_group mpr_local_sig_get_group(mpr_local_sig sig)
+{
+    return sig->group;
 }

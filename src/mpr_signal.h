@@ -79,10 +79,12 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst
 /* Functions below are only used by testinstance.c for printing instance indices */
 mpr_sig_inst *mpr_local_sig_get_insts(mpr_local_sig sig);
 
-uint8_t mpr_sig_inst_get_idx(mpr_sig_inst si);
+uint8_t mpr_sig_get_inst_idx(mpr_sig_inst si);
 
 unsigned int mpr_local_sig_get_num_id_maps(mpr_local_sig sig);
 
 mpr_id_map mpr_local_sig_get_id_map_by_inst_idx(mpr_local_sig sig, unsigned int inst_idx);
+
+mpr_sig_group mpr_local_sig_get_group(mpr_local_sig sig);
 
 #endif /* __MPR_SIGNAL_H__ */

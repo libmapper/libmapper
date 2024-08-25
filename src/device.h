@@ -14,6 +14,10 @@ typedef struct _mpr_local_dev *mpr_local_dev;
 #include "mpr_time.h"
 #include "network.h"
 
+/* TODO: MPR_DEFAULT_INST_LID is actually a valid id - we should use
+ * another method for distinguishing non-instanced updates. */
+#define MPR_DEFAULT_INST_LID -1
+
 #define MPR_DEV_SIG_CHANGED 0x2000
 
 /**** Debug macros ****/
@@ -129,6 +133,8 @@ mpr_id_map mpr_dev_get_id_map_by_LID(mpr_local_dev dev, int group, mpr_id LID, i
 mpr_id_map mpr_dev_get_id_map_by_GID(mpr_local_dev dev, int group, mpr_id GID);
 
 int mpr_local_dev_get_num_id_maps(mpr_local_dev dev, int active);
+
+void mpr_dev_remove_id_map(mpr_local_dev dev, int group, mpr_id_map rem);
 
 #ifdef DEBUG
 void mpr_local_dev_print_id_maps(mpr_local_dev dev);

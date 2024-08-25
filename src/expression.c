@@ -21,6 +21,10 @@
 #include <malloc.h>
 #endif
 
+#define OWN_STACK    0x01
+#define MANAGES_INST 0x02
+#define REDUCES_INST 0x04
+
 /* Reallocate evaluation stack if necessary. */
 void mpr_expr_realloc_eval_buffer(mpr_expr expr, mpr_expr_eval_buffer buff)
 {
@@ -75,7 +79,7 @@ mpr_expr mpr_expr_new(unsigned int num_src, unsigned int num_dst, void *stack)
 void mpr_expr_cpy_stack_and_vars(mpr_expr expr, void *stack, void *vars, int num_var)
 {
     estack_cpy(expr->stack, (estack)stack);
-    expr->own_stack = 1;
+    expr->flags |= OWN_STACK;
 
     if (num_var) {
         int i;
@@ -120,6 +124,12 @@ mpr_expr mpr_expr_new_from_str(const char *str, unsigned int num_src, const mpr_
         estack_update_vec_len(expr->stack, expr->stack->tokens[i].gen.vec_len);
     }
 
+    if (estack_get_reduces_inst(expr->stack))
+        expr->flags |= REDUCES_INST;
+
+    if (expr->inst_ctl >= 0)
+        expr->flags |= MANAGES_INST;
+
 #if TRACE_PARSE
     printf("expression allocated and initialized with %d tokens\n", expr->stack->num_tokens);
 #endif
@@ -130,7 +140,7 @@ void mpr_expr_free(mpr_expr expr)
 {
     int i;
     FUNC_IF(free, expr->src_mlen);
-    if (expr->own_stack)
+    if (expr->flags & OWN_STACK)
         estack_free(expr->stack, 1);
     if (expr->num_vars && expr->vars) {
         for (i = 0; i < expr->num_vars; i++)
@@ -229,7 +239,7 @@ int mpr_expr_get_num_src(mpr_expr expr)
 
 int mpr_expr_get_manages_inst(mpr_expr expr)
 {
-    return expr ? expr->inst_ctl >= 0 : 0;
+    return (expr->flags & (MANAGES_INST | REDUCES_INST)) != 0;
 }
 
 void mpr_expr_set_var_updated(mpr_expr expr, int var_idx)

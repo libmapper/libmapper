@@ -813,6 +813,30 @@ static int estack_get_eval_buffer_size(estack stk)
     return eval_buffer_len;
 }
 
+static int estack_get_reduces_inst(estack stk)
+{
+    int i, reducing = 0;
+    for (i = 0; i < stk->num_tokens; i++) {
+        etoken tok = &stk->tokens[i];
+        switch (tok->toktype) {
+            case TOK_LOOP_START:
+                if (tok->con.flags & RT_INSTANCE)
+                    reducing = 1;
+                break;
+            case TOK_LOOP_END:
+                if (tok->con.flags & RT_INSTANCE)
+                    reducing = 0;
+            case TOK_VAR:
+                if (!reducing && tok->var.idx >= VAR_X_NEWEST)
+                    return 0;
+                break;
+            default:
+                break;
+        }
+    }
+    return 1;
+}
+
 #if TRACE_PARSE
 static void estack_print(const char *s, estack stk, expr_var_t *vars, int show_init_line)
 {

@@ -84,7 +84,6 @@ struct _mpr_local_dev {
 } mpr_local_dev_t;
 
 /* prototypes */
-static void mpr_dev_remove_id_map(mpr_local_dev dev, int group, mpr_id_map rem);
 static int process_outgoing_maps(mpr_local_dev dev);
 static int check_registration(mpr_local_dev dev);
 
@@ -607,7 +606,7 @@ mpr_id_map mpr_dev_add_id_map(mpr_local_dev dev, int group, mpr_id LID, mpr_id G
     return id_map;
 }
 
-static void mpr_dev_remove_id_map(mpr_local_dev dev, int group, mpr_id_map rem)
+void mpr_dev_remove_id_map(mpr_local_dev dev, int group, mpr_id_map rem)
 {
     mpr_id_map *map = &dev->id_maps.active[group];
     trace_dev(dev, "mpr_dev_remove_id_map(%s) %"PR_MPR_ID" -> %"PR_MPR_ID"\n",
