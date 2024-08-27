@@ -292,6 +292,14 @@ public class Signal : MapperObject
             throw new ArgumentException("Unsupported type passed to SetValue");
         return this;
     }
+    
+    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+    private static extern unsafe void* mpr_sig_release_inst(IntPtr sig, ulong id);
+
+    public unsafe void Release(ulong id = 0)
+    {
+        mpr_sig_release_inst(this.NativePtr, id);
+    }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern unsafe void* mpr_sig_get_value(IntPtr sig, ulong id, ref long time);
