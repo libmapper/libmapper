@@ -296,6 +296,10 @@ public class Signal : MapperObject
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern unsafe void* mpr_sig_release_inst(IntPtr sig, ulong id);
 
+    /// <summary>
+    /// Release the specified signal instance.
+    /// </summary>
+    /// <param name="id">Signal instance to release. Defaults to 0.</param>
     public unsafe void Release(ulong id = 0)
     {
         mpr_sig_release_inst(this.NativePtr, id);
