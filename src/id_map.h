@@ -17,16 +17,17 @@ typedef struct _mpr_id_map {
 
     uint64_t GID;                   /*!< Hash for originating device. */
     uint64_t LID;                   /*!< Local instance id to map. */
-    int LID_refcount;
-    int GID_refcount;
+    int16_t LID_refcount;
+    int16_t GID_refcount;
+    uint8_t indirect;
 } mpr_id_map_t, *mpr_id_map;
 
-MPR_INLINE static void mpr_id_map_inc_local_refcount(mpr_id_map id_map)
+MPR_INLINE static void mpr_id_map_incr_local_refcount(mpr_id_map id_map)
 {
     ++id_map->LID_refcount;
 }
 
-MPR_INLINE static void mpr_id_map_inc_global_refcount(mpr_id_map id_map)
+MPR_INLINE static void mpr_id_map_incr_global_refcount(mpr_id_map id_map)
 {
     ++id_map->GID_refcount;
 }

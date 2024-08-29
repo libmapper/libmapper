@@ -397,7 +397,7 @@ void release_active_instances(mpr_sig sig)
     mpr_obj_set_prop((mpr_obj)sig, MPR_PROP_EPHEM, NULL, 1, MPR_INT32, &ephem, 1);
 }
 
-int loop(instance_type src_type, instance_type dst_type, int same_val)
+int loop(test_config *config)
 {
     int i = 0, j, num_parallel_inst = 5, ret = 0;
     float valf = 0;
@@ -407,7 +407,7 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
     eprintf("-------------------- GO ! --------------------\n");
 
     while (i < iterations && !done) {
-        if (src_type & INST) {
+        if (config->src_type & INST) {
             /* update instanced source signal */
             inst = i % 10;
 
@@ -424,7 +424,7 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
                 mpr_sig_set_value(multisend, inst, 1, MPR_FLT, &valf);
             }
         }
-        if (src_type & SNGL) {
+        if (config->src_type & SNGL) {
             /* update singleton source signal */
             eprintf("--> Updating monosend to %d\n", i);
             mpr_sig_set_value(monosend, 0, 1, MPR_INT32, &i);
@@ -434,7 +434,7 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
         mpr_dev_poll(dst, period);
         i++;
 
-        if (dst_type & INST) {
+        if (config->dst_type & INST) {
             /* check values */
             int num_inst = mpr_sig_get_num_inst(multirecv, MPR_STATUS_ACTIVE);
             /* if dst signal is not ephemeral there may be values from a previous configuration */
@@ -448,7 +448,7 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
                         valj = (float*)mpr_sig_get_value(multirecv, id, 0);
                         if (!valj)
                             continue;
-                        if (same_val) {
+                        if (config->same_val) {
                             if (*val0 != *valj) {
                                 eprintf("Error: instance values should match but do not\n");
                                 ret = 1;
@@ -465,46 +465,46 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
 
         if (verbose) {
             printf("ID:     ");
-            if (src_type & SNGL)
+            if (config->src_type & SNGL)
                 print_instance_ids(monosend);
-            if (src_type & INST)
+            if (config->src_type & INST)
                 print_instance_ids(multisend);
-            if (dst_type & SNGL)
+            if (config->dst_type & SNGL)
                 print_instance_ids(monorecv);
-            if (dst_type & INST)
+            if (config->dst_type & INST)
                 print_instance_ids(multirecv);
             printf("\n");
 
             printf("INDEX:  ");
-            if (src_type & SNGL)
+            if (config->src_type & SNGL)
                 print_instance_idx(monosend);
-            if (src_type & INST)
+            if (config->src_type & INST)
                 print_instance_idx(multisend);
-            if (dst_type & SNGL)
+            if (config->dst_type & SNGL)
                 print_instance_idx(monorecv);
-            if (dst_type & INST)
+            if (config->dst_type & INST)
                 print_instance_idx(multirecv);
             printf("\n");
 
             printf("VALUE:  ");
-            if (src_type & SNGL)
+            if (config->src_type & SNGL)
                 print_instance_vals(monosend);
-            if (src_type & INST)
+            if (config->src_type & INST)
                 print_instance_vals(multisend);
-            if (dst_type & SNGL)
+            if (config->dst_type & SNGL)
                 print_instance_vals(monorecv);
-            if (dst_type & INST)
+            if (config->dst_type & INST)
                 print_instance_vals(multirecv);
             printf("\n");
 
             printf("STATUS: ");
-            if (src_type & SNGL)
+            if (config->src_type & SNGL)
                 print_instance_status(monosend);
-            if (src_type & INST)
+            if (config->src_type & INST)
                 print_instance_status(multisend);
-            if (dst_type & SNGL)
+            if (config->dst_type & SNGL)
                 print_instance_status(monorecv);
-            if (dst_type & INST)
+            if (config->dst_type & INST)
                 print_instance_status(multirecv);
             printf("\n");
         }
@@ -513,7 +513,7 @@ int loop(instance_type src_type, instance_type dst_type, int same_val)
             fflush(stdout);
         }
     }
-    if (src_type & INST) {
+    if (config->src_type & INST) {
         for (j = 0; j < num_parallel_inst; j++) {
             inst = (inst + 1) % 10;
             eprintf("--> Releasing multisend instance %"PR_MPR_ID"\n", inst);
@@ -549,15 +549,11 @@ int run_test(test_config *config)
 
     printf("Configuration %d: %s%s %s> %s%s%s%s%s%s\n",
            config->test_id,
-           instance_type_names[config->src_type],
-           config->process_loc == MPR_LOC_SRC ? "*" : "",
+           instance_type_names[config->src_type], config->process_loc == MPR_LOC_SRC ? "*" : "",
            config->map_type == SNGL ? "––" : "==",
-           instance_type_names[config->dst_type],
-           config->process_loc == MPR_LOC_DST ? "*" : "",
-           config->oflw_action ? "; overflow: " : "",
-           oflw_action_names[config->oflw_action],
-           config->expr ? "; expression: " : "",
-           config->expr ? config->expr : "");
+           instance_type_names[config->dst_type], config->process_loc == MPR_LOC_DST ? "*" : "",
+           config->oflw_action ? "; overflow: " : "", oflw_action_names[config->oflw_action],
+           config->expr ? "; expression: " : "", config->expr ? config->expr : "");
 
     switch (config->src_type) {
         case SNGL:
@@ -633,7 +629,7 @@ int run_test(test_config *config)
         mpr_sig_activate_inst(multirecv, 6);
     }
 
-    result += loop(config->src_type, config->dst_type, config->same_val);
+    result += loop(config);
 
     if (ephemeral) {
         if (shared_graph)
@@ -689,7 +685,7 @@ int run_test(test_config *config)
 
     active_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)dst, 1);
     reserve_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)dst, 0);
-    if (active_count > !ephemeral * 2 + 1 || reserve_count >= 10) {
+    if (active_count > !ephemeral * 2 + 2 || reserve_count >= 10) {
         printf("Error: dst device using %d active and %d reserve id maps (should be <=1 and <10)\n",
                active_count, reserve_count);
 #ifdef DEBUG

@@ -47,7 +47,7 @@ int setup_src(mpr_graph g, const char *iface)
     mpr_list l;
     mpr_time t;
 
-    src = mpr_dev_new("testlinear.send", g);
+    src = mpr_dev_new("testinstance-coordination.send", g);
     if (!src)
         goto error;
     if (iface)
@@ -100,7 +100,7 @@ int setup_dst(mpr_graph g, const char *iface)
     mpr_list l;
     mpr_time t;
 
-    dst = mpr_dev_new("testlinear.recv", g);
+    dst = mpr_dev_new("testinstance-coordination.recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -109,10 +109,10 @@ int setup_dst(mpr_graph g, const char *iface)
             mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
     recvsig1 = mpr_sig_new(dst, MPR_DIR_IN, "insig1", 1, MPR_FLT, NULL,
-                           &mn, &mx, &num_inst, handler, MPR_SIG_UPDATE);
+                           &mn, &mx, &num_inst, NULL, 0);
     mpr_obj_set_prop((mpr_obj)recvsig1, MPR_PROP_EPHEM, NULL, 1, MPR_INT32, &ephemeral, 1);
     recvsig2 = mpr_sig_new(dst, MPR_DIR_IN, "insig2", 1, MPR_FLT, NULL,
-                           &mn, &mx, &num_inst, handler, MPR_SIG_UPDATE);
+                           &mn, &mx, &num_inst, NULL, 0);
     mpr_obj_set_prop((mpr_obj)recvsig2, MPR_PROP_EPHEM, NULL, 1, MPR_INT32, &ephemeral, 1);
 
     /* test retrieving value before it exists */
@@ -152,7 +152,7 @@ int setup_maps(void)
         mpr_dev_poll(dst, 10);
     }
 
-    eprintf("map2 initialized with expression '%s'\n",
+    eprintf("map1 initialized with expression '%s'\n",
             mpr_obj_get_prop_as_str(map1, MPR_PROP_EXPR, NULL));
     eprintf("map2 initialized with expression '%s'\n",
             mpr_obj_get_prop_as_str(map2, MPR_PROP_EXPR, NULL));
@@ -171,25 +171,75 @@ int wait_ready(void)
 
 void loop(void)
 {
-    int i = 0;
+    int i = 0, j;
     mpr_graph g = mpr_obj_get_graph((mpr_obj)src);
     const char *name1 = mpr_obj_get_prop_as_str((mpr_obj)sendsig1, MPR_PROP_NAME, NULL);
     const char *name2 = mpr_obj_get_prop_as_str((mpr_obj)sendsig2, MPR_PROP_NAME, NULL);
-    while ((!terminate || i < 50) && !done) {
+    while ((!terminate || i < 100) && !done) {
         int inst_id = rand() % 10;
-        if (i >= 5) {
-            eprintf("Updating signal %s.%d to %d\n", name1, inst_id, i);
-            mpr_sig_set_value(sendsig1, inst_id, 1, MPR_INT32, &i);
+        if (rand() % 10 > 7) {
+            eprintf("Releasing *.%d\n", inst_id);
+            mpr_sig_release_inst(sendsig1, inst_id);
+            mpr_sig_release_inst(sendsig2, inst_id);
         }
-        eprintf("Updating signal %s.%d to %d\n", name2, inst_id, i);
-        mpr_sig_set_value(sendsig2, inst_id, 1, MPR_INT32, &i);
-        sent++;
+        else {
+            if (rand() % 10 > 3) {
+                eprintf("Updating signal %s.%d to %d\n", name1, inst_id, i);
+                mpr_sig_set_value(sendsig1, inst_id, 1, MPR_INT32, &i);
+                ++sent;
+            }
+            if (rand() % 10 > 3) {
+                eprintf("Updating signal %s.%d to %d\n", name2, inst_id, i);
+                mpr_sig_set_value(sendsig2, inst_id, 1, MPR_INT32, &i);
+                ++sent;
+            }
+        }
         if (shared_graph) {
             mpr_graph_poll(g, 0);
         }
         else {
             mpr_dev_poll(src, 0);
             mpr_dev_poll(dst, period);
+        }
+        for (j = 0; j < num_inst; j++) {
+            mpr_id id;
+            int status;
+            id = mpr_sig_get_inst_id(recvsig1, j, MPR_STATUS_ANY);
+            status = mpr_sig_get_inst_status(recvsig1, id);
+            if (status & MPR_STATUS_UPDATE_REM) {
+                float *value = (float*)mpr_sig_get_value(recvsig1, id, NULL);
+                if (value) {
+                    eprintf("%s.%llu got %f\n",
+                            mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL),
+                            id, *value);
+                    ++received;
+                    if (*value == i)
+                        ++matched;
+                }
+                else {
+                    eprintf("%s.%llu got NULL??\n",
+                            mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL),
+                            id);
+                }
+            }
+            id = mpr_sig_get_inst_id(recvsig2, j, MPR_STATUS_ANY);
+            status = mpr_sig_get_inst_status(recvsig2, id);
+            if (status & MPR_STATUS_UPDATE_REM) {
+                float *value = (float*)mpr_sig_get_value(recvsig2, id, NULL);
+                if (value) {
+                    eprintf("%s.%llu got %f\n",
+                            mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL),
+                            id, *value);
+                    ++received;
+                    if (*value == i)
+                        ++matched;
+                }
+                else {
+                    eprintf("%s.%llu got NULL??\n",
+                            mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL),
+                            id);
+                }
+            }
         }
         i++;
 
@@ -224,7 +274,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testlinear.c: possible arguments "
+                        printf("testinstance_coordination.c: possible arguments "
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
@@ -290,7 +340,7 @@ int main(int argc, char **argv)
 
     loop();
 
-    if (autoconnect && (!received || (sent * 2 - 5) != received)) {
+    if (autoconnect && (!received || sent != received)) {
         eprintf("Mismatch between sent and received/matched messages.\n");
         eprintf("Updated value %d time%s, but received %d and matched %d of them.\n",
                 sent, sent == 1 ? "" : "s", received, matched);

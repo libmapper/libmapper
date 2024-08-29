@@ -29,7 +29,7 @@
  * */
 
 /* Function prototypes */
-static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map id_map);
+static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map id_map, int activate);
 static int mpr_sig_full_name(mpr_sig sig, char *name, int len);
 static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags, mpr_time t,
                                        uint8_t activate, uint8_t call_handler_on_activate);
@@ -37,7 +37,7 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
                                        int activate);
 static void mpr_sig_release_inst_internal(mpr_local_sig lsig, int id_map_idx);
 
-static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id);
+static int get_inst_by_ids(mpr_local_sig lsig, mpr_id *LID, mpr_id *GID);
 
 #define MPR_SIG_STRUCT_ITEMS                                                            \
     mpr_obj_t obj;              /* always first */                                      \
@@ -318,7 +318,6 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
     *locked = 0;
 }
 
-
 /* Notes:
  * - Incoming signal values may be scalars or vectors, but much match the length of the target
  *   signal or mapping slot.
@@ -333,6 +332,12 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
  * - Instance creation and release may also be triggered by expression evaluation. Refer to the
  *   document "Understanding Instanced Signals and Maps" for more information.
  */
+/* Current solution for persistent (non-ephemeral) signal instances:
+ * - once a signal instance is active it continues using the same id_map
+ * - this means it always has the same GUID to downstream peers.
+ * - flexible input (mapping something new to the persistent instances) is handled
+ *   by using dynamic proxy id_maps */
+
 int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int argc,
                         lo_message msg, void *data)
 {
@@ -343,7 +348,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     int i, val_len = 0, vals;
     int id_map_idx, inst_idx, slot_id = -1, map_manages_inst = 0;
     mpr_id GID = 0;
-    mpr_id_map id_map;
+    mpr_id_map id_map, remote_id_map = 0;
     mpr_local_map map = 0;
     mpr_local_slot slot = 0;
     mpr_sig slot_sig = 0;
@@ -432,8 +437,10 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             trace("no map-managed instances available for GUID %"PR_MPR_ID"\n", GID);
             return 0;
         }
+        trace("remapping instance GUID %"PR_MPR_ID" -> %"PR_MPR_ID"\n", GID, id_map->GID);
         GID = id_map->GID;
         if (!vals) {
+            trace("releasing map-managed instance id_map\n");
             id_map->LID = id_map->GID = 0;
         }
     }
@@ -442,8 +449,18 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
 
     if (GID) {
         /* don't activate an instance just to release it again */
+        remote_id_map = mpr_dev_get_id_map_by_GID(dev, sig->group, GID);
+
+        if (remote_id_map && remote_id_map->indirect) {
+            trace("remapping instance GUID %"PR_MPR_ID" -> %"PR_MPR_ID"\n", GID, remote_id_map->LID);
+            GID = remote_id_map->LID;
+        }
+        else
+            remote_id_map = 0;
+
         id_map_idx = mpr_sig_get_id_map_with_GID(sig, GID, RELEASED_LOCALLY, time,
                                                  (vals && sig->dir == MPR_DIR_IN));
+
         TRACE_RETURN_UNLESS(id_map_idx >= 0, 0,
                             "no instances available for GUID %"PR_MPR_ID"\n", GID);
 
@@ -451,9 +468,11 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             /* instance was already released locally, we are only interested in release messages */
             if (0 == vals) {
                 /* we can clear signal's reference to map */
-                id_map = sig->id_maps[id_map_idx].id_map;
+                mpr_dev_GID_decref(dev, sig->group, sig->id_maps[id_map_idx].id_map);
                 sig->id_maps[id_map_idx].id_map = 0;
-                mpr_dev_GID_decref(dev, sig->group, id_map);
+                if (remote_id_map) {
+                    mpr_dev_GID_decref(dev, sig->group, remote_id_map);
+                }
             }
             return 0;
         }
@@ -478,20 +497,21 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
 
     if (vals == 0) {
         if (GID && sig->dir == MPR_DIR_IN) {
-            sig->id_maps[id_map_idx].status |= RELEASED_REMOTELY;
+            if (sig->ephemeral)
+                sig->id_maps[id_map_idx].status |= RELEASED_REMOTELY;
             if (sig->dir == MPR_DIR_IN)
                 sig->id_maps[id_map_idx].inst->status |= MPR_STATUS_REL_UPSTRM;
             else
                 sig->id_maps[id_map_idx].inst->status |= MPR_STATUS_REL_DNSTRM;
             sig->obj.status |= sig->id_maps[id_map_idx].inst->status;
             mpr_dev_GID_decref(dev, sig->group, id_map);
-            if (!sig->ephemeral) {
-                /* clear signal's reference to id_map */
-                mpr_dev_LID_decref(dev, sig->group, id_map);
-                sig->id_maps[id_map_idx].id_map = 0;
-                return 0;
+            if (remote_id_map) {
+                mpr_dev_GID_decref(dev, sig->group, remote_id_map);
             }
         }
+        // TODO: if user-code has registered callback for release events we should proceed even
+        // if the signal is non-ephemeral. Perhaps they want to do somethinng when released upstrm
+        // Conceptually this matches setting the "released" bitflag above
         RETURN_ARG_UNLESS(sig->ephemeral && (!map || mpr_map_get_use_inst((mpr_map)map)), 0);
 
         /* Try to release instance, but do not call process_maps() here, since we don't
@@ -821,20 +841,62 @@ void mpr_sig_call_handler(mpr_local_sig lsig, int evt, mpr_id id, unsigned int i
 
 /* Id the `id` argument is NULL, we have an added requirement to avoid LIDs that are already in use
  * in the device id_map (i.e. that have a local refcount > 0 */
-static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
+static int get_inst_by_ids(mpr_local_sig lsig, mpr_id *LID, mpr_id *GID)
 {
-    trace("trying to retrieve reserved instance...\n");
     int i;
     mpr_sig_inst si;
+    mpr_id_map id_map = 0, remote_id_map = 0;
+
+#ifdef DEBUG
+    printf("recovering instance with ids [");
+    if (LID)
+        printf("%"PR_MPR_ID", ", *LID);
+    else
+        printf("NULL, ");
+    if (GID)
+        printf("%"PR_MPR_ID"]\n", *GID);
+    else
+        printf("NULL]\n");
+#endif
+
+    if (LID) {
+        /* check if the device already has an id_map for this local id */
+        id_map = mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, *LID);
+        /* try to find existing instance with this id */
+        if ((si = _find_inst_by_id(lsig, *LID))) {
+            trace("found existing match...\n");
+            goto done;
+        }
+    }
+    else if (GID) {
+        /* check if the device already has an id_map for this global id */
+        id_map = mpr_dev_get_id_map_by_GID(lsig->dev, lsig->group, *GID);
+        if (id_map) {
+            trace("found existing id_map for GID\n");
+            remote_id_map = mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, *GID);
+            if ((si = _find_inst_by_id(lsig, id_map->LID))) {
+                trace("found existing match...\n");
+                goto done;
+            }
+        }
+    }
 
     /* First try to find an instance without an id_map */
+    /* 'Released' non-ephemeral instances will still have an id_map but with a zero GID_refcount */
     trace("  checking released instances...\n");
     for (i = 0; i < lsig->num_id_maps; i++) {
         if (!lsig->id_maps[i].id_map && (si = lsig->id_maps[i].inst)) {
-            if (!id && !mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, si->id, 0)) {
-                trace("    found released instance at id_maps[%d]\n", i);
-                goto done;
+            if (LID) {
+                if (si->id != *LID)
+                    continue;
             }
+            else {
+                id_map = mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, si->id);
+                if (id_map && (lsig->ephemeral || id_map->GID_refcount > 0))
+                    continue;
+            }
+            trace("    found released instance at id_maps[%d]\n", i);
+            goto done;
         }
     }
 
@@ -842,41 +904,62 @@ static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
     /* Next we will try to find an inactive instance */
     for (i = 0; i < lsig->num_inst; i++) {
         si = lsig->inst[i];
+        if (si->status & MPR_STATUS_ACTIVE)
+            continue;
         if (  !(si->status & MPR_STATUS_ACTIVE)
-            && (id || !mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, si->id, 0))) {
+            && (LID || !mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, si->id))) {
             trace("    found inactive instance at inst[%d]\n", i);
             goto done;
         }
     }
 
-    /* Otherwise if the signal is not ephemeral we will choose instances with local id_maps */
-    RETURN_ARG_UNLESS(!lsig->ephemeral, 0);
+    /* Otherwise if the signal is not ephemeral we will choose instances without an upstream src */
+    RETURN_ARG_UNLESS(lsig->dir == MPR_DIR_IN && !lsig->ephemeral, -1);
 
-    trace("  checking locally-claimed instances...\n");
+    trace("  checking instances with no upstream...\n");
     for (i = 0; i < lsig->num_id_maps; i++) {
-        mpr_id_map id_map = lsig->id_maps[i].id_map;
-        if (id_map && (id_map->GID >> 32 != mpr_obj_get_id((mpr_obj)lsig->dev) >> 32)) {
+        id_map = lsig->id_maps[i].id_map;
+        if (id_map && (id_map->GID_refcount > 0)) {
             continue;
         }
-        if ((si = lsig->id_maps[i].inst)
-            && (id || !mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, si->id, 1))) {
-            /* locally claimed instance, allow replacing id_map */
-            mpr_dev_LID_decref((mpr_local_dev)lsig->dev, lsig->group, id_map);
-            lsig->id_maps[i].id_map = NULL;
-            trace("    found local instance at id_maps[%d]\n", i);
+        if ((si = lsig->id_maps[i].inst)) {
+            trace("  found local instance at id_maps[%d]\n", i);
+            if (id_map && GID) {
+                trace("  setting up id_map indirection: %"PR_MPR_ID" -> %"PR_MPR_ID" : %"PR_MPR_ID"\n",
+                      *GID, id_map->GID, id_map->LID);
+                /* set up indirect id_map to refer to old_id_map */
+                mpr_id_map indirect = mpr_dev_add_id_map(lsig->dev, lsig->group, id_map->GID, *GID, 1);
+                /* increment global id refcounts for both id_maps */
+                mpr_id_map_incr_global_refcount(indirect);
+                mpr_id_map_incr_global_refcount(id_map);
+                /* return id_map index for local id_map */
+                return i;
+            }
             goto done;
         }
     }
 
-    return 0;
+    return -1;
 done:
-    if (id) {
-        si->id = *id;
+    if (LID) {
+        si->id = *LID;
         qsort(lsig->inst, lsig->num_inst, sizeof(mpr_sig_inst), _compare_inst_ids);
     }
-    return si;
+    if (!id_map) {
+        /* Claim id map locally */
+        id_map = mpr_dev_add_id_map(lsig->dev, lsig->group, si->id, GID ? *GID : 0, 0);
+    }
+    else
+        mpr_id_map_incr_local_refcount(id_map);
+    if (GID)
+        mpr_id_map_incr_global_refcount(id_map);
+    if (remote_id_map)
+        mpr_id_map_incr_global_refcount(remote_id_map);
+    /* store pointer to device map in a new signal map */
+    return _init_and_add_id_map(lsig, si, id_map, 1);
 }
 
+// TODO: in the case of non-ephemeral instances we could still steal oldest proxy id_map
 int _oldest_inst(mpr_local_sig lsig)
 {
     int i, oldest;
@@ -963,9 +1046,8 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
                                        uint8_t activate, uint8_t call_handler_on_activate)
 {
     mpr_sig_handler *h;
-    mpr_sig_inst si;
-    mpr_id_map id_map;
     int i;
+
     if (!lsig->use_inst)
         LID = MPR_DEFAULT_INST_LID;
     h = (mpr_sig_handler*)lsig->handler;
@@ -976,22 +1058,10 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
     }
     RETURN_ARG_UNLESS(activate, -1);
 
-    /* check if device has record of id map */
-    id_map = mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, LID, 0);
-
     /* No instance with that id exists - need to try to activate instance and
      * create new id map if necessary. */
-    if ((si = _find_inst_by_id(lsig, LID)) || (si = _reserved_inst(lsig, &LID))) {
-        if (!id_map) {
-            /* Claim id map locally */
-            id_map = mpr_dev_add_id_map((mpr_local_dev)lsig->dev, lsig->group, LID, 0);
-        }
-        else
-            mpr_id_map_inc_local_refcount(id_map);
-
-        /* store pointer to device map in a new signal map */
-        i = _init_and_add_id_map(lsig, si, id_map);
-
+    i = get_inst_by_ids(lsig, &LID, 0);
+    if (i >= 0) {
         if (call_handler_on_activate && h && lsig->ephemeral && (lsig->event_flags & MPR_STATUS_NEW))
             h((mpr_sig)lsig, MPR_STATUS_NEW, LID, 0, lsig->type, NULL, t);
         return i;
@@ -1023,14 +1093,8 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
     }
 
     /* try again */
-    if ((si = _find_inst_by_id(lsig, LID)) || (si = _reserved_inst(lsig, &LID))) {
-        if (!id_map) {
-            /* Claim id map locally */
-            id_map = mpr_dev_add_id_map((mpr_local_dev)lsig->dev, lsig->group, LID, 0);
-        }
-        else
-            mpr_id_map_inc_local_refcount(id_map);
-        i = _init_and_add_id_map(lsig, si, id_map);
+    i = get_inst_by_ids(lsig, &LID, 0);
+    if (i >= 0) {
         if (call_handler_on_activate && h && lsig->ephemeral && (lsig->event_flags & MPR_STATUS_NEW))
             h((mpr_sig)lsig, MPR_STATUS_NEW, LID, 0, lsig->type, NULL, t);
         return i;
@@ -1054,7 +1118,6 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
 {
     mpr_sig_handler *h;
     mpr_sig_inst si;
-    mpr_id_map id_map;
     int i;
     h = (mpr_sig_handler*)lsig->handler;
     for (i = 0; i < lsig->num_id_maps; i++) {
@@ -1064,38 +1127,17 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
     }
     RETURN_ARG_UNLESS(activate, -1);
 
-    /* check if the device already has a map for this global id */
-    id_map = mpr_dev_get_id_map_by_GID((mpr_local_dev)lsig->dev, lsig->group, GID);
-    if (!id_map) {
-        /* Here we still risk creating conflicting maps if two signals are updated asynchronously.
-         * This is easy to avoid by not allowing a local id to be used with multiple active remote
-         * maps, however users may wish to create devices with multiple object classes which do not
-         * require mutual instance id synchronization - e.g. instance 1 of object class A is not
-         * related to instance 1 of object B. This problem should be solved by adopting
-         * hierarchical object structure. */
-        if ((si = _reserved_inst(lsig, NULL))) {
-            id_map = mpr_dev_add_id_map((mpr_local_dev)lsig->dev, lsig->group, si->id, GID);
-            mpr_id_map_inc_global_refcount(id_map);
-            i = _init_and_add_id_map(lsig, si, id_map);
-            if (h && lsig->ephemeral && (lsig->event_flags & MPR_STATUS_NEW))
-                h((mpr_sig)lsig, MPR_STATUS_NEW, si->id, 0, lsig->type, NULL, t);
-            return i;
-        }
-    }
-    else if ((si = _find_inst_by_id(lsig, id_map->LID)) || (si = _reserved_inst(lsig, &id_map->LID))) {
-        if (!(si->status & MPR_STATUS_ACTIVE)) {
-            i = _init_and_add_id_map(lsig, si, id_map);
-            mpr_id_map_inc_local_refcount(id_map);
-            mpr_id_map_inc_global_refcount(id_map);
-            if (h && lsig->ephemeral && (lsig->event_flags & MPR_STATUS_NEW))
-                h((mpr_sig)lsig, MPR_STATUS_NEW, si->id, 0, lsig->type, NULL, t);
-            return i;
-        }
-    }
-    else {
-        /* TODO: Once signal groups are explicit, try re-mapping to another instance. */
-        trace("Signal %s has no instance %"PR_MPR_ID" available.\n", lsig->name, id_map->LID);
-        return -1;
+    /* Here we still risk creating conflicting maps if two signals are updated asynchronously.
+     * This is easy to avoid by not allowing a local id to be used with multiple active remote
+     * maps, however users may wish to create devices with multiple object classes which do not
+     * require mutual instance id synchronization - e.g. instance 1 of object class A is not
+     * related to instance 1 of object B. This problem should be solved by adopting
+     * hierarchical object structure. */
+    i = get_inst_by_ids(lsig, NULL, &GID);
+    if (i >= 0 && (si = lsig->id_maps[i].inst)) {
+        if (h && lsig->ephemeral && (lsig->event_flags & MPR_STATUS_NEW))
+            h((mpr_sig)lsig, MPR_STATUS_NEW, lsig->id_maps[i].inst->id, 0, lsig->type, NULL, t);
+        return i;
     }
 
     /* try releasing instance in use */
@@ -1125,29 +1167,14 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
     }
 
     /* try again */
-    if (!id_map) {
-        if ((si = _reserved_inst(lsig, NULL))) {
-            id_map = mpr_dev_add_id_map((mpr_local_dev)lsig->dev, lsig->group, si->id, GID);
-            mpr_id_map_inc_global_refcount(id_map);
-            i = _init_and_add_id_map(lsig, si, id_map);
-            if (h && lsig->ephemeral && (lsig->event_flags & MPR_STATUS_NEW))
-                h((mpr_sig)lsig, MPR_STATUS_NEW, si->id, 0, lsig->type, NULL, t);
-            return i;
-        }
-    }
-    else {
-        si = _find_inst_by_id(lsig, id_map->LID);
-        TRACE_RETURN_UNLESS(si && !(si->status & MPR_STATUS_ACTIVE), -1,
-                            "Signal %s has no instance %" PR_MPR_ID" available.",
-                            lsig->name, id_map->LID);
-        i = _init_and_add_id_map(lsig, si, id_map);
-        mpr_id_map_inc_local_refcount(id_map);
-        mpr_id_map_inc_global_refcount(id_map);
+    i = get_inst_by_ids(lsig, NULL, &GID);
+    if (i >= 0) {
+        si = lsig->id_maps[i].inst;
+        RETURN_ARG_UNLESS(si && !(si->status & MPR_STATUS_ACTIVE), -1);
         if (h && lsig->ephemeral && (lsig->event_flags & MPR_STATUS_NEW))
             h((mpr_sig)lsig, MPR_STATUS_NEW, si->id, 0, lsig->type, NULL, t);
-        return i;
     }
-    return -1;
+    return i;
 }
 
 /* finding id_maps here will be a bit inefficient for now */
@@ -1416,7 +1443,6 @@ static void mpr_sig_release_inst_internal(mpr_local_sig lsig, int id_map_idx)
     time = mpr_dev_get_time((mpr_dev)lsig->dev);
     mpr_value_reset_inst(lsig->value, smap->inst->idx, time);
     process_maps(lsig, id_map_idx);
-
     if (smap->id_map && mpr_dev_LID_decref((mpr_local_dev)lsig->dev, lsig->group, smap->id_map)) {
         smap->id_map = 0;
     }
@@ -1626,12 +1652,13 @@ mpr_list mpr_sig_get_maps(mpr_sig sig, mpr_dir dir)
     return mpr_graph_new_query(sig->obj.graph, 1, MPR_MAP, (void*)cmp_qry_sig_maps, "vi", &sig, dir);
 }
 
-static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map id_map)
+static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si,
+                                mpr_id_map id_map, int activate)
 {
     int i;
-    if (!(si->status & MPR_STATUS_ACTIVE)) {
+    if (activate && !(si->status & MPR_STATUS_ACTIVE)) {
         si->status &= ~MPR_STATUS_STAGED;
-        si->status = MPR_STATUS_NEW | MPR_STATUS_ACTIVE;
+        si->status |= (MPR_STATUS_NEW | MPR_STATUS_ACTIVE);
         mpr_time_set(&si->created, MPR_NOW);
     }
 

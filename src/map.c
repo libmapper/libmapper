@@ -756,7 +756,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
 
             if (MPR_MAP == manage_inst && id_map->LID) {
                 /* need to clear id_maps */
-                mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID, 0);
+                mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID);
                 mpr_dev_remove_id_map(dev, group, tmp);
                 id_map->LID = 0;
             }
@@ -769,10 +769,10 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
             if (MPR_MAP == manage_inst) {
                 if (!id_map->LID) {
                     /* need to (re)create id_map */
-                    mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID, 0);
+                    mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID);
                     if (!tmp) {
                         /* add a new id_map to the device */
-                        tmp = mpr_dev_add_id_map(dev, group, MPR_DEFAULT_INST_LID, 0);
+                        tmp = mpr_dev_add_id_map(dev, group, MPR_DEFAULT_INST_LID, 0, 0);
                     }
                     /* copy the new id_map values into the map's id_map */
                     id_map->LID = MPR_DEFAULT_INST_LID;
@@ -791,7 +791,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
             mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
             if (MPR_MAP == manage_inst && id_map->LID) {
                 /* need to clear id_maps */
-                mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID, 0);
+                mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID);
                 mpr_dev_remove_id_map(dev, group, tmp);
                 id_map->LID = 0;
             }
