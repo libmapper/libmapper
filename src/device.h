@@ -132,6 +132,9 @@ mpr_id_map mpr_dev_get_id_map_by_LID(mpr_local_dev dev, int group, mpr_id LID);
 
 mpr_id_map mpr_dev_get_id_map_by_GID(mpr_local_dev dev, int group, mpr_id GID);
 
+/* TODO: rename this function */
+mpr_id_map mpr_dev_get_id_map_GID_free(mpr_local_dev dev, int group, mpr_id last_GID);
+
 int mpr_local_dev_get_num_id_maps(mpr_local_dev dev, int active);
 
 void mpr_dev_remove_id_map(mpr_local_dev dev, int group, mpr_id_map rem);

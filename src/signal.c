@@ -910,9 +910,7 @@ static int get_inst_by_ids(mpr_local_sig lsig, mpr_id *LID, mpr_id *GID)
     /* Next we will try to find an inactive instance */
     for (i = 0; i < lsig->num_inst; i++) {
         si = lsig->inst[i];
-        if (si->status & MPR_STATUS_ACTIVE)
-            continue;
-        if (  !(si->status & MPR_STATUS_ACTIVE)
+        if (   (!lsig->ephemeral || !(si->status & MPR_STATUS_ACTIVE))
             && (LID || !mpr_dev_get_id_map_by_LID(lsig->dev, lsig->group, si->id))) {
             trace("    found inactive instance at inst[%d]\n", i);
             goto done;
@@ -929,19 +927,43 @@ static int get_inst_by_ids(mpr_local_sig lsig, mpr_id *LID, mpr_id *GID)
             continue;
         }
         if ((si = lsig->id_maps[i].inst)) {
-            trace("  found local instance at id_maps[%d]\n", i);
+            trace("  found instance at id_maps[%d]\n", i);
             if (id_map && GID) {
+                /* set up indirect id_map to refer to old_id_map */
                 trace("  setting up id_map indirection: %"PR_MPR_ID" -> %"PR_MPR_ID" : %"PR_MPR_ID"\n",
                       *GID, id_map->GID, id_map->LID);
-                /* set up indirect id_map to refer to old_id_map */
                 mpr_id_map indirect = mpr_dev_add_id_map(lsig->dev, lsig->group, id_map->GID, *GID, 1);
+
                 /* increment global id refcounts for both id_maps */
                 mpr_id_map_incr_global_refcount(indirect);
                 mpr_id_map_incr_global_refcount(id_map);
+
                 /* return id_map index for local id_map */
                 return i;
             }
             goto done;
+        }
+    }
+
+    {
+        mpr_id last = 0;
+        while ((id_map = mpr_dev_get_id_map_GID_free(lsig->dev, lsig->group, last))) {
+            trace("  found freed id_map %"PR_MPR_ID" (%d) : %"PR_MPR_ID" (%d)\n", id_map->LID,
+                  id_map->LID_refcount, id_map->GID, id_map->GID_refcount);
+            if ((si = _find_inst_by_id(lsig, id_map->LID))) {
+                /* set up indirect id_map to refer to old_id_map */
+                trace("  setting up id_map indirection: %"PR_MPR_ID" -> %"PR_MPR_ID" : %"PR_MPR_ID"\n",
+                      *GID, id_map->GID, id_map->LID);
+                mpr_id_map indirect = mpr_dev_add_id_map(lsig->dev, lsig->group, id_map->GID, *GID, 1);
+
+                /* increment global id refcounts for new id_map */
+                mpr_id_map_incr_global_refcount(indirect);
+
+                /* code below will add the id_map to this signal and increment local and global
+                 * refcounts for the old id_map */
+                goto done;
+            }
+            last = id_map->GID;
         }
     }
 

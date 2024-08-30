@@ -682,6 +682,24 @@ mpr_id_map mpr_dev_get_id_map_by_GID(mpr_local_dev dev, int group, mpr_id GID)
     return 0;
 }
 
+/* TODO: rename this function */
+mpr_id_map mpr_dev_get_id_map_GID_free(mpr_local_dev dev, int group, mpr_id last_GID)
+{
+    int searching = last_GID != 0;
+    mpr_id_map id_map = dev->id_maps.active[group];
+    while (id_map && searching) {
+        if (id_map->GID == last_GID)
+            searching = 0;
+        id_map = id_map->next;
+    }
+    while (id_map) {
+        if (id_map->GID_refcount <= 0)
+            return id_map;
+        id_map = id_map->next;
+    }
+    return 0;
+}
+
 /*! Probe the network to see if a device's proposed name.ordinal is available. */
 void mpr_local_dev_probe_name(mpr_local_dev dev, int start_ordinal, mpr_net net)
 {

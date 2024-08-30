@@ -175,7 +175,7 @@ void loop(void)
     mpr_graph g = mpr_obj_get_graph((mpr_obj)src);
     const char *name1 = mpr_obj_get_prop_as_str((mpr_obj)sendsig1, MPR_PROP_NAME, NULL);
     const char *name2 = mpr_obj_get_prop_as_str((mpr_obj)sendsig2, MPR_PROP_NAME, NULL);
-    while ((!terminate || i < 100) && !done) {
+    while ((!terminate || i < 1000) && !done) {
         int inst_id = rand() % 10;
         if (rand() % 10 > 7) {
             eprintf("Releasing *.%d\n", inst_id);
@@ -247,6 +247,8 @@ void loop(void)
             printf("\r  Sent: %4i, Received: %4i, Matched: %4i   ", sent, received, matched);
             fflush(stdout);
         }
+        if (!terminate && (sent != received))
+            return;
     }
 }
 
