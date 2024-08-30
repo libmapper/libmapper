@@ -925,6 +925,7 @@ lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, const void *v
             lo_message_add_nil(msg);
     }
     else {
+        lo_message_free(msg);
         return 0;
     }
     if (m->use_inst && id_map) {

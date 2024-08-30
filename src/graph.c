@@ -1075,6 +1075,7 @@ mpr_obj mpr_graph_add_obj(mpr_graph g, int obj_type, int is_local)
         case MPR_DEV:   size = mpr_dev_get_struct_size(is_local);   break;
         case MPR_SIG:   size = mpr_sig_get_struct_size(is_local);   break;
         case MPR_MAP:   size = mpr_map_get_struct_size(is_local);   break;
+        default:                                                    return 0;
     }
 
     obj = mpr_list_add_item((void**)list, size, is_local && (MPR_MAP == obj_type));

@@ -401,7 +401,7 @@ int loop(test_config *config)
 {
     int i = 0, j, num_parallel_inst = 5, ret = 0;
     float valf = 0;
-    mpr_id inst;
+    mpr_id inst = 0;
     received = 0;
 
     eprintf("-------------------- GO ! --------------------\n");
@@ -650,7 +650,8 @@ int run_test(test_config *config)
     mpr_dev_poll(dst, 100);
 
     /* Warning: assuming that map has not been released by a peer process is not safe! Do not do
-     * this in non-test code. */
+     * this in non-test code. Instead you should try to fetch a fresh map object from the graph
+     * e.g. using the map id. */
     mpr_map_release(map);
 
     /* TODO: we shouldn't have to wait here... */
@@ -685,9 +686,11 @@ int run_test(test_config *config)
 
     active_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)dst, 1);
     reserve_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)dst, 0);
-    if (active_count > !ephemeral * 2 + 2 || reserve_count >= 10) {
-        printf("Error: dst device using %d active and %d reserve id maps (should be <=1 and <10)\n",
-               active_count, reserve_count);
+    if (   active_count > mpr_sig_get_num_inst(multirecv, MPR_STATUS_ACTIVE) * !ephemeral + 1
+        || reserve_count > 10) {
+        printf("Error: dst device using %d active and %d reserve id maps (should be <=%d and <=10)\n",
+               active_count, reserve_count,
+               active_count > mpr_sig_get_num_inst(multirecv, MPR_STATUS_ACTIVE) * !ephemeral + 1);
 #ifdef DEBUG
         mpr_local_dev_print_id_maps((mpr_local_dev)dst);
 #endif

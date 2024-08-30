@@ -355,8 +355,14 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     float diff;
     mpr_time time;
 
-    TRACE_RETURN_UNLESS(sig && (dev = sig->dev), 0,
-                        "error in mpr_sig_osc_handler, missing user data\n");
+    assert(sig);
+    dev = sig->dev;
+
+#ifdef DEBUG
+    printf("'%s:%s' received update: ", mpr_dev_get_name((mpr_dev)dev), sig->name);
+    lo_message_pp(msg);
+#endif
+
     TRACE_RETURN_UNLESS(sig->num_inst, 0, "signal '%s' has no instances.\n", sig->name);
     RETURN_ARG_UNLESS(argc, 0);
 
@@ -536,7 +542,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
      * remote signal value. */
     if (map && vals != slot_sig->len) {
 #ifdef DEBUG
-        trace_dev(dev, "error in mpr_dev_handler: partial vector update "
+        trace_dev(dev, "error in mpr_sig_osc_handler: partial vector update "
                   "applied to convergent mapping slot.");
 #endif
         return 0;
@@ -572,10 +578,10 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             && (si->status & MPR_STATUS_ACTIVE)) {
             uint16_t status = 0;
             if (!(si->status & MPR_STATUS_HAS_VALUE)) {
-                /* we can't use mpr_value_set() here since some vector elements may be missing */
                 status = MPR_STATUS_NEW_VALUE;
                 mpr_value_incr_idx(sig->value, si->idx);
             }
+            /* we can't use mpr_value_set() here since some vector elements may be missing */
             for (i = 0; i < sig->len; i++) {
                 if (types[i] == MPR_NULL)
                     continue;
@@ -1170,7 +1176,7 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
     i = get_inst_by_ids(lsig, NULL, &GID);
     if (i >= 0) {
         si = lsig->id_maps[i].inst;
-        RETURN_ARG_UNLESS(si && !(si->status & MPR_STATUS_ACTIVE), -1);
+        RETURN_ARG_UNLESS(si, -1);
         if (h && lsig->ephemeral && (lsig->event_flags & MPR_STATUS_NEW))
             h((mpr_sig)lsig, MPR_STATUS_NEW, si->id, 0, lsig->type, NULL, t);
     }

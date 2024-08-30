@@ -164,10 +164,10 @@ typedef enum {
     MPR_STATUS_ACTIVE       = 0x0020,   /*!< Object is active. */
 
     MPR_STATUS_HAS_VALUE    = 0x0040,   /*!< Signal/instance has a value. */
-    MPR_STATUS_NEW_VALUE    = 0x0080,   /*!< Signal/instance value has changed since last checked. */
+    MPR_STATUS_NEW_VALUE    = 0x0080,   /*!< Signal/instance value has changed since last check. */
 
     MPR_STATUS_UPDATE_LOC   = 0x0100,   /*!< Signal/instance value was updated locally. */
-    MPR_STATUS_UPDATE_REM   = 0x0200,   /*!< Signal/instance value was updated remotely/through a map. */
+    MPR_STATUS_UPDATE_REM   = 0x0200,   /*!< Signal/instance value was updated remotely. */
 
     MPR_STATUS_REL_UPSTRM   = 0x0400,   /*!< Instance was released upstream. */
     MPR_STATUS_REL_DNSTRM   = 0x0800,   /*!< Signal instance was released downstream. */
