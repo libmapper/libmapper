@@ -521,10 +521,9 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
                 mpr_dev_GID_decref(dev, sig->group, remote_id_map);
             }
         }
-        // TODO: if user-code has registered callback for release events we should proceed even
-        // if the signal is non-ephemeral. Perhaps they want to do somethinng when released upstrm
-        // Conceptually this matches setting the "released" bitflag above
-        RETURN_ARG_UNLESS(sig->ephemeral && (!map || mpr_map_get_use_inst((mpr_map)map)), 0);
+        /* if user-code has registered callback for release events we will proceed even if the
+         * signal is non-ephemeral. Conceptually this matches setting the "released" bitflag. */
+        RETURN_ARG_UNLESS(!map || mpr_map_get_use_inst((mpr_map)map), 0);
 
         /* Try to release instance, but do not call process_maps() here, since we don't
          * know if the local signal instance will actually be released. */
