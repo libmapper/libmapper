@@ -1631,8 +1631,9 @@ int mpr_sig_get_inst_status(mpr_sig sig, mpr_id id)
     si = _find_inst_by_id((mpr_local_sig)sig, id);
     if (si) {
         if ((status = si->status)) {
-            /* clear all flags except for HAS_VALUE, ACTIVE, and STAGED */
-            si->status &= (MPR_STATUS_HAS_VALUE | MPR_STATUS_ACTIVE | MPR_STATUS_STAGED);
+            /* clear all flags except for HAS_VALUE, STAGED/ACTIVE, and REL_UPSTRM */
+            si->status &= (  MPR_STATUS_HAS_VALUE | MPR_STATUS_ACTIVE
+                           | MPR_STATUS_STAGED | MPR_STATUS_REL_UPSTRM);
         }
         else
             status = MPR_STATUS_STAGED;
