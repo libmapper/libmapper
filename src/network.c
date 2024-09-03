@@ -99,6 +99,7 @@ typedef struct _mpr_net {
     uint8_t generic_dev_methods_added;
     uint8_t registered;
     uint8_t force_next_ping;
+    uint8_t polling;
 } mpr_net_t;
 
 static int is_alphabetical(int num, lo_arg **names)
@@ -961,10 +962,17 @@ static void mpr_net_housekeeping(mpr_net net, int force_ping)
     return;
 }
 
-int mpr_net_poll(mpr_net net, int block_ms)
+int mpr_net_poll_internal(mpr_net net, int block_ms)
 {
     int i, j, count = 0, left_ms, elapsed_ms, admin_elapsed_ms = 0;
-    double then = mpr_get_current_time();
+    double then;
+
+    if (++net->polling > 1) {
+        trace("Network polling already in process.\n");
+        return 0;
+    }
+
+    then = mpr_get_current_time();
 
     mpr_net_housekeeping(net, 0);
 
@@ -1015,7 +1023,17 @@ int mpr_net_poll(mpr_net net, int block_ms)
     for (i = 0; i < net->num_devs; i++) {
         mpr_dev_update_subscribers(net->devs[i]);
     }
+    net->polling = 0;
     return count;
+}
+
+int mpr_net_poll(mpr_net net, int block_ms)
+{
+    if (net->thread_data || net->polling) {
+        trace("Network polling already in process.\n");
+        return 0;
+    }
+    return mpr_net_poll_internal(net, block_ms);
 }
 
 #ifdef HAVE_LIBPTHREAD
@@ -1023,7 +1041,7 @@ static void *net_thread_func(void *data)
 {
     mpr_thread_data td = (mpr_thread_data)data;
     while (td->is_active) {
-        mpr_net_poll((mpr_net)td->object, td->block_ms);
+        mpr_net_poll_internal((mpr_net)td->object, td->block_ms);
     }
     td->is_done = 1;
     pthread_exit(NULL);
@@ -1036,7 +1054,7 @@ static unsigned __stdcall net_thread_func(void *data)
 {
     mpr_thread_data td = (mpr_thread_data)data;
     while (td->is_active) {
-        mpr_net_poll((mpr_net)td->object, td->block_ms);
+        mpr_net_poll_internal((mpr_net)td->object, td->block_ms);
     }
     td->is_done = 1;
     _endthread();
