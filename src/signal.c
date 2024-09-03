@@ -236,11 +236,17 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
             mpr_slot_set_value(src_slot, inst_idx, NULL, *time);
 
             /* send release to downstream */
-            /* TODO: use updated bitflags (or released before/after if necessary) to mark release,
-             * don't send immediately */
-            if (   MPR_LOC_SRC == mpr_map_get_process_loc((mpr_map)map)
-                && !mpr_map_get_use_inst((mpr_map)map)) {
-                mpr_local_map_set_updated(map, inst_idx);
+            if (MPR_LOC_SRC == mpr_map_get_process_loc((mpr_map)map)) {
+                if (mpr_map_get_use_inst((mpr_map)map)) {
+                    /* need to send immediately since id_map won't be available later */
+                    /* TODO: use updated bitflags (or released before/after if necessary) to mark release,
+                     * don't send immediately */
+                    msg = mpr_map_build_msg(map, 0, 0, 0, id_map);
+                    mpr_local_slot_send_msg(dst_slot, msg, *time, mpr_map_get_protocol((mpr_map)map));
+                }
+                else {
+                    mpr_local_map_set_updated(map, inst_idx);
+                }
             }
             else if (mpr_local_map_get_has_scope(map, id_map->GID)) {
                 /* need to send immediately since id_map won't be available later */

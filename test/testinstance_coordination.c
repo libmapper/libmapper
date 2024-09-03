@@ -17,7 +17,7 @@ int shared_graph = 0;
 int autoconnect = 1;
 int done = 0;
 int period = 100;
-int ephemeral = 0;
+int ephemeral = 1;
 
 mpr_dev src = 0;
 mpr_dev dst = 0;
@@ -43,7 +43,6 @@ static void eprintf(const char *format, ...)
 
 int setup_src(mpr_graph g, const char *iface)
 {
-    int mn=0, mx=1;
     mpr_list l;
     mpr_time t;
 
@@ -56,9 +55,9 @@ int setup_src(mpr_graph g, const char *iface)
             mpr_graph_get_interface(mpr_obj_get_graph(src)));
 
     sendsig1 = mpr_sig_new(src, MPR_DIR_OUT, "outsig1", 1, MPR_INT32, NULL,
-                           &mn, &mx, &num_inst, NULL, 0);
+                           NULL, NULL, &num_inst, NULL, 0);
     sendsig2 = mpr_sig_new(src, MPR_DIR_OUT, "outsig2", 1, MPR_INT32, NULL,
-                           &mn, &mx, &num_inst, NULL, 0);
+                           NULL, NULL, &num_inst, NULL, 0);
 
     /* test retrieving value before it exists */
     eprintf("sendsig value is %p\n", mpr_sig_get_value(sendsig1, 0, &t));
@@ -83,20 +82,8 @@ void cleanup_src(void)
     }
 }
 
-void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
-             mpr_type type, const void *value, mpr_time t)
-{
-    if (value) {
-        eprintf("handler: %s.%llu got %f\n",
-                mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL),
-                instance, (*(float*)value));
-        received++;
-    }
-}
-
 int setup_dst(mpr_graph g, const char *iface)
 {
-    float mn=0, mx=1;
     mpr_list l;
     mpr_time t;
 
@@ -108,11 +95,11 @@ int setup_dst(mpr_graph g, const char *iface)
     eprintf("destination created using interface %s.\n",
             mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
-    recvsig1 = mpr_sig_new(dst, MPR_DIR_IN, "insig1", 1, MPR_FLT, NULL,
-                           &mn, &mx, &num_inst, NULL, 0);
+    recvsig1 = mpr_sig_new(dst, MPR_DIR_IN, "insig1", 3, MPR_FLT, NULL,
+                           NULL, NULL, &num_inst, NULL, 0);
     mpr_obj_set_prop((mpr_obj)recvsig1, MPR_PROP_EPHEM, NULL, 1, MPR_INT32, &ephemeral, 1);
     recvsig2 = mpr_sig_new(dst, MPR_DIR_IN, "insig2", 1, MPR_FLT, NULL,
-                           &mn, &mx, &num_inst, NULL, 0);
+                           NULL, NULL, &num_inst, NULL, 0);
     mpr_obj_set_prop((mpr_obj)recvsig2, MPR_PROP_EPHEM, NULL, 1, MPR_INT32, &ephemeral, 1);
 
     /* test retrieving value before it exists */
@@ -175,22 +162,42 @@ void loop(void)
     mpr_graph g = mpr_obj_get_graph((mpr_obj)src);
     const char *name1 = mpr_obj_get_prop_as_str((mpr_obj)sendsig1, MPR_PROP_NAME, NULL);
     const char *name2 = mpr_obj_get_prop_as_str((mpr_obj)sendsig2, MPR_PROP_NAME, NULL);
-    while ((!terminate || i < 1000) && !done) {
-        int inst_id = rand() % 10;
-        if (rand() % 10 > 7) {
-            eprintf("Releasing *.%d\n", inst_id);
-            mpr_sig_release_inst(sendsig1, inst_id);
-            mpr_sig_release_inst(sendsig2, inst_id);
-        }
-        else {
-            if (rand() % 10 > 3) {
-                eprintf("Updating signal %s.%d to %d\n", name1, inst_id, i);
-                mpr_sig_set_value(sendsig1, inst_id, 1, MPR_INT32, &i);
+    while ((!terminate || i < 100) && !done) {
+        if (i % 20 < 10) {
+            int j = i % 10;
+            if (rand() % 10 > 8) {
+                eprintf("Releasing *.%d\n", j);
+                mpr_sig_release_inst(sendsig1, j);
+                mpr_sig_release_inst(sendsig2, j);
+            }
+            else {
+                if (j < 5) {
+                    eprintf("Updating signal %s.%d to %d\n", name1, j, i);
+                    mpr_sig_set_value(sendsig1, j, 1, MPR_INT32, &i);
+                }
+                else {
+                    eprintf("Updating signal %s.%d to %d\n", name2, j, i);
+                    mpr_sig_set_value(sendsig2, j, 1, MPR_INT32, &i);
+                }
                 ++sent;
             }
-            if (rand() % 10 > 3) {
-                eprintf("Updating signal %s.%d to %d\n", name2, inst_id, i);
-                mpr_sig_set_value(sendsig2, inst_id, 1, MPR_INT32, &i);
+        }
+        else {
+            int j = i % 10;
+            if (rand() % 10 > 7) {
+                eprintf("Releasing *.%d\n", j);
+                mpr_sig_release_inst(sendsig1, j);
+                mpr_sig_release_inst(sendsig2, j);
+            }
+            else {
+                if (j < 5) {
+                    eprintf("Updating signal %s.%d to %d\n", name2, j, i);
+                    mpr_sig_set_value(sendsig2, j, 1, MPR_INT32, &i);
+                }
+                else {
+                    eprintf("Updating signal %s.%d to %d\n", name1, j, i);
+                    mpr_sig_set_value(sendsig1, j, 1, MPR_INT32, &i);
+                }
                 ++sent;
             }
         }
@@ -209,36 +216,66 @@ void loop(void)
             if (status & MPR_STATUS_UPDATE_REM) {
                 float *value = (float*)mpr_sig_get_value(recvsig1, id, NULL);
                 if (value) {
-                    eprintf("%s.%llu got %f\n",
-                            mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL),
-                            id, *value);
+                    int k, len = mpr_obj_get_prop_as_int32((mpr_obj)recvsig1, MPR_PROP_LEN, NULL);
+                    if (verbose) {
+                        printf("%s.%llu got ",
+                               mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL), id);
+                        if (len > 1)
+                            printf("[");
+                        for (k = 0; k < len; k++)
+                            printf("%g, ", value[k]);
+                        if (len > 1)
+                            printf("\b\b] \n");
+                        else
+                            printf("\b\b  \n");
+                    }
                     ++received;
-                    if (*value == i)
-                        ++matched;
+                    ++matched;
+                    for (k = 0; k < len; k++) {
+                        if (value[k] != (float)i) {
+                            --matched;
+                            break;
+                        }
+                    }
                 }
-                else {
-                    eprintf("%s.%llu got NULL??\n",
-                            mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL),
-                            id);
-                }
+            }
+            if (status & MPR_STATUS_REL_UPSTRM) {
+                eprintf("%s.%llu got release\n",
+                        mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL), id);
+                mpr_sig_release_inst(recvsig1, id);
             }
             id = mpr_sig_get_inst_id(recvsig2, j, MPR_STATUS_ANY);
             status = mpr_sig_get_inst_status(recvsig2, id);
             if (status & MPR_STATUS_UPDATE_REM) {
                 float *value = (float*)mpr_sig_get_value(recvsig2, id, NULL);
                 if (value) {
-                    eprintf("%s.%llu got %f\n",
-                            mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL),
-                            id, *value);
+                    int k, len = mpr_obj_get_prop_as_int32((mpr_obj)recvsig2, MPR_PROP_LEN, NULL);
+                    if (verbose) {
+                        printf("%s.%llu got ",
+                               mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL), id);
+                        if (len > 1)
+                            printf("[");
+                        for (k = 0; k < len; k++)
+                            printf("%g, ", value[k]);
+                        if (len > 1)
+                            printf("\b\b] \n");
+                        else
+                            printf("\b\b  \n");
+                    }
                     ++received;
-                    if (*value == i)
-                        ++matched;
+                    ++matched;
+                    for (k = 0; k < len; k++) {
+                        if (value[k] != (float)i) {
+                            --matched;
+                            break;
+                        }
+                    }
                 }
-                else {
-                    eprintf("%s.%llu got NULL??\n",
-                            mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL),
-                            id);
-                }
+            }
+            if (status & MPR_STATUS_REL_UPSTRM) {
+                eprintf("%s.%llu got release\n",
+                        mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL), id);
+                mpr_sig_release_inst(recvsig2, id);
             }
         }
         i++;
