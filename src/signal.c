@@ -9,7 +9,6 @@
 #include "device.h"
 #include "graph.h"
 #include "mpr_signal.h"
-#include "network.h"
 #include "object.h"
 #include "path.h"
 #include "table.h"
@@ -621,7 +620,6 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
 {
     mpr_graph g;
     mpr_local_sig lsig;
-    mpr_net net;
 
     /* For now we only allow adding signals to devices. */
     RETURN_ARG_UNLESS(dev && mpr_obj_get_is_local((mpr_obj)dev), 0);
@@ -635,7 +633,6 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
         return (mpr_sig)lsig;
 
     g = mpr_obj_get_graph((mpr_obj)dev);
-    net = mpr_graph_get_net(g);
 
     lsig = (mpr_local_sig)mpr_graph_add_obj(g, MPR_SIG, 1);
     lsig->obj.id = mpr_dev_generate_unique_id(dev);
@@ -644,9 +641,13 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     lsig->event_flags = events;
     mpr_sig_init((mpr_sig)lsig, dev, 1, dir, name, len, type, unit, min, max, num_inst);
 
-    mpr_net_add_dev_server_method(net, (mpr_local_dev)dev, lsig->path, mpr_sig_osc_handler, lsig);
     mpr_local_dev_add_sig((mpr_local_dev)dev, lsig, dir);
     return (mpr_sig)lsig;
+}
+
+void mpr_local_sig_add_to_net(mpr_local_sig sig, mpr_net net)
+{
+    mpr_net_add_dev_server_method(net, sig->dev, sig->path, mpr_sig_osc_handler, sig);
 }
 
 void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const char *name, int len,

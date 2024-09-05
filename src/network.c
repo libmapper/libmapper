@@ -437,9 +437,10 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
         ++net->num_devs;
 
         if ((net->num_servers - 2) < (net->num_devs * 2)) {
-            net->num_servers = net->num_devs * 2 + 2;
-            net->servers = realloc(net->servers, net->num_servers * sizeof(lo_server));
-            net->server_status = realloc(net->server_status, net->num_servers * sizeof(int));
+            int num_servers = net->num_devs * 2 + 2;
+            net->servers = realloc(net->servers, num_servers * sizeof(lo_server));
+            net->server_status = realloc(net->server_status, num_servers * sizeof(int));
+            net->num_servers = num_servers;
         }
         net->servers[net->num_devs * 2] = net->servers[net->num_devs * 2 + 1] = 0;
     }
@@ -518,7 +519,7 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
 
 void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
 {
-    int i, j;
+    int i;
     char path[256];
 
     for (i = 0; i < net->num_devs; i++) {
@@ -550,27 +551,6 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
                  mpr_dev_get_name((mpr_dev)dev));
         lo_server_del_method(net->servers[SERVER_BUS], path, dev_handlers_specific[i].types);
         lo_server_del_method(net->servers[SERVER_MESH], path, dev_handlers_specific[i].types);
-    }
-    if (net->num_devs == 0) {
-        /* Also remove generic device handlers. */
-        for (i = 0; i < NUM_DEV_HANDLERS_GENERIC; i++) {
-            /* make sure method isn't also used by graph */
-            int found = 0;
-            for (j = 0; j < NUM_GRAPH_HANDLERS; j++) {
-                if (dev_handlers_generic[i].str_idx == graph_handlers[j].str_idx) {
-                    found = 1;
-                    break;
-                }
-            }
-            if (found)
-                continue;
-            lo_server_del_method(net->servers[SERVER_BUS],
-                                 net_msg_strings[dev_handlers_generic[i].str_idx],
-                                 dev_handlers_generic[i].types);
-            lo_server_del_method(net->servers[SERVER_MESH],
-                                 net_msg_strings[dev_handlers_generic[i].str_idx],
-                                 dev_handlers_generic[i].types);
-        }
     }
 }
 
@@ -1299,6 +1279,14 @@ static int handler_logout(const char *path, const char *types, lo_arg **av,
     RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
     trace_net(net);
     remote = mpr_graph_get_dev_by_name(gph, &av[0]->s);
+    if (remote) {
+        if (mpr_obj_get_is_local((mpr_obj)remote))
+            return 0;
+        else {
+            mpr_graph_unsubscribe(gph, remote);
+            mpr_graph_remove_dev(gph, remote, MPR_STATUS_REMOVED);
+        }
+    }
     if (net->num_devs) {
         int i = 0, ordinal;
         char *prefix_str, *ordinal_str;
@@ -1313,10 +1301,6 @@ static int handler_logout(const char *path, const char *types, lo_arg **av,
         for (i = 0; i < net->num_devs; i++) {
             mpr_local_dev_handler_logout(net->devs[i], remote, prefix_str, ordinal);
         }
-    }
-    if (remote) {
-        mpr_graph_unsubscribe(gph, remote);
-        mpr_graph_remove_dev(gph, remote, MPR_STATUS_REMOVED);
     }
     return 0;
 }

@@ -169,14 +169,18 @@ void *update_thread(void *context)
 #endif
 {
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
+    mpr_graph gf = mpr_obj_get_graph((mpr_obj)src);
+    /* try creating and destroying a device */
+    mpr_dev dev2 = mpr_dev_new("foo", gf);
     while ((!terminate || sent < 50) && !done) {
         eprintf("Updating signal %s to %d\n", name, sent);
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &sent);
         expected = sent;
         sent++;
         mpr_dev_update_maps(src);
-        SLEEP_MS(period);
+        mpr_dev_poll(src, period);
     }
+    mpr_dev_free(dev2);
     keep_going = 0;
     return 0;
 }
@@ -200,8 +204,14 @@ void loop1(void)
 #endif /* HAVE_WIN32_THREADS */
 
     while (keep_going) {
-        mpr_dev_poll(src, 0);
-        mpr_dev_poll(dst, period);
+        /* src device will be polled in another thread */
+        if (shared_graph) {
+            /* sleep here instead of calling poll on shared graph */
+            SLEEP_MS(period);
+        }
+        else {
+            mpr_dev_poll(dst, period);
+        }
 
         if (!verbose) {
             printf("\r  Sent: %4i, Received: %4i   ", sent, received);
@@ -228,21 +238,24 @@ void loop1(void)
 void loop2(void)
 {
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
-    mpr_dev_start_polling(dst, 100);
+    mpr_dev_start_polling(dst, period);
 
     while ((!terminate || sent < 100) && !done) {
         eprintf("Updating signal %s to %d\n", name, sent);
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &sent);
         expected = sent;
         sent++;
-        mpr_dev_poll(src, period);
+        if (shared_graph) {
+            /* sleep here instead of calling poll on shared graph */
+            SLEEP_MS(period + 1);
+        }
+        else
+            mpr_dev_poll(src, period);
 
         if (!verbose) {
             printf("\r  Sent: %4i, Received: %4i   ", sent, received);
             fflush(stdout);
         }
-
-        SLEEP_MS(period);
     }
 
     mpr_dev_stop_polling(dst);

@@ -11,6 +11,7 @@ typedef int mpr_sig_group;
 #include "id_map.h"
 #include "mpr_time.h"
 #include "mpr_type.h"
+#include "network.h"
 #include "slot.h"
 #include "value.h"
 
@@ -24,6 +25,8 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
 /*! Initialize an already-allocated mpr_sig structure. */
 void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const char *name, int len,
                   mpr_type type, const char *unit, const void *min, const void *max, int *num_inst);
+
+void mpr_local_sig_add_to_net(mpr_local_sig sig, mpr_net net);
 
 void mpr_sig_call_handler(mpr_local_sig sig, int evt, mpr_id inst, unsigned int inst_idx, float diff);
 

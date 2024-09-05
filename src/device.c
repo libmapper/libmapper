@@ -120,7 +120,7 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
     mpr_list qry;
 
     dev->obj.is_local = is_local;
-    dev->obj.status = MPR_STATUS_STAGED;
+    dev->obj.status = 0;
     if (name) {
         assert(!dev->name);
         dev->name = strdup(name);
@@ -190,7 +190,6 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph graph)
 
     dev->ordinal_allocator.val = 1;
     dev->ordinal_allocator.count_time = mpr_get_current_time();
-    mpr_net_add_dev(mpr_graph_get_net(g), dev);
     dev->id_maps.active = (mpr_id_map*) malloc(sizeof(mpr_id_map));
     dev->id_maps.active[0] = 0;
     dev->num_sig_groups = 1;
@@ -215,16 +214,17 @@ void mpr_dev_free(mpr_dev dev)
     own_graph = ldev->own_graph;
     net = mpr_graph_get_net(graph);
 
-    /* free any queued graph messages without sending */
-    mpr_net_free_msgs(net);
+    /* remove local graph handlers here so they are not called when child objects are freed */
+    /* CHANGE: if graph is not owned then its callbacks _should_ be called when device is removed. */
+    if (own_graph) {
+        /* free any queued graph messages without sending */
+        mpr_net_free_msgs(net);
+
+        mpr_graph_free_cbs(graph);
+    }
 
     /* remove OSC handlers associated with this device */
     mpr_net_remove_dev(net, ldev);
-
-    /* remove local graph handlers here so they are not called when child objects are freed */
-    /* CHANGE: if graph is not owned then its callbacks _should_ be called when device is removed. */
-    if (own_graph)
-        mpr_graph_free_cbs(graph);
 
     /* remove subscribers */
     while (ldev->subscribers) {
@@ -279,7 +279,7 @@ void mpr_dev_free(mpr_dev dev)
         free(id_map);
     }
 
-    mpr_graph_remove_dev(graph, dev, MPR_STATUS_REMOVED);
+    dev->obj.status |= MPR_STATUS_REMOVED;
     if (own_graph)
         mpr_graph_free(graph);
 }
@@ -293,6 +293,7 @@ void mpr_dev_free_mem(mpr_dev dev)
 static void on_registered(mpr_local_dev dev)
 {
     char *name;
+    mpr_net net = mpr_graph_get_net(dev->obj.graph);
     mpr_list qry;
 
     /* Add unique device id to locally-activated signal instances. */
@@ -301,6 +302,7 @@ static void on_registered(mpr_local_dev dev)
         mpr_local_sig sig = (mpr_local_sig)*sigs;
         sigs = mpr_list_get_next(sigs);
         mpr_local_sig_set_dev_id(sig, dev->obj.id);
+        mpr_local_sig_add_to_net(sig, net);
     }
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)cmp_qry_sigs,
                               "hi", dev->obj.id, MPR_DIR_ANY);
@@ -335,6 +337,9 @@ void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir)
         ++dev->num_inputs;
     else
         ++dev->num_outputs;
+
+    if (dev->registered)
+        mpr_local_sig_add_to_net(sig, mpr_graph_get_net(dev->obj.graph));
 
     mpr_obj_increment_version((mpr_obj)dev);
     dev->obj.status |= MPR_DEV_SIG_CHANGED;

@@ -341,32 +341,16 @@ void mpr_graph_free(mpr_graph g)
     list = mpr_list_from_data(g->devs);
     while (list) {
         mpr_obj dev = *list;
-        int no_local_dev_maps = 1;
         mpr_list sigs;
         list = mpr_list_get_next(list);
-        if (dev->is_local)
-            continue;
 
         sigs = mpr_dev_get_sigs((mpr_dev)dev, MPR_DIR_ANY);
         while (sigs) {
-            int no_local_sig_maps = 1;
             mpr_obj sig = *sigs;
-            mpr_list maps = mpr_sig_get_maps((mpr_sig)sig, MPR_DIR_ANY);
-            while (maps) {
-                mpr_obj map = *maps;
-                if (map->is_local) {
-                    no_local_dev_maps = no_local_sig_maps = 0;
-                    mpr_list_free(maps);
-                    break;
-                }
-                maps = mpr_list_get_next(maps);
-            }
             sigs = mpr_list_get_next(sigs);
-            if (no_local_sig_maps)
                 mpr_graph_remove_sig(g, (mpr_sig)sig, MPR_STATUS_REMOVED);
         }
-        if (no_local_dev_maps)
-            mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_STATUS_REMOVED);
+        mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_STATUS_REMOVED);
     }
 
     FUNC_IF(mpr_expr_free_eval_buffer, g->expr_eval_buff);
@@ -443,6 +427,7 @@ int mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types, const void *u
 void mpr_graph_call_cbs(mpr_graph g, mpr_obj o, mpr_type t, mpr_graph_evt e)
 {
     fptr_list cb = g->callbacks, temp;
+    int handled = 0;
 
     /* add event to object and graph status */
     mpr_obj_set_status(o, e, 0);
@@ -450,10 +435,15 @@ void mpr_graph_call_cbs(mpr_graph g, mpr_obj o, mpr_type t, mpr_graph_evt e)
 
     while (cb) {
         temp = cb->next;
-        if (cb->types & t)
+        if (cb->types & t) {
             ((mpr_graph_handler*)cb->f)(g, o, e, cb->ctx);
+            handled = 1;
+        }
         cb = temp;
     }
+
+    if (handled)
+        o->status &= ~(MPR_STATUS_NEW | MPR_STATUS_MODIFIED);
 }
 
 void *mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *user)
@@ -538,6 +528,10 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg, int force)
 
         if (!mpr_dev_get_is_subscribed(dev) && g->autosub)
             mpr_graph_subscribe(g, dev, g->autosub, -1);
+        if (!msg) {
+            /* this is a local device, wait for graph_housekeeping to call any callbacks */
+            return dev;
+        }
     }
 
     if (dev) {
@@ -557,7 +551,7 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg, int force)
     return dev;
 }
 
-/* Internal function called by /logout protocol handler */
+/* Internal function called by mpr_dev_free() and the /logout protocol handler */
 void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e)
 {
     mpr_list list;
@@ -919,7 +913,21 @@ void mpr_graph_housekeeping(mpr_graph g)
                     mpr_graph_subscribe(g, (mpr_dev)dev, 0, 0);
                     mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_STATUS_EXPIRED);
                 }
+                continue;
             }
+        }
+        else {
+            if (dev->status & MPR_STATUS_REMOVED) {
+                trace_graph(g, "Cleaning up removed device.\n");
+                mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_STATUS_REMOVED);
+            }
+            else if (!(dev->status & (MPR_STATUS_STAGED | MPR_STATUS_ACTIVE))) {
+                mpr_net_add_dev(g->net, (mpr_local_dev)dev);
+                dev->status |= MPR_STATUS_STAGED;
+                mpr_graph_call_cbs(g, dev, MPR_DEV, MPR_STATUS_NEW);
+            }
+            else if (dev->status & MPR_STATUS_MODIFIED)
+                mpr_graph_call_cbs(g, dev, MPR_DEV, MPR_STATUS_MODIFIED);
         }
     }
 

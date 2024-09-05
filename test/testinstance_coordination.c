@@ -1,4 +1,5 @@
 #include <mapper/mapper.h>
+#include "../src/util/mpr_debug.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -218,7 +219,7 @@ void loop(void)
                 if (value) {
                     int k, len = mpr_obj_get_prop_as_int32((mpr_obj)recvsig1, MPR_PROP_LEN, NULL);
                     if (verbose) {
-                        printf("%s.%llu got ",
+                        printf("%s.%"PR_MPR_ID" got ",
                                mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL), id);
                         if (len > 1)
                             printf("[");
@@ -240,7 +241,7 @@ void loop(void)
                 }
             }
             if (status & MPR_STATUS_REL_UPSTRM) {
-                eprintf("%s.%llu got release\n",
+                eprintf("%s.%"PR_MPR_ID" got release\n",
                         mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL), id);
                 mpr_sig_release_inst(recvsig1, id);
             }
@@ -251,7 +252,7 @@ void loop(void)
                 if (value) {
                     int k, len = mpr_obj_get_prop_as_int32((mpr_obj)recvsig2, MPR_PROP_LEN, NULL);
                     if (verbose) {
-                        printf("%s.%llu got ",
+                        printf("%s.%"PR_MPR_ID" got ",
                                mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL), id);
                         if (len > 1)
                             printf("[");
@@ -273,7 +274,7 @@ void loop(void)
                 }
             }
             if (status & MPR_STATUS_REL_UPSTRM) {
-                eprintf("%s.%llu got release\n",
+                eprintf("%s.%"PR_MPR_ID" got release\n",
                         mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL), id);
                 mpr_sig_release_inst(recvsig2, id);
             }
