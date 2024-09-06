@@ -413,7 +413,7 @@ void mpr_sig_remove_inst(mpr_sig signal, mpr_id instance);
  *  \return             The status of the signal instance returned as bitflags. Test the return
  *                      value against the constants defined in the enum `mpr_status`.
  *                      Each time this function is called it will reset the bitflags for `NEW`,
- *                      `SET_*`, and `REL_*`. */
+ *                      `SET_*`, and `REL_DNSTRM`. The bitflag for `REL_UPSTRM` will remain */
 int mpr_sig_get_inst_status(mpr_sig signal, mpr_id instance);
 
 /*! Activate a specific signal instance without setting its value. In general it is not necessary
