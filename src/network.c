@@ -59,6 +59,7 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 #define FIND 0
 #define UPDATE 1
 #define ADD 2
+#define REMOVED 4
 
 /*! A structure that keeps information about network communications. */
 typedef struct _mpr_net {
@@ -112,13 +113,15 @@ static int is_alphabetical(int num, lo_arg **names)
     return 1;
 }
 
-MPR_INLINE static void inform_device_subscribers(mpr_net net, mpr_local_dev dev)
+MPR_INLINE static int inform_device_subscribers(mpr_net net, mpr_local_dev dev)
 {
     if (mpr_local_dev_has_subscribers(dev)) {
         trace_dev(dev, "informing subscribers (DEVICE)\n")
         mpr_net_use_subscribers(net, dev, MPR_DEV);
         mpr_dev_send_state((mpr_dev)dev, MSG_DEV);
+        return 0;
     }
+    return -1;
 }
 
 const char* net_msg_strings[] =
@@ -990,6 +993,7 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
         /* Only run mpr_net_housekeeping() again if more than 100ms have elapsed. */
         elapsed_ms = (mpr_get_current_time() - then) * 1000;
         if ((elapsed_ms - admin_elapsed_ms) > 100) {
+            mpr_graph_housekeeping(net->graph);
             mpr_net_housekeeping(net, 0);
             admin_elapsed_ms = elapsed_ms;
         }
@@ -1003,6 +1007,7 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
     for (i = 0; i < net->num_devs; i++) {
         mpr_dev_update_subscribers(net->devs[i]);
     }
+    mpr_graph_housekeeping(net->graph);
     net->polling = 0;
     return count;
 }
@@ -1630,8 +1635,10 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
         printf("\n");
 #endif
         if (map) {
-            int locality = mpr_map_get_locality(map);
-            RETURN_ARG_UNLESS(!loc || (locality & loc), MPR_MAP_ERROR);
+            RETURN_ARG_UNLESS(!loc || (loc & mpr_map_get_locality(map)), MPR_MAP_ERROR);
+            RETURN_ARG_UNLESS(   (flags & REMOVED)
+                              || !(MPR_STATUS_REMOVED & mpr_obj_get_status((mpr_obj)map)),
+                              MPR_MAP_ERROR);
             if (mpr_map_get_num_src(map) < num_src && (flags & UPDATE)) {
                 /* add additional sources */
                 for (i = 0; i < num_src; i++)
@@ -1722,9 +1729,7 @@ static void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
         mpr_obj_set_status((mpr_obj)map, MPR_STATUS_ACTIVE, MPR_STATUS_STAGED);
 
         /* Inform subscribers */
-        if (mpr_local_dev_has_subscribers(dev)) {
-            inform_device_subscribers(net, dev);
-
+        if (!inform_device_subscribers(net, dev)) {
             trace_dev(dev, "informing subscribers (SIGNAL)\n")
             mpr_net_use_subscribers(net, dev, MPR_SIG);
             for (i = 0; i < mpr_map_get_num_src((mpr_map)map); i++)
@@ -1958,7 +1963,8 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
                 sig = mpr_map_get_src_sig(map, i);
                 if (mpr_obj_get_is_local((mpr_obj)sig)) {
                     mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
-                    inform_device_subscribers(net, dev);
+                    if (inform_device_subscribers(net, dev))
+                        continue;
                     trace_dev(dev, "informing subscribers (SIGNAL)\n");
                     mpr_net_use_subscribers(net, dev, MPR_SIG);
                     mpr_sig_send_state(sig, MSG_SIG);
@@ -1967,10 +1973,11 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             sig = mpr_map_get_dst_sig(map);
             if (mpr_obj_get_is_local((mpr_obj)sig)) {
                 mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
-                inform_device_subscribers(net, dev);
-                trace_dev(dev, "informing subscribers (SIGNAL)\n");
-                mpr_net_use_subscribers(net, dev, MPR_SIG);
-                mpr_sig_send_state(sig, MSG_SIG);
+                if (!inform_device_subscribers(net, dev)) {
+                    trace_dev(dev, "informing subscribers (SIGNAL)\n");
+                    mpr_net_use_subscribers(net, dev, MPR_SIG);
+                    mpr_sig_send_state(sig, MSG_SIG);
+                }
             }
         }
     }
@@ -2107,38 +2114,19 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     int i, num_src;
 
     trace_net(net);
-    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND);
+    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND | REMOVED);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
 
     num_src = mpr_map_get_num_src((mpr_map)map);
 
-    /* inform remote peer(s) */
-    slot = mpr_map_get_dst_slot((mpr_map)map);
-    addr = mpr_slot_get_addr(slot);
-    /* if destination is remote this guarantees all sources are local */
-    if (addr) {
-        mpr_net_use_mesh(net, addr);
-        mpr_map_send_state((mpr_map)map, -1, MSG_UNMAP);
-    }
-    else {
-        for (i = 0; i < num_src; i++) {
-            slot = mpr_map_get_src_slot((mpr_map)map, i);
-            addr = mpr_slot_get_addr(slot);
-            if (addr) {
-                mpr_net_use_mesh(net, addr);
-                i = mpr_map_send_state((mpr_map)map, i, MSG_UNMAP);
-            }
-        }
-    }
-
     for (i = 0; i < num_src; i++) {
         mpr_sig sig = mpr_map_get_src_sig((mpr_map)map, i);
-        mpr_local_dev dev = 0;
+        mpr_local_dev last_dev = 0;
         if (mpr_obj_get_is_local((mpr_obj)sig)) {
-            if (dev != (mpr_local_dev)mpr_sig_get_dev(sig)) {
-                dev = (mpr_local_dev)mpr_sig_get_dev(sig);
-                inform_device_subscribers(net, dev);
-
+            mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
+            if (inform_device_subscribers(net, dev))
+                continue;
+            if (dev != last_dev) {
                 trace_dev(dev, "informing subscribers (UNMAPPED)\n")
                 mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
                 mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED);
@@ -2151,21 +2139,52 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     sig = mpr_map_get_dst_sig((mpr_map)map);
     if (mpr_obj_get_is_local((mpr_obj)sig)) {
         mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
-        trace_dev(dev, "informing subscribers (SIGNAL)\n");
-        mpr_net_use_subscribers(net, dev, MPR_SIG);
-        mpr_sig_send_state(sig, MSG_SIG);
-
-        if (MPR_LOC_BOTH != mpr_map_get_locality((mpr_map)map)) {
-            inform_device_subscribers(net, dev);
-
+        if (!inform_device_subscribers(net, dev)) {
             trace_dev(dev, "informing subscribers (UNMAPPED)\n")
             mpr_net_use_subscribers(net, dev, MPR_MAP_IN);
             mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED);
+
+            trace_dev(dev, "informing subscribers (SIGNAL)\n");
+            mpr_net_use_subscribers(net, dev, MPR_SIG);
+            mpr_sig_send_state(sig, MSG_SIG);
         }
     }
 
-    /* The mapping is removed. */
-    mpr_graph_remove_map(graph, (mpr_map)map, MPR_STATUS_REMOVED);
+    /* inform remote peer(s) */
+    slot = mpr_map_get_dst_slot((mpr_map)map);
+    addr = mpr_slot_get_addr(slot);
+    /* if destination is local send /unmap to sources */
+    if (!addr) {
+        for (i = 0; i < num_src; i++) {
+            slot = mpr_map_get_src_slot((mpr_map)map, i);
+            addr = mpr_slot_get_addr(slot);
+            if (addr) {
+                mpr_net_use_mesh(net, addr);
+                i = mpr_map_send_state((mpr_map)map, i, MSG_UNMAP);
+            }
+        }
+    }
+    /* if destination is remote this guarantees all sources are local */
+    /* only send /unmap to destination the second time this message is received */
+    else if (!(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE)) {
+        mpr_net_use_mesh(net, addr);
+        mpr_map_send_state((mpr_map)map, -1, MSG_UNMAP);
+    }
+
+    /* Goal here is to ensure that map cleanup (including releasing related instances at the
+     * destingation device) occurs _after_ any cached signal updates have propagated across the map
+     * so that stray updates don't re-activate destination instances after tha map is removed.*/
+    if (    MPR_LOC_BOTH == mpr_map_get_locality((mpr_map)map)
+        || !(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE)) {
+        /* can remove immediately */
+        trace("removing map\n");
+        mpr_graph_remove_map(graph, (mpr_map)map, MPR_STATUS_REMOVED);
+    }
+    else {
+        /* remove ACTIVE flag, add REMOVED and EXPIRED flags for eventual cleanup */
+        trace("deferring map removal\n");
+        mpr_obj_set_status((mpr_obj)map, MPR_STATUS_REMOVED | MPR_STATUS_EXPIRED, MPR_STATUS_ACTIVE);
+    }
     return 0;
 }
 
@@ -2179,7 +2198,7 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **av,
 
     trace_net(net);
     map = find_map(net, types, ac, av, 0, FIND);
-    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
+    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map && !mpr_obj_get_is_local((mpr_obj)map), 0);
     mpr_graph_remove_map(graph, map, MPR_STATUS_REMOVED);
     return 0;
 }

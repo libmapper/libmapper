@@ -551,9 +551,9 @@ int run_test(test_config *config)
 
     printf("Configuration %d: %s%s %s> %s%s%s%s%s%s\n",
            config->test_id,
-           instance_type_names[config->src_type], config->process_loc == MPR_LOC_SRC ? "*" : "",
+           instance_type_names[config->src_type], config->process_loc == MPR_LOC_SRC ? "*" : " ",
            config->map_type == SNGL ? "––" : "==",
-           instance_type_names[config->dst_type], config->process_loc == MPR_LOC_DST ? "*" : "",
+           instance_type_names[config->dst_type], config->process_loc == MPR_LOC_DST ? "*" : " ",
            config->oflw_action ? "; overflow: " : "", oflw_action_names[config->oflw_action],
            config->expr ? "; expression: " : "", config->expr ? config->expr : "");
 
@@ -642,6 +642,11 @@ int run_test(test_config *config)
     mpr_map_release(map);
 
     /* TODO: we shouldn't have to wait here... */
+    mpr_dev_poll(src, 100);
+    mpr_dev_poll(dst, 100);
+    mpr_dev_poll(src, 100);
+    mpr_dev_poll(dst, 100);
+
     mpr_dev_poll(src, 100);
     mpr_dev_poll(dst, 100);
     mpr_dev_poll(src, 100);

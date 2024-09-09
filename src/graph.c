@@ -216,7 +216,7 @@ void mpr_graph_cleanup(mpr_graph g)
     mpr_list maps;
     if (!g->staged_maps)
         return;
-    trace_graph(g, "checking %d staged maps\n", g->staged_maps);
+    trace_graph(g, "checking staged maps\n");
     /* check for maps that were staged but never completed */
     maps = mpr_list_from_data(g->maps);
     while (maps) {
@@ -232,7 +232,11 @@ void mpr_graph_cleanup(mpr_graph g)
         printf(", status=%d\n", status);
 #endif
 
-        if (status & MPR_STATUS_EXPIRED) {
+        if (status & MPR_STATUS_REMOVED) {
+            trace_graph(g, "  removing map\n");
+            mpr_graph_remove_map(g, map, MPR_STATUS_REMOVED);
+        }
+        else if (status & MPR_STATUS_EXPIRED) {
             trace_graph(g, "  removing expired map\n");
             mpr_graph_remove_map(g, map, MPR_STATUS_EXPIRED);
         }
@@ -938,6 +942,23 @@ void mpr_graph_housekeeping(mpr_graph g)
         list = mpr_list_get_next(list);
         if (sig->status & MPR_STATUS_REMOVED)
             mpr_graph_remove_sig(g, (mpr_sig)sig, MPR_STATUS_REMOVED);
+    }
+
+    /* check if any maps need to be removed */
+    list = mpr_list_from_data(g->maps);
+    while (list) {
+        mpr_obj map = *list;
+        list = mpr_list_get_next(list);
+        if (map->status & MPR_STATUS_REMOVED) {
+            if (map->status & MPR_STATUS_EXPIRED) {
+                trace_graph(g, "Delaying cleanup of removed map.\n");
+                ++g->staged_maps;
+            }
+            else {
+                trace_graph(g, "Cleaning up removed map.\n");
+                mpr_graph_remove_map(g, (mpr_map)map, MPR_STATUS_REMOVED);
+            }
+        }
     }
 
     /* check if any subscriptions need to be renewed */

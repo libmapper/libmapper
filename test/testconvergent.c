@@ -157,6 +157,11 @@ int setup_maps(void)
         for (i = 0; i < num_sources; i++)
             mpr_dev_poll(srcs[i], 100);
         mpr_dev_poll(dst, 100);
+
+        // poll some more here to ensure previous map was cleaned up
+        for (i = 0; i < num_sources; i++)
+            mpr_dev_poll(srcs[i], 100);
+        mpr_dev_poll(dst, 100);
     }
 
     switch (config) {
@@ -279,7 +284,7 @@ int setup_maps(void)
         --j;
     }
 
-    /* Check if mpr_list_get_idx returns the correct items of ordered list of map signals*/
+    /* Check if mpr_list_get_idx returns the correct items of ordered list of map signals */
     sigs1 = mpr_map_get_sigs(map, MPR_LOC_SRC);
     sigs2 = mpr_map_get_sigs(map, MPR_LOC_SRC);
     for (i = 0; i < num_sources; i++) {

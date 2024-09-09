@@ -353,6 +353,29 @@ void mpr_map_refresh(mpr_map m)
     mpr_map_send_state(m, -1, m->obj.is_local ? MSG_MAP_TO : MSG_MAP);
 }
 
+static void release_local_inst(mpr_local_map map, mpr_dev scope)
+{
+    mpr_local_sig dst_sig;
+    assert(MPR_LOC_DST & map->locality);
+    dst_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)map->dst);
+    if (scope) {
+        /* release local destination instances with this device as origin */
+        mpr_local_sig_release_inst_by_origin(dst_sig, scope);
+    }
+    else {
+        /* release local destination instances with any map src as origin */
+        mpr_dev last_dev = 0;
+        int i;
+        for (i = 0; i < map->num_src; i++) {
+            mpr_dev dev = mpr_sig_get_dev(mpr_slot_get_sig((mpr_slot)map->src[i]));
+            if (dev != last_dev)
+                mpr_local_sig_release_inst_by_origin(dst_sig, dev);
+            last_dev = dev;
+        }
+    }
+
+}
+
 void mpr_map_free(mpr_map map)
 {
     int i;
@@ -398,6 +421,8 @@ void mpr_map_free(mpr_map map)
                 }
             }
         }
+        else if (lmap->use_inst && (MPR_LOC_DST & lmap->locality))
+            release_local_inst(lmap, NULL);
 
         /* one more case: if map is local only need to decrement num_maps in local map */
         /* map could still involve multiple local devices and links */
@@ -584,6 +609,7 @@ static int add_scope(mpr_map m, const char *name)
 static int remove_scope(mpr_map m, const char *name)
 {
     int i;
+    mpr_dev dev = 0;
     RETURN_ARG_UNLESS(m && name, 0);
     if (strcmp(name, "all")==0)
         name = 0;
@@ -592,16 +618,24 @@ static int remove_scope(mpr_map m, const char *name)
             if (!name)
                 break;
         }
-        else if (name && strcmp(mpr_dev_get_name(m->scopes[i]), name) == 0)
+        else if (name && strcmp(mpr_dev_get_name(m->scopes[i]), name) == 0) {
+            dev = m->scopes[i];
             break;
+        }
     }
-    if (i == m->num_scopes)
+    if (!dev)
         return 0;
+
     /* found - remove scope at index i */
     for (++i; i < m->num_scopes - 1; i++)
         m->scopes[i] = m->scopes[i + 1];
     --m->num_scopes;
     m->scopes = realloc(m->scopes, m->num_scopes * sizeof(mpr_dev));
+
+    if (m->obj.is_local && MPR_LOC_DST & ((mpr_local_map)m)->locality) {
+        release_local_inst((mpr_local_map)m, dev);
+    }
+
     return 1;
 }
 
@@ -1095,7 +1129,7 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
     out_mem = mpr_expr_get_dst_mlen(expr, 0);
     if (MPR_LOC_BOTH != m->locality && (out_mem > 1 && MPR_LOC_SRC == m->process_loc)) {
         m->process_loc = MPR_LOC_DST;
-        if (!mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig((mpr_slot)m->dst))) {
+        if (MPR_LOC_SRC == m->locality) {
             /* copy expression string but do not execute it */
             mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str,
                                MOD_REMOTE);

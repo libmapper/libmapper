@@ -90,4 +90,6 @@ mpr_id_map mpr_local_sig_get_id_map_by_inst_idx(mpr_local_sig sig, unsigned int 
 
 mpr_sig_group mpr_local_sig_get_group(mpr_local_sig sig);
 
+void mpr_local_sig_release_inst_by_origin(mpr_local_sig sig, mpr_dev origin);
+
 #endif /* __MPR_SIGNAL_H__ */

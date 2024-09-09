@@ -410,7 +410,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
         }
         TRACE_RETURN_UNLESS(slot, 0, "error in mpr_sig_osc_handler: slot %d not found.\n", slot_id);
         slot_sig = mpr_slot_get_sig((mpr_slot)slot);
-        TRACE_RETURN_UNLESS(mpr_obj_get_status((mpr_obj)map) & MPR_MAP_STATUS_READY, 0,
+        TRACE_RETURN_UNLESS(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE, 0,
                             "error in mpr_sig_osc_handler: map not yet ready.\n");
         if ((expr = mpr_local_map_get_expr(map)) && MPR_LOC_BOTH != mpr_map_get_locality((mpr_map)map)) {
             vals = check_types(types, val_len, slot_sig->type, slot_sig->len);
@@ -485,6 +485,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
                     mpr_dev_GID_decref(dev, sig->group, remote_id_map);
                 }
             }
+            trace("instance already released locally\n");
             return 0;
         }
         TRACE_RETURN_UNLESS(sig->id_maps[id_map_idx].inst, 0,
@@ -1488,6 +1489,34 @@ static void mpr_sig_release_inst_internal(mpr_local_sig lsig, int id_map_idx)
     /* Put instance back in reserve list */
     smap->inst->status = MPR_STATUS_STAGED;
     smap->inst = 0;
+}
+
+/* this function is called for local destination signals when a map is released or when a map
+ * scope is removed */
+void mpr_local_sig_release_inst_by_origin(mpr_local_sig lsig, mpr_dev origin)
+{
+    int i;
+    mpr_id id;
+    mpr_time time;
+
+    RETURN_UNLESS(lsig->ephemeral);
+
+    mpr_time_set(&time, MPR_NOW);
+    id = mpr_obj_get_id((mpr_obj)origin);
+    for (i = 0; i < lsig->num_id_maps; i++) {
+        mpr_sig_inst si = lsig->id_maps[i].inst;
+        mpr_id_map id_map = lsig->id_maps[i].id_map;
+        if (   si     && si->status & MPR_STATUS_ACTIVE
+            && id_map && (id_map->GID & 0xFFFFFFFF00000000) == id) {
+            double diff;
+
+            /* decrement the id_map's global refcount */
+            mpr_dev_GID_decref(lsig->dev, lsig->group, id_map);
+
+            diff = mpr_time_get_diff(time, *mpr_value_get_time(lsig->value, si->idx, 0));
+            mpr_sig_call_handler(lsig, MPR_STATUS_REL_UPSTRM, si->id, si->idx, diff);
+        }
+    }
 }
 
 void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
