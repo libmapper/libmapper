@@ -2,12 +2,13 @@
 #include "../src/link.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <math.h>
 #ifdef WIN32
-#include <io.h>
+    #include <io.h>
 #else
-#include <unistd.h>
+    #include <unistd.h>
 #endif
 #include <signal.h>
 #include <string.h>
@@ -168,7 +169,7 @@ void loop(int count)
            && count-- > 0
            && (   (links = mpr_graph_get_list(srcgraph, MPR_LINK))
                || (links = mpr_graph_get_list(dstgraph, MPR_LINK)))) {
-        int inst = random() % num_inst;
+        int inst = rand() % num_inst;
         mpr_list_free(links);
         eprintf("Updating signal %s.%d to %d\n", sig_name, inst, sent);
         mpr_sig_set_value(sendsig, inst, 1, MPR_INT32, &sent);
