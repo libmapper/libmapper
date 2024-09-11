@@ -83,6 +83,7 @@ test/testparams
 test/testparser
 test/testprops
 test/testrate
+test/testremap
 test/testreverse
 test/testselfmap
 test/testsetiface

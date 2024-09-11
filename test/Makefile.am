@@ -34,6 +34,7 @@ if WINDOWS_DLL
         testparser \
         testprops \
         testrate \
+        testremap \
         testreverse \
         testselfmap \
         testsetremote \
@@ -67,6 +68,7 @@ if WINDOWS_DLL
         testmapinput \
         testconvergent \
         testunmap \
+        testremap \
         testmapfail \
         testmaplocation \
         testmapprotocol \
@@ -109,6 +111,7 @@ else
         testparser \
         testprops \
         testrate \
+        testremap \
         testreverse \
         testselfmap \
         testsetremote \
@@ -143,6 +146,7 @@ else
         testmapinput \
         testconvergent \
         testunmap \
+        testremap \
         testmapfail \
         testmaplocation \
         testmapprotocol \
@@ -270,6 +274,10 @@ testprops_LDADD = $(TEST_LDADD)
 testrate_CFLAGS = $(TEST_CFLAGS)
 testrate_SOURCES = testrate.c
 testrate_LDADD = $(TEST_LDADD)
+
+testremap_CFLAGS = $(TEST_CFLAGS)
+testremap_SOURCES = testremap.c
+testremap_LDADD = $(TEST_LDADD)
 
 testreverse_CFLAGS = $(TEST_CFLAGS)
 testreverse_SOURCES = testreverse.c

@@ -35,7 +35,7 @@ mpr_type mpr_obj_get_type(mpr_obj o)
     return o ? o->type : 0;
 }
 
-void mpr_obj_increment_version(mpr_obj o)
+void mpr_obj_incr_version(mpr_obj o)
 {
     RETURN_UNLESS(o);
     if (o->is_local) {
@@ -242,8 +242,8 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
     if (!publish)
         flags |= LOCAL_ACCESS;
     updated = mpr_tbl_add_record(tbl, p, s, len, type, val, flags);
-    if (updated)
-        mpr_obj_increment_version(o);
+    if (updated && o->is_local)
+        mpr_obj_incr_version(o);
     return updated ? p : MPR_PROP_UNKNOWN;
 }
 
@@ -256,14 +256,14 @@ int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
     local = o->props.staged ? 0 : 1;
     if (MPR_PROP_UNKNOWN == p)
         p = mpr_prop_from_str(s);
-    if (MPR_PROP_DATA == p || local)
+    if ((MPR_PROP_DATA == p) || local)
         updated = mpr_tbl_remove_record(o->props.synced, p, s, MOD_LOCAL);
     else if (MPR_PROP_EXTRA == p)
         updated = mpr_tbl_add_record(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, MOD_REMOTE);
     else
         trace("Cannot remove static property [%d] '%s'\n", p, s ? s : mpr_prop_as_str(p, 1));
-    if (updated)
-        mpr_obj_increment_version(o);
+    if (updated && o->is_local)
+        mpr_obj_incr_version(o);
     return updated ? 1 : 0;
 }
 
@@ -272,6 +272,7 @@ void mpr_obj_push(mpr_obj o)
     mpr_net n;
     RETURN_UNLESS(o);
     n = mpr_graph_get_net(o->graph);
+    ++o->version;
 
     if (MPR_DEV == o->type) {
         mpr_dev d = (mpr_dev)o;
@@ -303,17 +304,23 @@ void mpr_obj_push(mpr_obj o)
         int status = o->status;
         mpr_map m = (mpr_map)o;
         mpr_net_use_bus(n);
-        if (status & MPR_STATUS_ACTIVE)
-            mpr_map_send_state(m, -1, MSG_MAP_MOD);
+        if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_REMOVED)) == MPR_STATUS_ACTIVE) {
+            mpr_map_send_state(m, -1, MSG_MAP_MOD, 0);
+        }
+        // TODO: combine these conditionals
         else if (o->is_local) {
             status = mpr_local_map_update_status((mpr_local_map)m);
-            if (status & MPR_SLOT_DEV_KNOWN)
-                mpr_map_send_state(m, -1, MSG_MAP);
-            else
-                printf("didn't send /map message\n");
+            if (status & MPR_SLOT_DEV_KNOWN) {
+                mpr_map_send_state(m, -1, MSG_MAP, 0);
+            }
+            else {
+                trace("didn't send /map message\n");
+                --o->version;
+            }
         }
-        else
-            mpr_map_send_state(m, -1, MSG_MAP);
+        else {
+            mpr_map_send_state(m, -1, MSG_MAP, 0);
+        }
     }
     else {
         trace("mpr_obj_push(): unknown object type %d\n", o->type);

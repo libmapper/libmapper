@@ -193,7 +193,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
         for (i = 0; i < sig->num_maps_in; i++) {
             mpr_local_slot dst_slot = sig->slots_in[i];
             map = (mpr_local_map)mpr_slot_get_map((mpr_slot)dst_slot);
-            if (!(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE))
+            if ((mpr_obj_get_status((mpr_obj)map) & (MPR_STATUS_ACTIVE | MPR_STATUS_REMOVED)) != MPR_STATUS_ACTIVE)
                 continue;
 
             mpr_id_map tmp = mpr_local_map_get_id_map(map);
@@ -224,7 +224,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
         for (i = 0; i < sig->num_maps_out; i++) {
             mpr_local_slot src_slot = sig->slots_out[i], dst_slot;
             map = (mpr_local_map)mpr_slot_get_map((mpr_slot)src_slot);
-            if (!(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE))
+            if ((mpr_obj_get_status((mpr_obj)map) & (MPR_STATUS_ACTIVE | MPR_STATUS_REMOVED)) != MPR_STATUS_ACTIVE)
                 continue;
 
             /* reset associated output memory */
@@ -264,7 +264,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
         src_slot = sig->slots_out[i];
 
         map = (mpr_local_map)mpr_slot_get_map((mpr_slot)src_slot);
-        if (!(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE))
+        if ((mpr_obj_get_status((mpr_obj)map) & (MPR_STATUS_ACTIVE | MPR_STATUS_REMOVED)) != MPR_STATUS_ACTIVE)
             continue;
 
         /* TODO: should we continue for out-of-scope local destination updates? */
@@ -410,7 +410,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
         }
         TRACE_RETURN_UNLESS(slot, 0, "error in mpr_sig_osc_handler: slot %d not found.\n", slot_id);
         slot_sig = mpr_slot_get_sig((mpr_slot)slot);
-        TRACE_RETURN_UNLESS(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE, 0,
+        TRACE_RETURN_UNLESS((mpr_obj_get_status((mpr_obj)map) & (MPR_STATUS_ACTIVE | MPR_STATUS_REMOVED)) == MPR_STATUS_ACTIVE, 0,
                             "error in mpr_sig_osc_handler: map not yet ready.\n");
         if ((expr = mpr_local_map_get_expr(map)) && MPR_LOC_BOTH != mpr_map_get_locality((mpr_map)map)) {
             vals = check_types(types, val_len, slot_sig->type, slot_sig->len);
@@ -1317,7 +1317,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
     else
         mpr_value_realloc(lsig->value, lsig->len, lsig->type, 1, lsig->num_inst, 0);
 
-    mpr_obj_increment_version((mpr_obj)lsig);
+    mpr_obj_incr_version((mpr_obj)lsig);
 
     if (old_num > 0 && (lsig->num_inst / 8) == (old_num / 8))
         return count;
@@ -1558,7 +1558,7 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
         if (lsig->inst[i]->idx > remove_idx)
             --lsig->inst[i]->idx;
     }
-    mpr_obj_increment_version((mpr_obj)sig);
+    mpr_obj_incr_version((mpr_obj)sig);
 }
 
 const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
@@ -1837,7 +1837,7 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
         }
     }
     if (updated)
-        mpr_obj_increment_version((mpr_obj)sig);
+        mpr_obj_incr_version((mpr_obj)sig);
     return updated;
 }
 

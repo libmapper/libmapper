@@ -39,7 +39,7 @@ int mpr_map_set_from_msg(mpr_map map, mpr_msg msg);
 
 int mpr_local_map_update_status(mpr_local_map map);
 
-int mpr_map_send_state(mpr_map map, int slot, net_msg_t cmd);
+int mpr_map_send_state(mpr_map map, int slot, net_msg_t cmd, int version);
 
 void mpr_map_init(mpr_map map, int num_src, mpr_sig *src, mpr_sig dst, int is_local);
 

@@ -59,7 +59,6 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 #define FIND 0
 #define UPDATE 1
 #define ADD 2
-#define REMOVED 4
 
 /*! A structure that keeps information about network communications. */
 typedef struct _mpr_net {
@@ -1231,7 +1230,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
                             continue;
                         mpr_sig_send_state(sig, MSG_SIG);
                     }
-                    mpr_map_send_state(map, -1, MSG_MAP_TO);
+                    mpr_map_send_state(map, -1, MSG_MAP_TO, 0);
                 }
                 if (locality & MPR_LOC_DST) {
                     int i;
@@ -1240,7 +1239,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
                             continue;
                         mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
                         mpr_sig_send_state(mpr_map_get_dst_sig(map), MSG_SIG);
-                        i = mpr_map_send_state(map, i, MSG_MAP_TO);
+                        i = mpr_map_send_state(map, i, MSG_MAP_TO, 0);
                     }
                 }
             }
@@ -1636,9 +1635,6 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
 #endif
         if (map) {
             RETURN_ARG_UNLESS(!loc || (loc & mpr_map_get_locality(map)), MPR_MAP_ERROR);
-            RETURN_ARG_UNLESS(   (flags & REMOVED)
-                              || !(MPR_STATUS_REMOVED & mpr_obj_get_status((mpr_obj)map)),
-                              MPR_MAP_ERROR);
             if (mpr_map_get_num_src(map) < num_src && (flags & UPDATE)) {
                 /* add additional sources */
                 for (i = 0; i < num_src; i++)
@@ -1738,7 +1734,7 @@ static void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
 
             trace_dev(dev, "informing subscribers (MAPPED)\n")
             mpr_net_use_subscribers(net, dev, MPR_MAP);
-            mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
+            mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED, 0);
         }
         return;
     }
@@ -1762,7 +1758,7 @@ static void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
         /* TODO: do we need this call? */
         mpr_sig_send_state(sig, MSG_SIG);
 
-        i = mpr_map_send_state((mpr_map)map, i, MSG_MAP_TO);
+        i = mpr_map_send_state((mpr_map)map, i, MSG_MAP_TO, 0);
     }
 }
 
@@ -1847,7 +1843,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
         if (MPR_DIR_OUT == mpr_slot_get_dir(slot)) {
             mpr_link link = mpr_slot_get_link(slot);
             mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
-            mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
+            mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED, 0);
             for (i = 0; i < num_src; i++) {
                 mpr_sig sig = mpr_map_get_src_sig((mpr_map)map, i);
                 if (!mpr_obj_get_is_local((mpr_obj)sig))
@@ -1860,7 +1856,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
                 mpr_slot slot = mpr_map_get_src_slot((mpr_map)map, i);
                 mpr_link link = mpr_slot_get_link(slot);
                 mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
-                i = mpr_map_send_state((mpr_map)map, i, MSG_MAPPED);
+                i = mpr_map_send_state((mpr_map)map, i, MSG_MAPPED, 0);
                 mpr_sig_send_state(mpr_map_get_dst_sig((mpr_map)map), MSG_SIG);
             }
         }
@@ -1948,14 +1944,14 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             if (MPR_DIR_OUT == mpr_slot_get_dir(slot)) {
                 /* Inform remote destination */
                 mpr_net_use_mesh(net, mpr_link_get_admin_addr(mpr_slot_get_link(slot)));
-                mpr_map_send_state(map, -1, MSG_MAPPED);
+                mpr_map_send_state(map, -1, MSG_MAPPED, 0);
             }
             else {
                 /* Inform remote sources */
                 for (i = 0; i < num_src; i++) {
                     mpr_slot slot = mpr_map_get_src_slot(map, i);
                     mpr_net_use_mesh(net, mpr_link_get_admin_addr(mpr_slot_get_link(slot)));
-                    i = mpr_map_send_state(map, i, MSG_MAPPED);
+                    i = mpr_map_send_state(map, i, MSG_MAPPED, 0);
                 }
             }
 
@@ -1996,7 +1992,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
                     if (mpr_local_dev_has_subscribers(dev)) {
                         trace_dev(dev, "informing subscribers (MAPPED)\n")
                         mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
-                        mpr_map_send_state(map, -1, MSG_MAPPED);
+                        mpr_map_send_state(map, -1, MSG_MAPPED, 0);
                     }
                 }
             }
@@ -2006,7 +2002,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
                 if (mpr_local_dev_has_subscribers(dev)) {
                     trace_dev(dev, "informing subscribers (MAPPED)\n")
                     mpr_net_use_subscribers(net, dev, MPR_MAP_IN);
-                    mpr_map_send_state(map, -1, MSG_MAPPED);
+                    mpr_map_send_state(map, -1, MSG_MAPPED, 0);
                 }
             }
         }
@@ -2031,8 +2027,15 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     trace_net(net);
 
     map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND);
-    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
+    if (!map || MPR_MAP_ERROR == (mpr_map)map) {
+        trace("Map not found! Forwarding map message to map handler...\n");
+        handler_map(path, types, av, ac, msg, user);
+        return 0;
+    }
     RETURN_ARG_UNLESS(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE, 0);
+
+    /* remove MPR_STATUS_REMOVED and MPR_STATUS_EXPIRED status flags if they are set */
+    mpr_obj_set_status((mpr_obj)map, 0, MPR_STATUS_REMOVED | MPR_STATUS_EXPIRED);
 
     props = mpr_msg_parse_props(ac, types, av);
     TRACE_RETURN_UNLESS(props, 0, "  ignoring /map/modify, no properties.\n");
@@ -2052,7 +2055,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
             mpr_slot slot = mpr_map_get_dst_slot((mpr_map)map);
             if (!mpr_slot_get_sig_if_local(slot)) {
                 mpr_net_use_mesh(net, mpr_link_get_admin_addr(mpr_slot_get_link(slot)));
-                mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
+                mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED, 0);
             }
             else {
                 int i;
@@ -2061,7 +2064,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
                     if (mpr_slot_get_sig_if_local(slot))
                         continue;
                     mpr_net_use_mesh(net, mpr_link_get_admin_addr(mpr_slot_get_link(slot)));
-                    i = mpr_map_send_state((mpr_map)map, i, MSG_MAPPED);
+                    i = mpr_map_send_state((mpr_map)map, i, MSG_MAPPED, 0);
                 }
             }
         }
@@ -2076,7 +2079,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
                     if (mpr_local_dev_has_subscribers(dev)) {
                         trace_dev(dev, "informing subscribers (MAPPED)\n")
                         mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
-                        mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
+                        mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED, 0);
                     }
                 }
             }
@@ -2089,7 +2092,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
                 if (mpr_local_dev_has_subscribers(dev)) {
                     trace_dev(dev, "informing subscribers (MAPPED)\n")
                     mpr_net_use_subscribers(net, dev, MPR_MAP_IN);
-                    mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
+                    mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED, 0);
                 }
             }
         }
@@ -2111,11 +2114,20 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     mpr_slot slot;
     lo_address addr;
     mpr_sig sig;
-    int i, num_src;
+    int i, num_src, version = 0;
 
     trace_net(net);
-    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND | REMOVED);
+    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
+
+    if (types[ac-2] == 's' && types[ac-1] == 'i' && strcmp(&av[ac-2]->s, "@version") == 0) {
+        version = av[ac-1]->i;
+        if (version < mpr_obj_get_version((mpr_obj)map)) {
+            trace("ignoring stale /unmap message (version %d < %d)\n",
+                  version, mpr_obj_get_version((mpr_obj)map));
+            return 0;
+        }
+    }
 
     num_src = mpr_map_get_num_src((mpr_map)map);
 
@@ -2129,7 +2141,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
             if (dev != last_dev) {
                 trace_dev(dev, "informing subscribers (UNMAPPED)\n")
                 mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
-                mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED);
+                mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED, 0);
             }
             trace_dev(dev, "informing subscribers (SIGNAL)\n");
             mpr_net_use_subscribers(net, dev, MPR_SIG);
@@ -2142,7 +2154,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
         if (!inform_device_subscribers(net, dev)) {
             trace_dev(dev, "informing subscribers (UNMAPPED)\n")
             mpr_net_use_subscribers(net, dev, MPR_MAP_IN);
-            mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED);
+            mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED, 0);
 
             trace_dev(dev, "informing subscribers (SIGNAL)\n");
             mpr_net_use_subscribers(net, dev, MPR_SIG);
@@ -2160,22 +2172,22 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
             addr = mpr_slot_get_addr(slot);
             if (addr) {
                 mpr_net_use_mesh(net, addr);
-                i = mpr_map_send_state((mpr_map)map, i, MSG_UNMAP);
+                i = mpr_map_send_state((mpr_map)map, i, MSG_UNMAP, version);
             }
         }
     }
     /* if destination is remote this guarantees all sources are local */
     /* only send /unmap to destination the second time this message is received */
-    else if (!(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE)) {
+    else if ((mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_REMOVED)) {
         mpr_net_use_mesh(net, addr);
-        mpr_map_send_state((mpr_map)map, -1, MSG_UNMAP);
+        mpr_map_send_state((mpr_map)map, -1, MSG_UNMAP, version);
     }
 
     /* Goal here is to ensure that map cleanup (including releasing related instances at the
      * destingation device) occurs _after_ any cached signal updates have propagated across the map
      * so that stray updates don't re-activate destination instances after tha map is removed.*/
     if (    MPR_LOC_BOTH == mpr_map_get_locality((mpr_map)map)
-        || !(mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_ACTIVE)) {
+        || (mpr_obj_get_status((mpr_obj)map) & MPR_STATUS_REMOVED)) {
         /* can remove immediately */
         trace("removing map\n");
         mpr_graph_remove_map(graph, (mpr_map)map, MPR_STATUS_REMOVED);
@@ -2183,7 +2195,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     else {
         /* remove ACTIVE flag, add REMOVED and EXPIRED flags for eventual cleanup */
         trace("deferring map removal\n");
-        mpr_obj_set_status((mpr_obj)map, MPR_STATUS_REMOVED | MPR_STATUS_EXPIRED, MPR_STATUS_ACTIVE);
+        mpr_obj_set_status((mpr_obj)map, MPR_STATUS_REMOVED | MPR_STATUS_EXPIRED, 0);
     }
     return 0;
 }

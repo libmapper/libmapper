@@ -33,7 +33,7 @@ void mpr_obj_init(mpr_obj obj, mpr_graph graph, mpr_type type);
 
 void mpr_obj_free(mpr_obj obj);
 
-void mpr_obj_increment_version(mpr_obj obj);
+void mpr_obj_incr_version(mpr_obj obj);
 
 MPR_INLINE static mpr_id mpr_obj_get_id(mpr_obj obj)
     { return obj->id; }

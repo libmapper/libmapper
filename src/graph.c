@@ -223,7 +223,8 @@ void mpr_graph_cleanup(mpr_graph g)
         mpr_map map = (mpr_map)*maps;
         int status = mpr_obj_get_status((mpr_obj)map);
         maps = mpr_list_get_next(maps);
-        if (status & MPR_STATUS_ACTIVE || !mpr_obj_get_is_local((mpr_obj)map))
+        if (   !mpr_obj_get_is_local((mpr_obj)map)
+            || (status & (MPR_STATUS_ACTIVE | MPR_STATUS_REMOVED)) == MPR_STATUS_ACTIVE)
             continue;
 
 #ifdef DEBUG

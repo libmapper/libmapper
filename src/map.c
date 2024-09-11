@@ -343,14 +343,14 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
 void mpr_map_release(mpr_map m)
 {
     mpr_net_use_bus(mpr_graph_get_net(m->obj.graph));
-    mpr_map_send_state(m, -1, MSG_UNMAP);
+    mpr_map_send_state(m, -1, MSG_UNMAP, 0);
 }
 
 void mpr_map_refresh(mpr_map m)
 {
     RETURN_UNLESS(m);
     mpr_net_use_bus(mpr_graph_get_net(m->obj.graph));
-    mpr_map_send_state(m, -1, m->obj.is_local ? MSG_MAP_TO : MSG_MAP);
+    mpr_map_send_state(m, -1, m->obj.is_local ? MSG_MAP_TO : MSG_MAP, 0);
 }
 
 static void release_local_inst(mpr_local_map map, mpr_dev scope)
@@ -1083,13 +1083,13 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
         if (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)m->dst)) {
             /* Inform remote destination */
             mpr_net_use_mesh(net, mpr_link_get_admin_addr(mpr_slot_get_link((mpr_slot)m->dst)));
-            mpr_map_send_state((mpr_map)m, -1, MSG_MAPPED);
+            mpr_map_send_state((mpr_map)m, -1, MSG_MAPPED, 0);
         }
         else {
             /* Inform remote sources */
             for (i = 0; i < m->num_src; i++) {
                 mpr_net_use_mesh(net, mpr_link_get_admin_addr(mpr_slot_get_link((mpr_slot)m->src[i])));
-                i = mpr_map_send_state((mpr_map)m, i, MSG_MAPPED);
+                i = mpr_map_send_state((mpr_map)m, i, MSG_MAPPED, 0);
             }
         }
     }
@@ -1620,6 +1620,10 @@ int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
     if (orig_loc != m->process_loc)
         ++updated;
 
+    if (m->obj.status & (MPR_STATUS_REMOVED | MPR_STATUS_EXPIRED)) {
+        m->obj.status &= ~(MPR_STATUS_REMOVED | MPR_STATUS_EXPIRED);
+        ++updated;
+    }
     return updated;
 }
 
@@ -1818,7 +1822,7 @@ done:
 
 /* If the "slot_idx" argument is >= 0, we can assume this message will be sent
  * to a peer device rather than a session manager. */
-int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
+int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
 {
     lo_message msg;
     char buffer[256];
@@ -1871,6 +1875,8 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
     }
 
     if (MSG_UNMAP == cmd || MSG_UNMAPPED == cmd) {
+        lo_message_add_string(msg, mpr_prop_as_str(PROP(VERSION), 0));
+        lo_message_add_int32(msg, version ? version : m->obj.version);
         mpr_net_add_msg(mpr_graph_get_net(m->obj.graph), 0, cmd, msg);
         return i-1;
     }

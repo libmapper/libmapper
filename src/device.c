@@ -341,7 +341,7 @@ void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir)
     if (dev->registered)
         mpr_local_sig_add_to_net(sig, mpr_graph_get_net(dev->obj.graph));
 
-    mpr_obj_increment_version((mpr_obj)dev);
+    mpr_obj_incr_version((mpr_obj)dev);
     dev->obj.status |= MPR_DEV_SIG_CHANGED;
 }
 
@@ -353,7 +353,7 @@ void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig)
     if (dir & MPR_DIR_OUT)
         --dev->num_outputs;
     if (dev->obj.is_local) {
-        mpr_obj_increment_version((mpr_obj)dev);
+        mpr_obj_incr_version((mpr_obj)dev);
         dev->obj.status |= MPR_DEV_SIG_CHANGED;
     }
 }
@@ -454,8 +454,10 @@ void mpr_dev_process_incoming_maps(mpr_local_dev dev)
         maps = mpr_list_get_next(maps);
         if (mpr_obj_get_is_local((mpr_obj)map))
             mpr_map_receive((mpr_local_map)map, dev->time);
-        else
+        else {
+            /* local maps are always located at the start of the list */
             break;
+        }
     }
 }
 
@@ -477,8 +479,10 @@ static int process_outgoing_maps(mpr_local_dev dev)
         list = mpr_list_get_next(list);
         if (mpr_obj_get_is_local((mpr_obj)map))
             mpr_map_send((mpr_local_map)map, dev->time);
-        else
+        else {
+            /* local maps are always located at the start of the list */
             break;
+        }
     }
     dev->sending = 0;
     list = mpr_graph_get_list(graph, MPR_LINK);
@@ -519,7 +523,7 @@ static int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
     mpr_list maps = mpr_dev_get_maps((mpr_dev)dev, dir);
     int sent = 0;
     while (maps) {
-        mpr_map_send_state((mpr_map)*maps, -1, msg);
+        mpr_map_send_state((mpr_map)*maps, -1, msg, 0);
         maps = mpr_list_get_next(maps);
         ++sent;
     }
@@ -985,8 +989,10 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
                 break;
         }
     }
-    if (updated)
+    if (updated) {
         dev->obj.status |= MPR_STATUS_MODIFIED;
+        mpr_obj_incr_version((mpr_obj)dev);
+    }
     return updated;
 }
 
