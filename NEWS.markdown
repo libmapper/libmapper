@@ -1,11 +1,31 @@
 # libmapper NEWS
 
+Version 2.4.11
+--------------
+
+We are pleased to announce the release of version 2.4.11 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This release focuses on further improvements and fixes for signal instance management, particularly when mapping between ephemeral and persistent signals.
+
+- Proxy `id_maps` are now used internally to enable persistent signals to maintain their global identifiers while still allowing control by upstream ephemeral signals.
+- When a map is released the map destination will attempt to release all active signal instances that originated with the map source signal(s). This involves slightly delaying complete removal of the destination-side map structure until after the source as stopped sending updates that might re-activate destination instances.
+- Handshake `/unmap` messages now include the map version property in order to handle a race condition when a map is released and then recreated before cleanup as completed.
+
+Additional changes:
+
+- Various updates to improve safety and stability when using libmapper in multithreaded projects.
+- Fixes for updating object versions during their lifetime.
+
+Tests:
+
+- added `testremap.c` to test suite
+
 Version 2.4.10
 --------------
 
 We are pleased to announce the release of version 2.4.10 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
-This release provides importnat fixes for signal instance management when the instance `status` API is used rather than registering callbacks. It also contains changes to the C# bindings in preparation for publishing to nuget.
+This release provides important fixes for signal instance management when the instance `status` API is used rather than registering callbacks. It also contains changes to the C# bindings in preparation for publishing to nuget.
 
 Fixes:
 
