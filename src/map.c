@@ -319,6 +319,13 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
             if (((mpr_map)*maps)->num_src == num_src) {
                 m = (mpr_map)*maps;
                 mpr_list_free(maps);
+                /* un-release map if it has been released */
+#ifdef DEBUG
+                if (m->obj.status & (MPR_STATUS_REMOVED | MPR_STATUS_EXPIRED)) {
+                    trace("un-releasing map!\n");
+                }
+#endif
+                m->obj.status &= ~(MPR_STATUS_REMOVED | MPR_STATUS_EXPIRED);
                 return m;
             }
             maps = mpr_list_get_next(maps);

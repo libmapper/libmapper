@@ -307,19 +307,13 @@ void mpr_obj_push(mpr_obj o)
         if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_REMOVED)) == MPR_STATUS_ACTIVE) {
             mpr_map_send_state(m, -1, MSG_MAP_MOD, 0);
         }
-        // TODO: combine these conditionals
-        else if (o->is_local) {
-            status = mpr_local_map_update_status((mpr_local_map)m);
-            if (status & MPR_SLOT_DEV_KNOWN) {
-                mpr_map_send_state(m, -1, MSG_MAP, 0);
-            }
-            else {
-                trace("didn't send /map message\n");
-                --o->version;
-            }
+        else if (   !o->is_local
+                 || (MPR_SLOT_DEV_KNOWN & mpr_local_map_update_status((mpr_local_map)m))) {
+            mpr_map_send_state(m, -1, MSG_MAP, 0);
         }
         else {
-            mpr_map_send_state(m, -1, MSG_MAP, 0);
+            trace("didn't send /map message\n");
+            --o->version;
         }
     }
     else {

@@ -294,20 +294,6 @@ void mpr_graph_free_cbs(mpr_graph g)
     }
 }
 
-static void mpr_graph_gc(mpr_graph g)
-{
-    mpr_list list;
-
-    /* check if any signals need to be removed */
-    list = mpr_list_from_data(g->sigs);
-    while (list) {
-        mpr_obj sig = *list;
-        list = mpr_list_get_next(list);
-        if (sig->is_local && sig->status & MPR_STATUS_REMOVED)
-            mpr_graph_remove_sig(g, (mpr_sig)sig, MPR_STATUS_REMOVED);
-    }
-}
-
 void mpr_graph_free(mpr_graph g)
 {
     mpr_list list;
@@ -315,8 +301,6 @@ void mpr_graph_free(mpr_graph g)
 
     /* remove callbacks now so they won't be called when removing devices */
     mpr_graph_free_cbs(g);
-
-    mpr_graph_gc(g);
 
     /* unsubscribe from and remove any autorenewing subscriptions */
     while (g->subscriptions)
@@ -901,8 +885,6 @@ void mpr_graph_housekeeping(mpr_graph g)
     mpr_subscription s;
     mpr_time t;
     mpr_time_set(&t, MPR_NOW);
-
-    mpr_graph_gc(g);
 
     /* check if any known devices have expired */
     t.sec -= TIMEOUT_SEC;
