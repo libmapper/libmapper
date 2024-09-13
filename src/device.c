@@ -115,7 +115,6 @@ static int cmp_qry_sigs(const void *context_data, mpr_sig sig)
 
 void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
 {
-    int mod = is_local ? MOD_NONE : MOD_ANY;
     mpr_tbl tbl;
     mpr_list qry;
 
@@ -138,23 +137,23 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
     /* these properties need to be added in alphabetical order */
     mpr_tbl_link_value(tbl, PROP(DATA), 1, MPR_PTR, &dev->obj.data,
                        MOD_LOCAL | INDIRECT | LOCAL_ACCESS);
-    mpr_tbl_link_value(tbl, PROP(ID), 1, MPR_INT64, &dev->obj.id, mod);
+    mpr_tbl_link_value(tbl, PROP(ID), 1, MPR_INT64, &dev->obj.id, MOD_NONE);
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_DEV, (void*)cmp_qry_linked, "v", &dev);
     mpr_tbl_link_value(tbl, PROP(LINKED), 1, MPR_LIST, qry, MOD_NONE | PROP_OWNED);
-    mpr_tbl_link_value(tbl, PROP(NAME), 1, MPR_STR, &dev->name, mod | INDIRECT | LOCAL_ACCESS);
-    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &dev->num_maps_in, mod);
-    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_OUT), 1, MPR_INT32, &dev->num_maps_out, mod);
-    mpr_tbl_link_value(tbl, PROP(NUM_SIGS_IN), 1, MPR_INT32, &dev->num_inputs, mod);
-    mpr_tbl_link_value(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, mod);
-    mpr_tbl_link_value(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, mod);
+    mpr_tbl_link_value(tbl, PROP(NAME), 1, MPR_STR, &dev->name, MOD_NONE | INDIRECT | LOCAL_ACCESS);
+    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &dev->num_maps_in, MOD_NONE);
+    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_OUT), 1, MPR_INT32, &dev->num_maps_out, MOD_NONE);
+    mpr_tbl_link_value(tbl, PROP(NUM_SIGS_IN), 1, MPR_INT32, &dev->num_inputs, MOD_NONE);
+    mpr_tbl_link_value(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, MOD_NONE);
+    mpr_tbl_link_value(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, MOD_NONE);
     if (!is_local) {
         qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)cmp_qry_sigs,
                                   "hi", dev->obj.id, MPR_DIR_ANY);
         mpr_tbl_link_value(tbl, PROP(SIG), 1, MPR_LIST, qry, MOD_NONE | PROP_OWNED);
     }
-    mpr_tbl_link_value(tbl, PROP(STATUS), 1, MPR_INT32, &dev->obj.status, mod | LOCAL_ACCESS);
-    mpr_tbl_link_value(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, mod | LOCAL_ACCESS);
-    mpr_tbl_link_value(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, mod);
+    mpr_tbl_link_value(tbl, PROP(STATUS), 1, MPR_INT32, &dev->obj.status, MOD_NONE | LOCAL_ACCESS);
+    mpr_tbl_link_value(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, MOD_NONE | LOCAL_ACCESS);
+    mpr_tbl_link_value(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, MOD_NONE);
 
     if (is_local)
         mpr_tbl_add_record(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
