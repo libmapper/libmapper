@@ -1223,6 +1223,8 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
                 maps = mpr_list_get_next(maps);
                 if (locality & MPR_LOC_SRC) {
                     int i;
+                    trace_dev(mpr_link_get_dev(link, LINK_LOCAL_DEV),
+                              "sending /mapTo to remote destination.\n");
                     mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
                     for (i = 0; i < mpr_map_get_num_src(map); i++) {
                         mpr_sig sig = mpr_map_get_src_sig(map, i);
@@ -1237,6 +1239,8 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
                     for (i = 0; i < mpr_map_get_num_src((mpr_map)map); i++) {
                         if (mpr_slot_get_link(mpr_map_get_src_slot(map, i)) != link)
                             continue;
+                        trace_dev(mpr_link_get_dev(link, LINK_LOCAL_DEV),
+                                  "sending /mapTo to remote source.\n");
                         mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
                         mpr_sig_send_state(mpr_map_get_dst_sig(map), MSG_SIG);
                         i = mpr_map_send_state(map, i, MSG_MAP_TO, 0);
@@ -1754,10 +1758,7 @@ static void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
         }
         trace_dev(dev, "sending /mapTo to remote source.\n");
         mpr_net_use_mesh(net, addr);
-
-        /* TODO: do we need this call? */
         mpr_sig_send_state(sig, MSG_SIG);
-
         i = mpr_map_send_state((mpr_map)map, i, MSG_MAP_TO, 0);
     }
 }
@@ -1843,21 +1844,21 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
         if (MPR_DIR_OUT == mpr_slot_get_dir(slot)) {
             mpr_link link = mpr_slot_get_link(slot);
             mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
-            mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED, 0);
             for (i = 0; i < num_src; i++) {
                 mpr_sig sig = mpr_map_get_src_sig((mpr_map)map, i);
                 if (!mpr_obj_get_is_local((mpr_obj)sig))
                     continue;
                 mpr_sig_send_state(sig, MSG_SIG);
             }
+            mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED, 0);
         }
         else {
             for (i = 0; i < num_src; i++) {
                 mpr_slot slot = mpr_map_get_src_slot((mpr_map)map, i);
                 mpr_link link = mpr_slot_get_link(slot);
                 mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
-                i = mpr_map_send_state((mpr_map)map, i, MSG_MAPPED, 0);
                 mpr_sig_send_state(mpr_map_get_dst_sig((mpr_map)map), MSG_SIG);
+                i = mpr_map_send_state((mpr_map)map, i, MSG_MAPPED, 0);
             }
         }
     }
@@ -1978,8 +1979,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
         }
     }
     else {
-        ((mpr_obj)map)->status &= ~MPR_STATUS_STAGED;
-        ((mpr_obj)map)->status |= MPR_STATUS_ACTIVE;
+        mpr_obj_set_status((mpr_obj)map, MPR_STATUS_ACTIVE, MPR_STATUS_STAGED);
     }
     if (rc || updated) {
         if (mpr_obj_get_is_local((mpr_obj)map)) {
