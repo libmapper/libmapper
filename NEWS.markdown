@@ -1,5 +1,14 @@
 # libmapper NEWS
 
+Version 2.4.12
+--------------
+
+We are pleased to announce the release of version 2.4.12 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+Well that was quick! This release primarily fixes an important bug in the implementation of the map handshake protocol. When initiated by a third-party Graph object (e.g. from a session manager such as [WebMapper](https://github.com/libmapper/webmapper)), the first map between any two unlinked devices would succeed but subsequent maps would fail on the first attempt to establish them. Maps created programmatically using local resources would succeed an all these cases.
+
+This buggy behaviour seemed annoying enough to warrant a release.
+
 Version 2.4.11
 --------------
 
