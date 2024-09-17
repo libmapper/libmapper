@@ -249,17 +249,22 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
 
 int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
 {
-    int updated = 0, local;
-    RETURN_ARG_UNLESS(o, 0);
+    int updated = 0, public = 0;
 
-    /* check if object represents local resource */
-    local = o->props.staged ? 0 : 1;
-    if (MPR_PROP_UNKNOWN == p)
-        p = mpr_prop_from_str(s);
-    if ((MPR_PROP_DATA == p) || local)
+    if (MPR_PROP_DATA == p || o->is_local)
         updated = mpr_tbl_remove_record(o->props.synced, p, s, MOD_LOCAL);
-    else if (MPR_PROP_EXTRA == p)
-        updated = mpr_tbl_add_record(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, MOD_REMOTE);
+    else if (MPR_PROP_EXTRA == p) {
+        if (s)
+            p = mpr_tbl_get_record_by_key(o->props.synced, s, NULL, NULL, NULL, &public);
+        else
+            p = mpr_tbl_get_record_by_idx(o->props.synced, p, NULL, NULL, NULL, NULL, &public);
+        if (MPR_PROP_UNKNOWN == p)
+            return 0;
+        if (public)
+            updated = mpr_tbl_add_record(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, MOD_REMOTE);
+        else
+            updated = mpr_tbl_remove_record(o->props.synced, p, s, MOD_LOCAL);
+    }
     else
         trace("Cannot remove static property [%d] '%s'\n", p, s ? s : mpr_prop_as_str(p, 1));
     if (updated && o->is_local)
