@@ -6,10 +6,10 @@
 Run the following command from within the bindings/csharp directory:
 
 ~~~
-dotnet publish -c Release -o . Mapper.NET
+dotnet publish -c Release -o . Libmapper.NET
 ~~~
 
-This should produce a file named `Mapper.NET.dll`, as well as some debugging symbols.
+This should produce a file named `Libmapper.NET.dll`, as well as some debugging symbols.
 
 ## Building the test example
 
