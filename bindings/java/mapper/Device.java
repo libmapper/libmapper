@@ -90,7 +90,7 @@ public class Device extends mapper.AbstractObject
 
     public native Time getTime();
     public native Device setTime(Time t);
-//    public native Device updateDone();
+    public native Device updateMaps();
 
     /* retrieve associated signals */
     private native long signals(long dev, int dir);

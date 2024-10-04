@@ -1606,11 +1606,20 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_setTime
   (JNIEnv *env, jobject obj, jobject jtime)
 {
     mpr_dev dev = (mpr_dev)get_mpr_obj_from_jobject(env, obj);
-    if (!dev || !is_local((mpr_obj)dev))
-        return 0;
-    mpr_time time;
-    if (!get_time_from_jobject(env, jtime, &time))
-        mpr_dev_set_time(dev, time);
+    if (dev) {
+        mpr_time time;
+        if (!get_time_from_jobject(env, jtime, &time))
+            mpr_dev_set_time(dev, time);
+    }
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Device_updateMaps
+  (JNIEnv *env, jobject obj)
+{
+    mpr_dev dev = (mpr_dev)get_mpr_obj_from_jobject(env, obj);
+    if (dev)
+        mpr_dev_update_maps(dev);
     return obj;
 }
 
