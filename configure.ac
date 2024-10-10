@@ -283,16 +283,10 @@ if test x$enable_jni = xyes; then
 fi
 
 if test x$enable_csharp = xyes; then
-   AC_CHECK_PROG([CSC], [csc], [csc])
-   if test x$CSC = x; then
+   AC_CHECK_PROG([DOTNET], [dotnet], [dotnet])
+   if test x$DOTNET = x; then
      enable_csharp=no
-     csharp_explain="(csc not found)"
-   else
-     AC_CHECK_PROG([DOTNET], [dotnet], [dotnet])
-     if test x$DOTNET = x; then
-       enable_csharp=no
-       csharp_explain="(dotnet not found)"
-     fi
+     csharp_explain="(dotnet not found)"
    fi
 fi
 
@@ -318,7 +312,7 @@ if test x$enable_audio = xyes; then
 
   if test -z "$RTAUDIO_CFLAGS"; then
     enable_audio=no
-    audio_explain="(no supported audio system found.)"
+    audio_explain="(no supported audio system found)"
   fi
 fi
 
