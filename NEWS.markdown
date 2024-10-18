@@ -1,5 +1,20 @@
 # libmapper NEWS
 
+Version 2.4.13
+--------------
+
+We are pleased to announce the release of version 2.4.13 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This release focuses on updates to the C# bindings: refactoring, documentation, and config scripts.
+
+Additional changes:
+
+- Fix for removal of private properties from non-local objects; added more checks to testprops.
+- Java bindings: added missing Device method updateMaps().
+- Updated tutorials.
+- Include mediapipe example scripts when making dist.
+- Tweaks to signal instance management
+
 Version 2.4.12
 --------------
 
