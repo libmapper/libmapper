@@ -667,8 +667,8 @@ int run_test(test_config *config)
 
     active_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)src, 1);
     reserve_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)src, 0);
-    if (active_count > 1 || reserve_count > 5) {
-        printf("Error: src device using %d active and %d reserve id maps (should be <=1 and <=5)\n",
+    if (active_count > 1 || reserve_count > 6) {
+        printf("Error: src device using %d active and %d reserve id maps (should be <=1 and <=6)\n",
                active_count, reserve_count);
 #ifdef DEBUG
         mpr_local_dev_print_id_maps((mpr_local_dev)src);

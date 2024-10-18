@@ -683,7 +683,7 @@ mpr_id_map mpr_dev_get_id_map_by_GID(mpr_local_dev dev, int group, mpr_id GID)
 {
     mpr_id_map id_map = dev->id_maps.active[group];
     while (id_map) {
-        if (id_map->GID == GID && id_map->GID_refcount > 0)
+        if (id_map->GID == GID)
             return id_map;
         id_map = id_map->next;
     }

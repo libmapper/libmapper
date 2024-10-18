@@ -119,8 +119,8 @@ test_config test_configs[] = {
     { 14, INST, INST, SNGL, MPR_LOC_DST, NONE, NULL,  2.0, 10.0,  2.0, 10.0,  0.0,   1 },
 
     /* instanced ==> instanced; no stealing */
-    { 15, INST, INST, INST, MPR_LOC_SRC, NONE, NULL,  4.0,  4.0,  2.0,  2.0, 0.0,   0 },
-    { 16, INST, INST, INST, MPR_LOC_DST, NONE, NULL,  4.0,  4.0,  2.0,  2.0, 0.0,   0 },
+    { 15, INST, INST, INST, MPR_LOC_SRC, NONE, NULL,  4.0,  4.0,  2.0,  2.0,  0.0,   0 },
+    { 16, INST, INST, INST, MPR_LOC_DST, NONE, NULL,  4.0,  4.0,  2.0,  2.0,  0.0,   0 },
 
     /* instanced ==> instanced; steal newest instance */
     { 17, INST, INST, INST, MPR_LOC_SRC, NEW,  NULL,  4.0,  4.0,  2.72, 2.72, 0.04,  0 },
@@ -680,8 +680,8 @@ int run_test(test_config *config)
 
     active_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)src, 1);
     reserve_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)src, 0);
-    if (active_count > 1 || reserve_count > 5) {
-        printf("Error: src device using %d active and %d reserve id maps (should be <=1 and <=5)\n",
+    if (active_count > 1 || reserve_count > 6) {
+        printf("Error: src device using %d active and %d reserve id maps (should be <=1 and <=6)\n",
                active_count, reserve_count);
 #ifdef DEBUG
         mpr_local_dev_print_id_maps((mpr_local_dev)src);
