@@ -15,6 +15,8 @@ EXTRA_DIST=bela_installation.md expression_syntax.md how_to_compile_and_run.md \
            integration_examples/Blender/blender.libmapper.py \
            integration_examples/Blender/simple_example.blend \
            integration_examples/MediaPipe/mediapipe_integration.md \
+           integration_examples/MediaPipe/hands.py \
+           integration_examples/MediaPipe/face.py \
            integration_examples/MediaPipe/images/landmarks_model.jpg \
            integration_examples/MediaPipe/images/pong_scene.png \
            tutorials/tutorial_c.md tutorials/tutorial_cpp.md \
