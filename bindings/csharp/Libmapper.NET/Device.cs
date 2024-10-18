@@ -65,10 +65,9 @@ public class Device : MapperObject
                     gcHandle.Free();
                 }
             }
-            
+
             mpr_dev_free(NativePtr);
         }
-            
     }
 
     public override string ToString()
@@ -149,6 +148,10 @@ public class Device : MapperObject
         return this;
     }
 
+    /// <summary>
+    ///     Push changes to this device out to the distributed graph
+    /// </summary>
+    /// <returns>The same device to allow for chaining</returns>
     public new Device Push()
     {
         base.Push();

@@ -16,17 +16,22 @@ This should produce a file named `Libmapper.NET.dll`, as well as some debugging 
 Run the following command from within the bindings/csharp directory:
 
 ~~~
-dotnet publish -c Release -o testbin Demo
+dotnet publish -c Release -o Demo Demo
 ~~~
 
-This should produce an executable in the `testbin` directory named `Demo`
+This should produce an executable in the `Demo` directory named `Demo`
 
 ## Running the test example
 
 > [!IMPORTANT]  
 > If you're on Apple Silicon, you'll need to compile another library first. See the Notes section below.
 
-Run the `Demo` executable from the `testbin` directory.
+Run the `Demo` executable from the `Demo` directory.
+
+~~~
+cd Demo
+dotnet run
+~~~
 
 You may need to copy the libmapper dynamic library into the same directory (depending on dynamic linker path configuration).
 

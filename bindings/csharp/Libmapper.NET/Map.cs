@@ -137,7 +137,7 @@ public class Map : MapperObject
     }
 
     /// <summary>
-    ///     Pushes this map out to the distributed graph, allowing it to become active
+    ///     Push changes to this map out to the distributed graph
     /// </summary>
     /// <returns>The same map to allow for chaining</returns>
     public new Map Push()

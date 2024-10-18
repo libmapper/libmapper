@@ -12,18 +12,6 @@ namespace Mapper;
 /// </summary>
 public class Signal : MapperObject
 {
-    [Flags]
-    public enum StatusFlags
-    {
-        IsActive = 0x0020,
-        HasValue = 0x0040,
-        NewValue = 0x0080,
-        UpdateLocal = 0x0100,
-        UpdateRemote = 0x0200,
-        ReleaseUpstream = 0x0400,
-        ReleaseDownstream = 0x0400
-    }
-    
     public enum Direction
     {
         /// <summary>
@@ -161,12 +149,11 @@ public class Signal : MapperObject
         /// </summary>
         Newest
     }
-    
+
     /// <summary>
-    ///     Event handler for when a signal's value changes.
+    ///     Handler for signal events.
     /// </summary>
-    public event EventHandler<(ulong instanceId, object? value, MapperType objectType, Time changed)>? ValueChanged; 
-    
+    public event EventHandler<(Event eventType, ulong instanceId, object? value, MapperType objectType, Time changed)>? ValueChanged;
 
     public Signal()
     {
@@ -176,35 +163,41 @@ public class Signal : MapperObject
     internal Signal(IntPtr sig) : base(sig)
     {
         unsafe
-        { 
+        {
             var exists = mpr_obj_get_prop_by_key(sig, "cb_ptr", null, null, null, null) != 0;
             if (!exists)
             {
                 var handler = new HandlerDelegate(_handler);
                 mpr_sig_set_cb(sig, Marshal.GetFunctionPointerForDelegate(handler), (int) Event.All);
-                
+
                 // Create a GCHandle to keep the delegate alive
                 var handlePtr = GCHandle.Alloc(handler, GCHandleType.Normal);
-                var val = GCHandle.ToIntPtr(handlePtr).ToInt64(); 
+                var val = GCHandle.ToIntPtr(handlePtr).ToInt64();
                 mpr_obj_set_prop(sig, 0, "cb_ptr", 1, (int) MapperType.Int64, &val, 0);
             }
-            
         }
     }
+
+    // TODO: missing method SetCallback
 
     /// <summary>
     ///     The device that this signal belongs to
     /// </summary>
     public Device Device => new(mpr_sig_get_dev(NativePtr));
 
+    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+    private static extern ulong mpr_sig_get_oldest_inst_id(IntPtr sig);
 
     /// <summary>
-    ///     Get a handle to the oldest active instance of this signal.
+    ///     Retrieve the oldest active instance of this signal.
     /// </summary>
     public Instance OldestInstance => new(NativePtr, mpr_sig_get_oldest_inst_id(NativePtr));
 
+    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+    private static extern ulong mpr_sig_get_newest_inst_id(IntPtr sig);
+
     /// <summary>
-    ///     Get a handle to the newest active instance of this signal.
+    ///     Retrieve the newest active instance of this signal.
     /// </summary>
     public Instance GetNewestInstance => new(NativePtr, mpr_sig_get_newest_inst_id(NativePtr));
 
@@ -292,17 +285,17 @@ public class Signal : MapperObject
             throw new ArgumentException("Unsupported type passed to SetValue");
         return this;
     }
-    
+
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern unsafe void* mpr_sig_release_inst(IntPtr sig, ulong id);
+    private static extern void mpr_sig_release_inst(IntPtr sig, ulong id);
 
     /// <summary>
     /// Release the specified signal instance.
     /// </summary>
-    /// <param name="id">Signal instance to release. Defaults to 0.</param>
-    public unsafe void Release(ulong id = 0)
+    /// <param name="instanceId">Signal instance to release. Defaults to 0.</param>
+    public void Release(ulong instanceId = 0)
     {
-        mpr_sig_release_inst(this.NativePtr, id);
+        mpr_sig_release_inst(this.NativePtr, instanceId);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -321,16 +314,9 @@ public class Signal : MapperObject
         var val = mpr_sig_get_value(NativePtr, instanceId, ref time);
         return (BuildValue(len, type, val, 0), new Time(time));
     }
-    // unsafe public dynamic GetValue(UInt64 instanceId = 0)
-    // {
-    //     int len = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Length, null);
-    //     int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
-    //     void *val = mpr_sig_get_value(this._obj, instanceId, IntPtr.Zero);
-    //     return BuildValue(len, type, val, 0);
-    // }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern unsafe int mpr_sig_reserve_inst(IntPtr sig, int num, int* ids, IntPtr data);
+    private static extern unsafe int mpr_sig_reserve_inst(IntPtr sig, int num, ulong* ids, IntPtr data);
 
     /// <summary>
     ///     Preallocates space to store `number` instances of this signal.
@@ -341,37 +327,48 @@ public class Signal : MapperObject
     {
         unsafe
         {
+            Console.WriteLine($"{this} reserving {number} instances...");
             mpr_sig_reserve_inst(NativePtr, number, null, IntPtr.Zero);
+            Console.WriteLine($"  now have {mpr_sig_get_num_inst(NativePtr, (int)Status.Any)} instances");
         }
         return this;
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern int mpr_sig_get_inst_status(IntPtr sig, long id = 0);
-    
-    
+    private static extern int mpr_sig_get_num_inst(IntPtr sig, int status);
+
     /// <summary>
-    /// Gets and then clears status flags attached to this signal.
+    /// Get the number of instances matching the given status flags.
+    /// <param name="status">Status flags to match, default Status.Any</param>
+    /// </summary>
+    /// <returns>Number of instances</returns>
+    public int GetNumInstances(Status status = Status.Any) => (int)mpr_sig_get_num_inst(NativePtr, (int)status);
+
+    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+    private static extern int mpr_sig_get_inst_status(IntPtr sig, ulong id = 0);
+
+    /// <summary>
+    /// Gets and then clears status flags attached to this signal instance.
     /// The returned value can be used to see if the signal has been updated remotely.a
-    /// <param name="id">Instance id to get status for, default 0</param>
+    /// <param name="instanceId">Instance id to get status for, default 0</param>
     /// </summary>
     /// <returns>Status flags</returns>
-    public StatusFlags FetchStatus(long id = 0) => (StatusFlags)mpr_sig_get_inst_status(NativePtr, id);
+    public Status GetStatus(ulong instanceId = 0) => (Status)mpr_sig_get_inst_status(NativePtr, instanceId);
 
     /// <summary>
     /// Reserve a single instance, with a specific id.
     /// </summary>
-    /// <param name="id">Identifier used to refer to this specific instance</param>
-    public void ReserveInstance(int id)
+    /// <param name="instanceId">Identifier used to refer to this specific instance</param>
+    public void ReserveInstance(ulong instanceId)
     {
         unsafe
         {
-            mpr_sig_reserve_inst(NativePtr, 1, &id, IntPtr.Zero);
+            mpr_sig_reserve_inst(NativePtr, 1, &instanceId, IntPtr.Zero);
         }
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern int mpr_sig_remove_inst(IntPtr sig, ulong id);
+    private static extern int mpr_sig_remove_inst(IntPtr sig, ulong instanceId);
 
     /// <summary>
     ///     Remove an instance from the signal.
@@ -385,19 +382,28 @@ public class Signal : MapperObject
     }
 
     /// <summary>
-    ///     Get a reference to an instance of this signal.
+    ///     Get a reference to an instance of this signal by id.
     /// </summary>
-    /// <param name="id">The instance id</param>
-    public Instance GetInstance(ulong id)
+    /// <param name="instanceId">The instance id</param>
+    public Instance GetInstance(ulong instanceId)
     {
-        return new Instance(NativePtr, id);
+        return new Instance(NativePtr, instanceId);
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern ulong mpr_sig_get_oldest_inst_id(IntPtr sig);
+    private static extern ulong mpr_sig_get_inst_id(IntPtr sig, int index, int status);
 
-    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern ulong mpr_sig_get_newest_inst_id(IntPtr sig);
+    /// <summary>
+    ///     Get a reference to an instance of this signal by index.
+    /// </summary>
+    /// <param name="index">The instance index</param>
+    /// <param name="status">Status flags to match</param>
+    public Instance GetInstance(int index, Status status = Status.Any)
+    {
+        return new Instance(NativePtr, mpr_sig_get_inst_id(NativePtr, index, (int)status));
+    }
+
+    // TODO: add handler with Signal Instance object instead of Signal + InstanceId
 
     private unsafe void _handler(IntPtr sig, int evt, ulong inst, int length,
         int type, IntPtr value, long time)
@@ -405,9 +411,9 @@ public class Signal : MapperObject
         var e = (Event)evt;
         var t = new Time(time);
         object? val = BuildValue(length, type, value.ToPointer(), 0);
-        ValueChanged?.Invoke(this, (inst, val, (MapperType)type, t));
+        ValueChanged?.Invoke(this, (e, inst, val, (MapperType)type, t));
     }
-    
+
     public new Signal SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
     {
         base.SetProperty(property, value, publish);
@@ -421,8 +427,9 @@ public class Signal : MapperObject
     }
 
     /// <summary>
-    ///     Push this signal out to the distributed graph, allowing it to become active
+    ///     Push changes to this signal out to the distributed graph
     /// </summary>
+    /// <returns>The same signal to allow for chaining</returns>
     public new Signal Push()
     {
         base.Push();
@@ -447,9 +454,9 @@ public class Signal : MapperObject
     {
         public readonly ulong id;
 
-        internal Instance(IntPtr sig, ulong inst) : base(sig)
+        internal Instance(IntPtr sig, ulong instanceId) : base(sig)
         {
-            id = inst;
+            id = instanceId;
         }
 
         public (object?, Time) GetValue()
@@ -463,8 +470,13 @@ public class Signal : MapperObject
             return this;
         }
 
-        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        private static extern void mpr_sig_release_inst(IntPtr sig, ulong id);
+        /// <summary>
+        /// Gets and then clears status flags attached to this signal instance.
+        /// The returned value can be used to see if the signal has been updated remotely.
+        /// <param name="instanceId">Instance id to get status for, default 0</param>
+        /// </summary>
+        /// <returns>Status flags</returns>
+        public Status GetStatus() => (Status)mpr_sig_get_inst_status(NativePtr, id);
 
         /// <summary>
         ///     Release this instance, keeping the allocated memory allowing a new instance to take it's place.
@@ -474,5 +486,5 @@ public class Signal : MapperObject
             mpr_sig_release_inst(NativePtr, id);
         }
     }
-    
+
 }
