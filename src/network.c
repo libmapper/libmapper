@@ -965,7 +965,7 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
     /* Desired behavour here:
      * If block_ms == 0, check for incoming messages once and continue
      * If block_ms > 0, block for block_ms while waiting on servers
-     * If block_ms < 0, loop over lo_servers_recv until no messages remain
+     * If block_ms < 0, loop over lo_servers_recv_noblock until no messages remain
      */
 
     left_ms = block_ms >= 0 ? block_ms : 0;
@@ -984,6 +984,7 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
                     count += dev_count;
                 }
             }
+            recvd = 1;
         }
         for (i = 0; i < net->num_devs; i++) {
             mpr_dev_update_maps((mpr_dev)net->devs[i]);
