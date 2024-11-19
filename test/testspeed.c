@@ -126,7 +126,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
             fvalue = ++expected[0];
             mpr_sig_set_value(sendsig, 0, length, type, &fvalue);
         }
-        mpr_dev_update_maps(mpr_sig_get_dev(sig));
+        mpr_dev_update_maps(mpr_sig_get_dev(sendsig));
     }
     else {
         const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
@@ -351,8 +351,10 @@ int main(int argc, char **argv)
     eprintf("STARTING TEST...\n");
     times[0] = mpr_get_current_time();
     mpr_sig_set_value(sendsig, counter, 1, MPR_FLT, &(expected[counter]));
+
     while (!done) {
-        mpr_dev_poll(src, -1);
+        if ((matched % 1000) == 0)
+            mpr_dev_poll(src, -1);
         mpr_dev_poll(dst, -1);
     }
 

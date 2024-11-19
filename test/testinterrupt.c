@@ -157,30 +157,53 @@ int wait_ready(void)
 /* The signal handler just clears the flag and re-enables itself. */
 void interrupt (int sig)
 {
+    static int interrupt_running = 0;
+    if (interrupt_running) {
+        eprintf("Interrupt handler already running!\n");
+        return;
+    }
+
+    interrupt_running = 1;
+
     if ((!terminate || sent < 50) && !done) {
-        const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
-        eprintf("Updating signal %s to %d\n", name, sent);
+        if (verbose) {
+            const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
+            printf("Updating signal %s to %g\n", name, expected);
+        }
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &sent);
         expected = sent;
         ++sent;
         mpr_dev_update_maps(src);
+
+        /* handle alarm signal */
         signal (sig, interrupt);
+
+        /* reset alarm */
+        ualarm (period * 1000, 0);
     }
     else
         keep_going = 0;
+
+    interrupt_running = 0;
 }
 
 void loop (void)
 {
+    if (!shared_graph)
+        mpr_dev_start_polling(dst, 100);
+
     while (keep_going) {
-        mpr_dev_poll(src, 0);
-        mpr_dev_poll(dst, period);
+        mpr_dev_poll(src, 100);
 
         if (!verbose) {
             printf("\r  Sent: %4i, Received: %4i   ", sent, received);
             fflush(stdout);
         }
     }
+
+    if (!shared_graph)
+        mpr_dev_stop_polling(dst);
+
     mpr_dev_poll(src, period);
     mpr_dev_poll(dst, period);
 }
@@ -276,7 +299,7 @@ int main (int argc, char **argv)
     }
 
     /* Set an alarm to go off. */
-    ualarm (1, period * 1000);
+    ualarm (period * 1000, 0);
     loop();
 
     if (autoconnect && (!received || sent != received)) {
