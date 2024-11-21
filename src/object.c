@@ -112,6 +112,7 @@ int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
         case MPR_FLT:   return (int)*(float*)val;
         case MPR_DBL:   return (int)*(double*)val;
         case MPR_TYPE:  return (int)*(mpr_type*)val;
+        case MPR_TIME:  return (int)(*(mpr_time*)val).sec;
         default:        return 0;
     }
 }
@@ -135,6 +136,7 @@ int64_t mpr_obj_get_prop_as_int64(mpr_obj o, mpr_prop p, const char *s)
         case MPR_FLT:   return (int64_t)*(float*)val;
         case MPR_DBL:   return (int64_t)*(double*)val;
         case MPR_TYPE:  return (int64_t)*(mpr_type*)val;
+        case MPR_TIME:  return (int64_t)(*(mpr_time*)val).sec;
         default:        return 0;
     }
 }
@@ -158,6 +160,31 @@ float mpr_obj_get_prop_as_flt(mpr_obj o, mpr_prop p, const char *s)
         case MPR_FLT:   return        *(float*)val;
         case MPR_DBL:   return (float)*(double*)val;
         case MPR_TYPE:  return (float)*(mpr_type*)val;
+        case MPR_TIME:  return (float)mpr_time_as_dbl(*(mpr_time*)val);
+        default:        return 0;
+    }
+}
+
+double mpr_obj_get_prop_as_dbl(mpr_obj o, mpr_prop p, const char *s)
+{
+    const void *val;
+    mpr_type type;
+    int len;
+    RETURN_ARG_UNLESS(o, 0);
+    if (s)
+        p = mpr_tbl_get_record_by_key(o->props.synced, s, &len, &type, &val, NULL);
+    else
+        p = mpr_tbl_get_record_by_idx(o->props.synced, p, NULL, &len, &type, &val, NULL);
+    RETURN_ARG_UNLESS(val, 0);
+
+    switch (type) {
+        case MPR_BOOL:
+        case MPR_INT32: return (double)*(int*)val;
+        case MPR_INT64: return (double)*(int64_t*)val;
+        case MPR_FLT:   return (double)*(float*)val;
+        case MPR_DBL:   return         *(double*)val;
+        case MPR_TYPE:  return (double)*(mpr_type*)val;
+        case MPR_TIME:  return         mpr_time_as_dbl(*(mpr_time*)val);
         default:        return 0;
     }
 }

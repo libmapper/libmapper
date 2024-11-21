@@ -1,4 +1,5 @@
 #include <string.h>
+#include <mapper/mapper.h>
 #include "../mpr_type.h"
 
 /* Helper for setting property value from different data types */
@@ -189,6 +190,70 @@ int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,
                                 dstb[i] = tempb;
                                 modified = 1;
                             }
+                        }
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+        case MPR_TIME: {
+            mpr_time *dstt = (mpr_time*)dst_val, tempt = {0, 0};
+            switch (src_type) {
+                case MPR_INT32: {
+                    int *srci = (int*)src_val;
+                    for (i = 0, j = 0; i < dst_len; i++, j++) {
+                        if (j >= src_len)
+                            j = 0;
+                        if (srci[j] < 0)
+                            continue;
+                        /* only set seconds */
+                        tempt.sec = srci[j];
+                        if (mpr_time_cmp(tempt, dstt[i])) {
+                            modified = 1;
+                            mpr_time_set(&dstt[i], tempt);
+                        }
+                    }
+                    break;
+                }
+                case MPR_INT64: {
+                    int64_t *srci = (int64_t*)src_val;
+                    for (i = 0, j = 0; i < dst_len; i++, j++) {
+                        if (j >= src_len)
+                            j = 0;
+                        if (srci[j] < 0)
+                            continue;
+                        /* only set seconds */
+                        tempt.sec = srci[j];
+                        if (mpr_time_cmp(tempt, dstt[i])) {
+                            modified = 1;
+                            mpr_time_set(&dstt[i], tempt);
+                        }
+                    }
+                    break;
+                }
+                case MPR_FLT: {
+                    float *srcf = (float*)src_val;
+                    for (i = 0, j = 0; i < dst_len; i++, j++) {
+                        if (j >= src_len)
+                            j = 0;
+                        mpr_time_set_dbl(&tempt, srcf[j]);
+                        if (mpr_time_cmp(tempt, dstt[i])) {
+                            modified = 1;
+                            mpr_time_set(&dstt[i], tempt);
+                        }
+                    }
+                    break;
+                }
+                case MPR_DBL: {
+                    double *srcd = (double*)src_val;
+                    for (i = 0, j = 0; i < dst_len; i++, j++) {
+                        if (j >= src_len)
+                            j = 0;
+                        mpr_time_set_dbl(&tempt, srcd[j]);
+                        if (mpr_time_cmp(tempt, dstt[i])) {
+                            modified = 1;
+                            mpr_time_set(&dstt[i], tempt);
                         }
                     }
                     break;

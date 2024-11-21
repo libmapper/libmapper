@@ -122,6 +122,18 @@ int64_t mpr_obj_get_prop_as_int64(mpr_obj object, mpr_prop property, const char 
  *                      exist or can't be cast to float. */
 float mpr_obj_get_prop_as_flt(mpr_obj object, mpr_prop property, const char *key);
 
+/*! Look up a property by symbolic identifier or name and return as a double if possible. Since the
+ *  returned value cannot represent a missing property it is recommended that this function only be
+ *  used to recover properties that are guaranteed to exist and have a compatible type.
+ *  \param object       The object to check.
+ *  \param property     The symbolic identifier of the property to recover. Can be set to
+ *                      `MPR_UNKNOWN` or `MPR_EXTRA` to specify the property by name instead.
+ *  \param key          A string identifier (name) for the property. Only used if the 'property'
+ *                      argument is set to `MPR_UNKNOWN` or `MPR_EXTRA`.
+ *  \return             Value of the property cast to double type, or zero if the property does not
+ *                      exist or can't be cast to double. */
+double mpr_obj_get_prop_as_dbl(mpr_obj object, mpr_prop property, const char *key);
+
 /*! Look up a property by symbolic identifier or name and return as a C string if possible.
  *  The returned value belongs to the object and should not be freed.
  *  \param object       The object to check.
