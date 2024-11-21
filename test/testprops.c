@@ -103,6 +103,7 @@ int main(int argc, char **argv)
     mpr_dev dev, remote_dev;
     mpr_sig sig;
     float flt_value, flt_array[] = {10., 20., 30., 40., 50.};
+    double dbl_value;
     const char *str = "test_value", *str_value, *str_array[] = {"foo", "bar"};
     mpr_type type;
     const void *value, *ptr_value = (const void*)0x9813;
@@ -1204,6 +1205,56 @@ int main(int argc, char **argv)
     seen = check_keys(remote_dev);
     if (seen & (SEEN_SECRET)) {
         eprintf("ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("Test 43: retrieving mpr_time property 'synced'... ");
+    if (!mpr_obj_get_prop_by_idx(remote_dev, MPR_PROP_SYNCED, NULL, &length, &type, &value, &public)) {
+        eprintf("ERROR (not found)\n");
+        result = 1;
+        goto cleanup;
+    }
+    else if (verbose) {
+        eprintf("%g... OK\n", mpr_time_as_dbl(*(mpr_time*)value));
+    }
+
+    eprintf("Test 44: setting read-only mpr_time property 'synced'... ");
+    if (mpr_obj_set_prop(remote_dev, MPR_PROP_SYNCED, NULL, 1, MPR_FLT, &flt_value, 1)) {
+        eprintf("ERROR (succeeded)\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    /* Check typed getters for mpr_time properties */
+    dbl_value = mpr_obj_get_prop_as_dbl(remote_dev, MPR_PROP_SYNCED, NULL);
+    eprintf("Test 45: double typed getter for mpr_time: %g... ", dbl_value);
+    if (dbl_value != mpr_time_as_dbl(*(mpr_time*)value)) {
+        eprintf("ERROR (expected %g)\n", mpr_time_as_dbl(*(mpr_time*)value));
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    flt_value = mpr_obj_get_prop_as_flt(remote_dev, MPR_PROP_SYNCED, NULL);
+    eprintf("Test 46: float typed getter for mpr_time: %g... ", flt_value);
+    if (flt_value != (float)mpr_time_as_dbl(*(mpr_time*)value)) {
+        eprintf("ERROR (expected %g)\n", (float)mpr_time_as_dbl(*(mpr_time*)value));
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    int_value = mpr_obj_get_prop_as_int32(remote_dev, MPR_PROP_SYNCED, NULL);
+    eprintf("Test 47: int typed getter for mpr_time: %u... ", int_value);
+    if (int_value != ((mpr_time*)value)->sec) {
+        eprintf("ERROR (expected %d)\n", ((mpr_time*)value)->sec);
         result = 1;
         goto cleanup;
     }
