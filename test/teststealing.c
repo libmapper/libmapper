@@ -187,8 +187,8 @@ void loop(void)
                 ++received;
             }
             else {
-                eprintf("Updating signal %s.%d to %g\n", recvsig_name, j, f);
                 mpr_sig_set_value(recvsig, j, 1, MPR_FLT, &f);
+                eprintf("Signal %s.%d updated locally to %g\n", recvsig_name, j, f);
                 ++local_updates;
             }
 

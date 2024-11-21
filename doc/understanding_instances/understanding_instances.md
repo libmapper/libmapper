@@ -3,11 +3,11 @@
 
 Input and output signals addressed by libmapper may be *instanced* meaning that there are multiple independent copies of the object or phenomenon represented by the signal. If multiple instances of an object are active at the same time we say that the object is *multiplex*; if there are times during which an object instance is inactive (e.g. the phenomenon it represents does not exist) we say that the object is *ephemeral*. In the latter case the independent copies of the object exist serially over time.
 
-In the table below, signals are referred to as *instanced* if they are multiplex, ephemeral, or both; otherwise the signal is referred to as *singleton*. The table aims to depict each possible combination of instanced and singleton signals that might be connected in a map, including convergent maps in which some source signals are instanced and some are not. For each combination a small "grid" graphic is used to depict the mapping topopogy, e.g.:
+In the table below, signals are referred to as *instanced* if they are multiplex, ephemeral, or both; otherwise the signal is referred to as *singleton*. The table aims to depict each possible combination of instanced and singleton signals that might be connected in a map, including convergent maps in which some source signals are instanced and some are not. For each combination a small "matrix" graphic is used to depict the mapping topopogy, e.g.:
 
 <img style="display:block;padding-left:35%;width:20%;" src="./images/icon_s2i.s.png">
 
-In the grid graphic, `S` and `I` on the left side represent possible **source signals** for a map; `S` and `I` on the top represent possible **destination signals** for the map; the blue box represents the map joining sources and destinations. Configuration of the map `use_inst` property is represented with an `S` or `I` on the blue box. In the example above a singleton source is mapped to an instanced destination with the map `use_inst` property set to `false`.
+In the matrix graphic, `S` and `I` on the left side represent possible **source signals** for a map; `S` and `I` on the top represent possible **destination signals** for the map; the blue box represents the map joining sources and destinations. Configuration of the map `use_inst` property is represented with an `S` or `I` on the blue box. In the example above a singleton source is mapped to an instanced destination with the map `use_inst` property set to `false`.
 
 <table style="width:100%">
   <tbody>
@@ -88,7 +88,7 @@ In the grid graphic, `S` and `I` on the left side represent possible **source si
       <td style="background:white;padding:5px">
         <img src="./images/i2i.i.png">
       </td>
-      <td>When mapping an instanced signal to another instanced signal, the map will default to <code>use_inst=1</code>. Source instances will influence the value and lifetime of corresponding instances of the destination signal. Note that the source and destination signals do not need to have the same number of instances available; for more information read about <a href="">resource stealing</a>.</td>
+      <td>When mapping an instanced signal to another instanced signal, the map will default to <code>use_inst=1</code>. Source instances will influence the value and lifetime of corresponding instances of the destination signal. Note that the source and destination signals do not need to have the same number of instances available; for more information read about <a href="#stealing">resource stealing</a>.</td>
     </tr>
     <tr>
       <td style="background:white;padding:5px">
@@ -149,3 +149,11 @@ In the grid graphic, `S` and `I` on the left side represent possible **source si
     </tr>
   </tbody>
 </table>
+
+<h2 id="stealing">Resource Stealing</h3>
+
+Anologous to voice stealing in resource-constrained synthesizers, libmapper supports *resource stealing* for signal instances. If an update arrives for a new instance and all existing instances are already mapped, an active instance can be released and re-assigned to be controlled by the new remote instance. This scenario is typically implemented in one of three ways:
+
+1. Setting the property `MPR_PROP_STEAL_MODE` to automatically steal the `oldest` or `newest` instance, determined by comparing instance activation timestamps.
+2. Writing a signal handler function and subscribing to the `overflow` event type. The handler code might implement custom logic for determining which instance to release (e.g. the quietest voice of a synthesizer) or perhaps allocate more instances for the signal that is overflowing. This handler event is called during instance assignment so it is possible to act before the new instance update needs to be dropped.
+3. Periodically checking the signal status (i.e. by calling `mpr_obj_get_status()`) to see if the `overflow` status bit has been set, and either releasing an active instance or allocating additional signal instances.
