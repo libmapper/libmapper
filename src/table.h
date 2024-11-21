@@ -71,6 +71,13 @@ mpr_prop mpr_tbl_get_record_by_key(mpr_tbl tbl, const char *key, int *len,
 mpr_prop mpr_tbl_get_record_by_idx(mpr_tbl tbl, int prop, const char **key, int *len,
                                    mpr_type *type, const void **val, int *pub);
 
+/*! Discover whether a given object property is writable.
+ *  \param tbl          Table to query.
+ *  \param prop         Index of symbolic identifier of the property to check.
+ *  \return             Non-zero if the property is writable, `0` otherwise.
+ */
+int mpr_tbl_get_record_is_writable(mpr_tbl tbl, mpr_prop prop);
+
 /*! Remove a key-value pair from a table (by index or name). */
 int mpr_tbl_remove_record(mpr_tbl tbl, mpr_prop prop, const char *key, int flags);
 

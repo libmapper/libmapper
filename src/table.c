@@ -223,6 +223,14 @@ mpr_prop mpr_tbl_get_record_by_idx(mpr_tbl t, int prop, const char **key, int *l
     return found ? MASK_PROP_BITFLAGS(rec->prop) : MPR_PROP_UNKNOWN;
 }
 
+int mpr_tbl_get_record_is_writable(mpr_tbl t, mpr_prop prop)
+{
+    if (MPR_PROP_EXTRA == prop)
+        return 1;
+    mpr_tbl_record rec = mpr_tbl_get_record(t, prop, NULL);
+    return rec ? (rec->flags & MOD_ANY) : 1;
+}
+
 int mpr_tbl_remove_record(mpr_tbl t, mpr_prop prop, const char *key, int flags)
 {
     int i, ret = 0;
@@ -384,7 +392,12 @@ static int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
     int updated = 0;
     mpr_tbl_record rec = mpr_tbl_get_record(t, prop, key);
     if (rec) {
-        RETURN_ARG_UNLESS(rec->flags & MOD_ANY, 0);
+        if (!(rec->flags & MOD_ANY)) {
+            trace("Property [%d] '%s' is not writable.\n", MASK_PROP_BITFLAGS(rec->prop),
+                  rec->key ? rec->key : mpr_prop_as_str(MASK_PROP_BITFLAGS(rec->prop), 1));
+            return 0;
+
+        }
         if (prop & PROP_REMOVE) {
             if (!val)
                 return mpr_tbl_remove_record(t, prop, key, flags);

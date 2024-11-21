@@ -251,18 +251,23 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
     int flags, updated;
     mpr_tbl tbl;
     RETURN_ARG_UNLESS(o, 0);
-    /* TODO: ensure ID property can't be changed by user code */
     if (MPR_PROP_UNKNOWN == p || MPR_PROP_EXTRA == p || !MASK_PROP_BITFLAGS(p)) {
         if (!s || '@' == s[0])
             return MPR_PROP_UNKNOWN;
         p = mpr_prop_from_str(s);
     }
 
-    if (!o->props.staged || !publish) {
+    /* MPR_PROP_DATA and MPR_PROP_SYNCED always refer to a local proporty even if obj is remote */
+    if (!o->props.staged || !publish || p == MPR_PROP_DATA || p == MPR_PROP_SYNCED) {
         tbl = o->props.synced;
         flags = MOD_LOCAL;
     }
     else {
+        /* Check if the synced property is writable before trying to edit staged table */
+        if (!mpr_tbl_get_record_is_writable(o->props.synced, p)) {
+            trace("Cannot set read-only property [%d] '%s'\n", p, s ? s : mpr_prop_as_str(p, 1));
+            return MPR_PROP_UNKNOWN;
+        }
         tbl = o->props.staged;
         flags = MOD_REMOTE;
     }
