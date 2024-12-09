@@ -800,8 +800,26 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
             while (maps) {
                 mpr_map map2 = (mpr_map)*maps;
                 maps = mpr_list_get_next(maps);
-                if (mpr_map_compare(map, map2)) {
-                    mpr_graph_remove_map(g, map2, 0);
+                if (map != map2 && mpr_map_compare(map, map2)) {
+                    /* User code may be watching the original map pointer to monitor when it becomes
+                     * 'ready', so we will copy the new map properties to the original map and
+                     * return it instead. */
+                    size_t size;
+                    assert(mpr_obj_get_is_local((mpr_obj)map) == mpr_obj_get_is_local((mpr_obj)map2));
+
+                    size = mpr_map_get_struct_size(mpr_obj_get_is_local((mpr_obj)map));
+                    mpr_map tmp = (mpr_map)alloca(size);
+
+                    /* swap contents of new and old maps */
+                    memcpy(tmp, map2, size);
+                    memcpy(map2, map, size);
+                    memcpy(map, tmp, size);
+
+                    /* remove the newer map */
+                    mpr_graph_remove_map(g, map, 0);
+
+                    /* return the original staged map pointer but with new properties */
+                    map = map2;
                     break;
                 }
             }
