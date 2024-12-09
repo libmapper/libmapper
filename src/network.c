@@ -1712,6 +1712,7 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
             trace("error in /map: potential loop detected.")
             return MPR_MAP_ERROR;
         }
+        trace("adding new map\n");
         map = mpr_graph_add_map(net->graph, id, num_src, src_names, &av[dst_idx]->s);
     }
     return map;
@@ -1824,10 +1825,12 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
 {
     mpr_graph gph = (mpr_graph)user;
     mpr_net net = mpr_graph_get_net(gph);
-    mpr_local_map map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, ADD | UPDATE);
+    mpr_local_map map;
     int status;
 
     trace_net(net);
+
+    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, ADD | UPDATE);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
 
     status = mpr_obj_get_status((mpr_obj)map);
