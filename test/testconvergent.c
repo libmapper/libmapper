@@ -304,8 +304,10 @@ int setup_maps(void)
     /* Need to free list sigs1 since it was not iterated. */
     mpr_list_free(sigs1);
 
-    if (g2)
+    if (g2) {
         mpr_graph_free(g2);
+        map = NULL;
+    }
     return 0;
 }
 
@@ -458,7 +460,7 @@ int main(int argc, char **argv)
     }
 
     if (autoconnect) {
-        for (i = 0; i < num_configs; i++) {
+        for (i = num_configs - 1; i >= 0; i--) {
             config = i;
             if (setup_maps()) {
                 eprintf("Error setting map (1).\n");
