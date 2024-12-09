@@ -205,6 +205,16 @@ int mpr_slot_alloc_values(mpr_local_slot slot, unsigned int num_inst, int hist_s
     printf("\n");
 #endif
 
+    if (len != mpr_value_get_vlen(slot->val)) {
+        trace("  updating slot vector length to %d\n", len);
+        updated = 1;
+    }
+
+    if (type != mpr_value_get_type(slot->val)) {
+        trace("  updating slot type to %c\n", type);
+        updated = 1;
+    }
+
     if (hist_size > 0 && hist_size != mpr_value_get_mlen(slot->val)) {
         trace("  updating slot hist_size to %d\n", hist_size);
         updated = 1;
