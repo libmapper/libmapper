@@ -90,12 +90,12 @@ void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id id, int len, mpr_type type,
              const void *val, mpr_time t)
 {
     if (evt == MPR_STATUS_REL_UPSTRM) {
-        eprintf("%s.%llu got release\n",
+        eprintf("%s.%"PR_MPR_ID" got release\n",
                 mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL), id);
         mpr_sig_release_inst(sig, id);
     }
     else if (val) {
-        eprintf("%s.%llu got %f\n",
+        eprintf("%s.%"PR_MPR_ID" got %f\n",
                 mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL), id, *(float*)val);
         received++;
     }
