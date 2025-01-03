@@ -1,6 +1,9 @@
 #ifndef __MPR_EXPR_EVALUATOR_H__
 #define __MPR_EXPR_EVALUATOR_H__
 
+#include <fenv.h>
+#include <math.h>
+#include <errno.h>
 #include "expr_buffer.h"
 #include "expr_struct.h"
 #include "expr_token.h"
@@ -147,6 +150,11 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         etoken_print(tok, expr->vars, 0);
         printf("\r\t\t\t\t\t");
 #endif
+
+        /* Clear error flags */
+        feclearexcept(FE_ALL_EXCEPT);
+        errno = 0;
+
         switch (tok->toktype) {
         case TOK_LITERAL:
         case TOK_VLITERAL:
@@ -506,19 +514,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #if TRACE_EVAL
                                     printf("... integer divide-by-zero detected, skipping assignment.\n");
 #endif
-                                    /* skip to after this assignment */
-                                    while (tok < end && !((++tok)->toktype & TOK_ASSIGN)) {}
-                                    while (tok < end && (tok)->toktype & TOK_ASSIGN) {
-                                        if (tok->gen.flags & CLEAR_STACK) {
-                                            dp = -1;
-                                            sp = dp * vlen;
-                                        }
-                                        ++tok;
-                                    }
-                                    if (tok >= end)
-                                        return 0;
-                                    else
-                                        goto repeat;
+                                    goto skip_assignment;
                                 }
                             }
                             break;
@@ -568,6 +564,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #if TRACE_EVAL
             evalue_print(vals + sp, types[dp], lens[dp], dp);
 #endif
+            if (errno || fetestexcept(FE_DIVBYZERO | FE_INVALID))
+                goto skip_assignment;
             break;
         }
         case TOK_FN: {
@@ -635,6 +633,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #if TRACE_EVAL
             evalue_print(vals + sp, types[dp], lens[dp], dp);
 #endif
+            if (errno || fetestexcept(FE_DIVBYZERO | FE_INVALID))
+                goto skip_assignment;
             break;
         }
         case TOK_VFN: {
@@ -686,6 +686,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 evalue_print(vals + sp + vlen, types[dp + 1], lens[dp + 1], dp + 1);
             }
 #endif
+            if (errno || fetestexcept(FE_DIVBYZERO | FE_INVALID))
+                goto skip_assignment;
             }
             break;
         case TOK_LOOP_START:
@@ -1155,6 +1157,24 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     }
 
     return status;
+
+  skip_assignment:
+    /* skip to after this assignment */
+#if TRACE_EVAL
+            printf("     error detected, skipping assignment\n");
+#endif
+    while (tok < end && !((++tok)->toktype & TOK_ASSIGN)) {}
+    while (tok < end && (tok)->toktype & TOK_ASSIGN) {
+        if (tok->gen.flags & CLEAR_STACK) {
+            dp = -1;
+            sp = dp * vlen;
+        }
+        ++tok;
+    }
+    if (tok >= end)
+        return 0;
+    else
+        goto repeat;
 
   error:
 #if TRACE_EVAL
