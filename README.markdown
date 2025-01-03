@@ -72,7 +72,7 @@ A "mapping" represents a data-streaming association between one or more source s
 destination signal, in which data is transported using either shared memory or
 [Open Sound Control](http://opensoundcontrol.org/) streams over a network. In addition to traffic
 management, libmapper automatically handles address and datatype translation, and enables the use
-of arbitrary mathematical expression for conditioning, combining and transforming the source values
+of arbitrary mathematical expressions for conditioning, combining and transforming the source values
 as desired. This can be used for example to connect a set of sensors to a synthesizer's input
 parameters.
 
@@ -115,9 +115,8 @@ Advantages of libmapper
 
 This library is, on one level, our response to the widely acknowledged lack of a
 "query" protocol for Open Sound Control.  We are aware for example of
-[current work on using the ZeroConf protocol for publishing OSC services]
-(http://sourceforge.net/projects/osctools/), and various efforts to standardize
-a certain set of OSC address conventions.
+[current work on using the ZeroConf protocol for publishing OSC services](http://sourceforge.net/projects/osctools/),
+and various efforts to standardize a certain set of OSC address conventions.
 
 However, libmapper covers considerably more ground than simply the ability to
 publish namespaces, and handles a direct need that we experience in our daily
@@ -148,17 +147,25 @@ Another advantage of a C library is portability: we have demonstrated libmapper
 working on a variety of embedded devices and single-board computers.
 
 In addition to bindings for C++, C#, Python, and Java, this repository contains
-examples explaining how to use libmapper with [Blender][./doc/intergration_examples/Blender]
-and [MediaPipe](./doc/intergration_examples/MediaPipe), and separate repositories
+examples explaining how to use libmapper with [Blender](./doc/intergration_examples/Blender)
+and [MediaPipe](./doc/integration_examples/MediaPipe), and separate repositories
 provide bindings or plugins for [Max and PureData](https://github.com/libmapper/libmapper-max),
 [SuperCollider](https://github.com/libmapper/MapperUGen),
+[Rust](https://github.com/libmapper/libmapper-rs),
 [Ableton Live](https://github.com/libmapper/Mapper4Live),
-[TouchDesigner](https://github.com/libmapper/Mapper4TD), and
+[TouchDesigner](https://github.com/libmapper/Mapper4TD),
+[Unity](https://github.com/libmapper/UnityMapper), and
 [Godot](https://github.com/libmapper/libmapper-Godot). More plug-ins, modules, and
 bindings are in development, and community contributions are always welcome.
 
+Libmapper has also been integrated into various hardware projects including the
+[T-Stick](https://josephmalloch.wordpress.com/portfolio/tstick/) and
+[Spine](https://josephmalloch.wordpress.com/portfolio/spine/) Digital Musical Instruments,
+the [Maplet](https://github.com/peacheym/maplet) Eurorack module,
+and the [TorqueTuner](https://www.idmil.org/project/torquetuner/) project.
 
-## Brief list of features
+
+## Brief list of notable features
 
 - *Convergent (or "many-to-one") mapping* -- for combining several data sources to
 control a destination
@@ -235,6 +242,12 @@ separate computers.
 
 Getting libmapper
 -----------------
+
+If you are not interested in hacking on the source code (and depending on your
+target language/environment), you may wish to install libmapper using a package manager such as
+[Homebrew](https://formulae.brew.sh/formula/libmapper#default),
+[PyPI](https://pypi.org/project/libmapper/), or
+[crates.io](https://crates.io/crates/libmapper-rs).
 
 The latest version of libmapper source code and binaries can be downloaded from
 the libmapper website at:
