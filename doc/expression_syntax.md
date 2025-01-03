@@ -99,18 +99,21 @@ generated output.
 * `pow(x, n)` — raise a to the power b
 
 ### Trigonometric functions:
-* `sin(x)` — sine
 * `cos(x)` — cosine
+* `sin(x)` — sine
 * `tan(x)` — tangent
-* `asin(x)` — arc sine
-* `acos(x)` — arc cosine
-* `atan(x)` — arc tangent
+* `acos(x)` — inverse cosine
+* `asin(x)` — inverse sine
+* `atan(x)` — inverse tangent
 * `atan2(x, n)` — arc tangent, using signs to determine quadrants
 
 ### Hyperbolic functions:
-* `sinh(x)` — hyperbolic sine
 * `cosh(x)` — hyperbolic cosine
+* `sinh(x)` — hyperbolic sine
 * `tanh(x)` — hyperbolic tangent
+* `acosh(x)` — inverse hyperbolic cosine
+* `asinh(x)` — inverse hyperbolic sine
+* `atanh(x)` — inverse hyperbolic tangent
 
 ### Nearest integer floating point:
 * `floor(x)` — nearest integer not greater than the given value
@@ -122,13 +125,14 @@ generated output.
 * `min(x,y)` – smaller of two values (overloaded)
 * `max(x,y)` – greater of two values (overloaded)
 * `schmitt(x,a,b)` – a comparator with hysteresis ([Schmitt trigger](https://en.wikipedia.org/wiki/Schmitt_trigger)) with input `x`, low threshold `a` and high threshold `b`. Output is binary state of the trigger (`0` or `1`)
+* `sign(x)` – return 1 if `x` is greater than or equal to 0, `-1` otherwise
 
 ### Random number generation:
 * `uniform(x)` — uniform random distribution between 0 and the given value
 
 ### Conversion functions:
-* `midiToHz(x)` — convert MIDI note value to Hz
-* `hzToMidi(x)` — convert Hz value to MIDI note
+* `midiToHz(x)` — convert MIDI note value to frequency in Herz
+* `hzToMidi(x)` — convert Herz frequency value to MIDI note
 
 ### Filters
 * `ema(x, w)` – a cheap low-pass filter: calculate a running *exponential moving average* with input `x` and a weight `w` applied to the current sample.
@@ -168,6 +172,7 @@ It is possible to call any of the [scalar functions](#function-list) listed abov
 * `x.all()` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.sum()` – output the sum of the elements in vector `x`
 * `x.mean()` – output the average (mean) of the elements in vector `x`
+* `x.median()` – output the median value of the elements in vector `x`
 * `x.max()` – output the maximum element in vector `x`
 * `x.min()` – output the minimum element in vector `x`
 * `x.center()` – output the midpoint between `x.min()` and `x.max()`

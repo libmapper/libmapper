@@ -157,6 +157,7 @@ static void NAME(evalue val, uint8_t *dim, int inc)         \
     }                                                       \
     val[0].T = (TYPE)tmp;                                   \
 }
+MEDIAN_VFUNC(vmediani, int, i)
 MEDIAN_VFUNC(vmedianf, float, f)
 MEDIAN_VFUNC(vmediand, double, d)
 
@@ -474,7 +475,7 @@ static struct {
     { "dot",    2, 1, 0, vdoti,    vdotf,    vdotd    },
     { "index",  2, 1, 1, vindexi,  vindexf,  vindexd  },
     { "length", 1, 1, 1, vleni,    vlenf,    vlend    },
-    { "median", 1, 1, 1, 0,        vmedianf, vmediand }
+    { "median", 1, 1, 1, vmediani, vmedianf, vmediand }
 };
 
 typedef enum {
