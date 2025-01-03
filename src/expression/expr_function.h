@@ -17,6 +17,7 @@ EXTREMA_FUNC(mind, double, <)
 
 #define UNARY_FUNC(TYPE, NAME, SUFFIX, CALC)    \
     static TYPE NAME##SUFFIX(TYPE x) { return CALC; }
+UNARY_FUNC(int, pass, i, x)
 UNARY_FUNC(float, hzToMidi, f, 69.f + 12.f * log2f(x / 440.f))
 UNARY_FUNC(double, hzToMidi, d, 69. + 12. * log2(x / 440.))
 UNARY_FUNC(float, midiToHz, f, 440.f * powf(2.f, (x - 69.f) / 12.f))
@@ -418,13 +419,13 @@ static struct {
     { "atan2",    2, 0, 0,            (void*)flt_atan2, (void*)dbl_atan2 },
     { "atanh",    1, 0, 0,            (void*)atanhf,    (void*)atanh     },
     { "cbrt",     1, 0, 0,            (void*)cbrtf,     (void*)cbrt      },
-    { "ceil",     1, 0, 0,            (void*)flt_ceil,  (void*)dbl_ceil  },
+    { "ceil",     1, 0, (void*)passi, (void*)flt_ceil,  (void*)dbl_ceil  },
     { "cos",      1, 0, 0,            (void*)flt_cos,   (void*)dbl_cos   },
     { "cosh",     1, 0, 0,            (void*)flt_cosh,  (void*)dbl_cosh  },
     { "ema",      3, 1, 0,            (void*)emaf,      (void*)emad      },
     { "exp",      1, 0, 0,            (void*)flt_exp,   (void*)dbl_exp   },
     { "exp2",     1, 0, 0,            (void*)exp2f,     (void*)exp2      },
-    { "floor",    1, 0, 0,            (void*)flt_floor, (void*)dbl_floor },
+    { "floor",    1, 0, (void*)passi, (void*)flt_floor, (void*)dbl_floor },
     { "hypot",    2, 0, 0,            (void*)hypotf,    (void*)hypot     },
     { "hzToMidi", 1, 0, 0,            (void*)hzToMidif, (void*)hzToMidid },
     { "log",      1, 0, 0,            (void*)flt_log,   (void*)dbl_log   },
@@ -435,7 +436,7 @@ static struct {
     { "midiToHz", 1, 0, 0,            (void*)midiToHzf, (void*)midiToHzd },
     { "min",      2, 0, (void*)mini,  (void*)minf,      (void*)mind      },
     { "pow",      2, 0, 0,            (void*)flt_pow,   (void*)dbl_pow   },
-    { "round",    1, 0, 0,            (void*)roundf,    (void*)round     },
+    { "round",    1, 0, (void*)passi, (void*)roundf,    (void*)round     },
     { "schmitt",  4, 1, 0,            (void*)schmittf,  (void*)schmittd  },
     { "sign",     1, 0, (void*)signi, (void*)signf,     (void*)signd     },
     { "sin",      1, 0, 0,            (void*)flt_sin,   (void*)dbl_sin   },
