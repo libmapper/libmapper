@@ -1433,8 +1433,9 @@ static const char *set_linear(mpr_local_map m, const char *e)
 
     snprintf(expr + len, MAX_LEN - len,
              "sRange=sMax-sMin;"
-             "m=sRange?((dMax-dMin)/sRange):0;"
-             "b=sRange?(dMin*sMax-dMax*sMin)/sRange:dMin;");
+             "m=(dMax-dMin)/sRange;"
+             "b=dMin;"
+             "b=(dMin*sMax-dMax*sMin)/sRange;");
 
     len = strlen(expr);
 
