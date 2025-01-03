@@ -171,6 +171,7 @@ It is possible to call any of the [scalar functions](#function-list) listed abov
 * `x.any()` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.all()` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.sum()` – output the sum of the elements in vector `x`
+* `x.product()` – output the product of the elements in vector `x`
 * `x.mean()` – output the average (mean) of the elements in vector `x`
 * `x.median()` – output the median value of the elements in vector `x`
 * `x.max()` – output the maximum element in vector `x`

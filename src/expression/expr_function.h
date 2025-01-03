@@ -69,14 +69,24 @@ SUM_VFUNC(vsumi, int, i)
 SUM_VFUNC(vsumf, float, f)
 SUM_VFUNC(vsumd, double, d)
 
+#define PROD_VFUNC(NAME, TYPE, T)                   \
+static void NAME(evalue val, uint8_t *dim, int inc) \
+{                                                   \
+    register TYPE product = 0;                      \
+    int i, len = dim[0];                            \
+    for (i = 0; i < len; i++)                       \
+        product *= val[i].T;                        \
+    val[0].T = product;                             \
+}
+PROD_VFUNC(vprodi, int, i)
+PROD_VFUNC(vprodf, float, f)
+PROD_VFUNC(vprodd, double, d)
+
 #define MEAN_VFUNC(NAME, TYPE, T)                   \
 static void NAME(evalue val, uint8_t *dim, int inc) \
 {                                                   \
-    register TYPE mean = 0;                         \
-    int i, len = dim[0];                            \
-    for (i = 0; i < len; i++)                       \
-        mean += val[i].T;                           \
-    val[0].T = mean / len;                          \
+    vsum##T(val, dim, inc);                         \
+    val[0].T /= dim[0];                             \
 }
 MEAN_VFUNC(vmeanf, float, f)
 MEAN_VFUNC(vmeand, double, d)
@@ -271,6 +281,20 @@ CONCAT_VFUNC(vconcati, int, i)
 CONCAT_VFUNC(vconcatf, float, f)
 CONCAT_VFUNC(vconcatd, double, d)
 
+#define REV_VFUNC(NAME, TYPE, T)                    \
+static void NAME(evalue val, uint8_t *dim, int inc) \
+{                                                   \
+    int i = 0, j = dim[0] - 1;                      \
+    while (i < j) {                                 \
+        register TYPE tmp = val[i].T;               \
+        val[i++].T = val[j].T;                      \
+        val[j--].T = tmp;                           \
+    }                                               \
+}
+REV_VFUNC(vrevi, int, i)
+REV_VFUNC(vrevf, float, f)
+REV_VFUNC(vrevd, double, d)
+
 #define TYPED_EMA(TYPE, T)                              \
 static TYPE ema##T(TYPE memory, TYPE val, TYPE weight)  \
     { return memory + (val - memory) * weight; }
@@ -436,9 +460,11 @@ typedef enum {
     VFN_MEAN,
     VFN_MIN,
     VFN_SUM,
+    VFN_PRODUCT,
     VFN_CONCAT,
     /* function names above this line are also found in rfn_table */
     VFN_NORM,
+    VFN_REVERSE,
     VFN_SORT,
     VFN_MAXMIN,
     VFN_SUMNUM,
@@ -466,8 +492,10 @@ static struct {
     { "mean",   1, 1, 1, 0,        vmeanf,   vmeand   },
     { "min",    1, 1, 1, vmini,    vminf,    vmind    },
     { "sum",    1, 1, 1, vsumi,    vsumf,    vsumd    },
+    { "product",1, 1, 1, vprodi,   vprodf,   vprodd   },
     { "concat", 3, 0, 0, vconcati, vconcatf, vconcatd },
     { "norm",   1, 1, 1, 0,        vnormf,   vnormd   },
+    { "rev",    1, 0, 1, vrevi,    vrevf,    vrevd    },
     { "sort",   2, 0, 1, vsorti,   vsortf,   vsortd   },
     { "maxmin", 3, 0, 0, vmaxmini, vmaxminf, vmaxmind },
     { "sumnum", 3, 0, 0, vsumnumi, vsumnumf, vsumnumd },
@@ -487,6 +515,7 @@ typedef enum {
     RFN_MEAN,
     RFN_MIN,
     RFN_SUM,
+    RFN_PRODUCT,
     RFN_CONCAT,
     /* function names above this line are also found in vfn_table */
     RFN_COUNT,
@@ -515,6 +544,7 @@ static struct {
     { "mean",     3, OP_UNKNOWN,     VFN_SUMNUM  },
     { "min",      2, OP_UNKNOWN,     VFN_MIN     },
     { "sum",      2, OP_ADD,         VFN_UNKNOWN },
+    { "product",  2, OP_MULTIPLY,    VFN_UNKNOWN },
     { "concat",   3, OP_UNKNOWN,     VFN_CONCAT  }, /* replaced during parsing */
     { "count",    0, OP_ADD,         VFN_UNKNOWN },
     { "size",     0, OP_UNKNOWN,     VFN_MAXMIN  },

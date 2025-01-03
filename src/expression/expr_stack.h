@@ -618,7 +618,9 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
     }
 
     if (!(tokens[sp].gen.flags & VEC_LEN_LOCKED)) {
-        if (tokens[sp].toktype != TOK_VFN || VFN_SORT == tokens[sp].fn.idx)
+        if (   tokens[sp].toktype != TOK_VFN
+            || VFN_REVERSE == tokens[sp].fn.idx
+            || VFN_SORT == tokens[sp].fn.idx)
             tokens[sp].gen.vec_len = vec_len;
     }
 
