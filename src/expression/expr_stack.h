@@ -238,17 +238,17 @@ done:
     return modified;
 }
 
-static void precompute(estack stk, uint8_t num_tokens_to_compute)
+static int precompute(estack stk, uint8_t num_tokens_to_compute)
 {
     mpr_expr_eval_buffer buff;
     etoken tok = estack_peek(stk, ESTACK_TOP);
     mpr_type type = tok->gen.datatype;
     mpr_expr expr;
     mpr_value val;
-    int i, vec_len = tok->gen.vec_len;
+    int i, ret = 0, vec_len = tok->gen.vec_len;
 
     if (estack_replace_special_constants(stk))
-        return;
+        return 0;
 
     /* temporarily set the stk 'offset' variable */
     stk->offset = stk->num_tokens - num_tokens_to_compute;
@@ -258,8 +258,10 @@ static void precompute(estack stk, uint8_t num_tokens_to_compute)
     val = mpr_value_new(vec_len, type, 1, 1);
     mpr_value_incr_idx(val, 0);
 
-    if (!(mpr_expr_eval(expr, buff, 0, 0, val, 0, 0, 0) & 1))
+    if (!(mpr_expr_eval(expr, buff, 0, 0, val, 0, 0, 0) & 1)) {
+        ret = 1;
         goto done;
+    }
 
     /* TODO: should we also do this for TOK_RFN? */
     if (tok->toktype == TOK_VFN && vfn_tbl[tok->fn.idx].reduce) {
@@ -294,6 +296,7 @@ static void precompute(estack stk, uint8_t num_tokens_to_compute)
         TYPED_CASE(MPR_DBL, double, d)
 #undef TYPED_CASE
         default:
+            ret = 1;
             goto done;
     }
     tok->gen.flags &= ~CONST_SPECIAL;
@@ -307,6 +310,7 @@ done:
     mpr_expr_free(expr);
     mpr_expr_free_eval_buffer(buff);
     stk->offset = 0;
+    return ret;
 }
 
 static int estack_get_substack_len(estack stk, int start_idx)
@@ -627,9 +631,10 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
     /* if stk within bounds of arity was only constants, we're ok to compute */
     if (enable_optimize && can_precompute) {
 #if TRACE_PARSE
-        printf("precomputing tokens[%d:%d]\n", sp - arity, sp + 1);
+        printf("precomputing tokens[%d:%d]\n", sp - arity, sp);
 #endif
-        precompute(stk, arity + 1);
+        if (precompute(stk, arity + 1))
+            return 0;
     }
     return &tokens[stk->num_tokens-1];
 }

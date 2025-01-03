@@ -354,7 +354,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     allow_toktype = TOK_OPEN_PAREN;
                 else {
                     estack_push(out, estack_pop(op));
-                    estack_check_type(out, vars, 1);
+                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (1)");}
                     allow_toktype = JOIN_TOKENS;
                 }
                 if (tok.fn.idx >= FN_DEL_IDX)
@@ -395,7 +395,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     }
                     else {
                         estack_push(out, estack_pop(op));
-                        estack_check_type(out, vars, 1);
+                        {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (2)");}
                         allow_toktype = JOIN_TOKENS | TOK_RFN;
                     }
                     break;
@@ -535,7 +535,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                                 t->var.casttype = type_hi;
                                 {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (3).");}
                             }
-                            estack_check_type(out, vars, 0);
+                            {FAIL_IF(!estack_check_type(out, vars, 0), "Malformed expression (4)");}
                             break;
                         }
                         case RT_VECTOR: {
@@ -805,7 +805,8 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     case RFN_COUNT:
                     case RFN_MEAN:
                     case RFN_SUM:
-                        estack_push_int(out, RFN_ALL == rfn, 1, 0);
+                    case RFN_PRODUCT:
+                        estack_push_int(out, RFN_ALL == rfn || RFN_PRODUCT == rfn, 1, 0);
                         if (RFN_COUNT == rfn || RFN_MEAN == rfn)
                             estack_push_int(out, RFN_COUNT == rfn, 1, 0);
                         break;
@@ -841,7 +842,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     else
                         tok.fn.arity = vfn_tbl[tok.fn.idx].arity;
                     estack_push(out, &tok);
-                    estack_check_type(out, vars, 1);
+                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (7)");}
                 }
                 /* copy type from last token */
                 newtok.gen.datatype = (estack_peek(out, ESTACK_TOP))->gen.datatype;
@@ -876,17 +877,17 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
                     etoken_set_op(&tok, OP_MULTIPLY);
                     estack_push(out, &tok);
-                    estack_check_type(out, vars, 0);
+                    {FAIL_IF(!estack_check_type(out, vars, 0), "Malformed expression (8)");}
                 }
                 else if (RFN_MEAN == rfn) {
                     etoken_set_op(&tok, OP_DIVIDE);
                     estack_push(out, &tok);
-                    estack_check_type(out, vars, 0);
+                    {FAIL_IF(!estack_check_type(out, vars, 0), "Malformed expression (9)");}
                 }
                 else if (RFN_SIZE == rfn) {
                     etoken_set_op(&tok, OP_SUBTRACT);
                     estack_push(out, &tok);
-                    estack_check_type(out, vars, 0);
+                    {FAIL_IF(!estack_check_type(out, vars, 0), "Malformed expression (10)");}
                 }
                 else if (RFN_CONCAT == rfn) {
                     tok.toktype = TOK_SP_ADD;
@@ -907,6 +908,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 while (op->num_tokens && (estack_peek(op, ESTACK_TOP))->toktype != TOK_OPEN_PAREN) {
                     estack_push(out, estack_pop(op));
                     etoken out_top = estack_check_type(out, vars, 1);
+                    {FAIL_IF(!out_top, "Malformed expression (11)");}
                     if (TOK_LOOP_START == out_top->toktype)
                         temp_vars->loop_start_pos = (out->num_tokens - 1);
                 }
@@ -939,7 +941,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     if (op_top->toktype == TOK_OPEN_PAREN || op_top->toktype == TOK_VECTORIZE)
                         break;
                     estack_push(out, estack_pop(op));
-                    estack_check_type(out, vars, 1);
+                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (12).");}
                 }
                 {FAIL_IF(!op->num_tokens, "Unmatched parentheses, brackets, or misplaced comma. (1)");}
 
@@ -949,7 +951,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     estack_lock_vec_len(out);
                     if (op_top->fn.arity > 1) {
                         estack_push(out, estack_pop(op));
-                        estack_check_type(out, vars, 1);
+                        {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (13)");}
                     }
                     else {
                         /* we do not need vectorizer token if vector length == 1 */
@@ -1157,7 +1159,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                                 {FAIL("Function arity mismatch.");}
                         }
                         estack_push(out, estack_pop(op));
-                        estack_check_type(out, vars, 1);
+                        {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (14)");}
                     }
 
                 }
@@ -1166,7 +1168,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     etoken t = estack_pop(op);
                     {FAIL_IF(arity != vfn_tbl[t->fn.idx].arity, "VFN arity mismatch.");}
                     estack_push(out, t);
-                    estack_check_type(out, vars, 1);
+                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (15)");}
                 }
                 else if (TOK_REDUCING == (estack_peek(op, ESTACK_TOP))->toktype) {
                     int cache_pos;
@@ -1210,7 +1212,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 /* special case: if top of stack is tok_assign_use, pop to output */
                 if (op->num_tokens && (estack_peek(op, ESTACK_TOP))->toktype == TOK_ASSIGN_USE) {
                     estack_push(out, estack_pop(op));
-                    estack_check_type(out, vars, 1);
+                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (16).");}
                 }
                 break;
             }
@@ -1220,9 +1222,9 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 while ((t = estack_peek(op, ESTACK_TOP)) && t->toktype != TOK_OPEN_PAREN
                        && t->toktype != TOK_VECTORIZE) {
                     estack_push(out, estack_pop(op));
-                    estack_check_type(out, vars, 1);
+                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (17)");}
                 }
-                {FAIL_IF(!(t = estack_peek(op, ESTACK_TOP)), "Malformed expression (7).");}
+                {FAIL_IF(!(t = estack_peek(op, ESTACK_TOP)), "Malformed expression (18).");}
                 if (TOK_VECTORIZE == t->toktype) {
                     ADD_TO_VECTOR();
                 }
@@ -1241,7 +1243,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                        && (op_top->toktype != TOK_OP || op_top->op.idx != OP_IF)
                        && (op_top->toktype != TOK_FN || op_top->fn.idx != FN_VEC_IDX)) {
                     estack_push(out, estack_pop(op));
-                    estack_check_type(out, vars, 1);
+                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (19)");}
                 }
                 {FAIL_IF(!(op_top = estack_peek(op, ESTACK_TOP)), "Unmatched colon.");}
 
@@ -1268,7 +1270,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     op_top->var.vec_idx = out_top->lit.val.i;
                     estack_pop(out);
                     estack_push(out, estack_pop(op));
-                    out_top = estack_check_type(out, vars, 1);
+                    {FAIL_IF(!(out_top = estack_check_type(out, vars, 1)), "Malformed expression (20)");}
 
                     /* Get right index and verify that it is an integer */
                     GET_NEXT_TOKEN(tok);
@@ -1299,7 +1301,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     if (op_top->toktype == TOK_OPEN_PAREN)
                         {FAIL("Unmatched parentheses or misplaced comma. (2)");}
                     estack_push(out, estack_pop(op));
-                    estack_check_type(out, vars, 1);
+                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (21)");}
                 }
                 {FAIL_IF(!(op_top = estack_peek(op, ESTACK_TOP)),
                          "Unmatched parentheses or misplaced comma. (3)");}
@@ -1328,18 +1330,18 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 /* pop assignment operators to output */
                 while (op->num_tokens && (op_top = estack_peek(op, ESTACK_TOP))) {
                     if ((op->num_tokens == 1) && op_top->toktype < TOK_ASSIGN)
-                        {FAIL("Malformed expression (8)");}
+                        {FAIL("Malformed expression (22)");}
                     estack_push(out, estack_pop(op));
                     if (   TOK_ASSIGN_USE == (estack_peek(out, ESTACK_TOP))->toktype
                         && estack_check_assign_type_and_len(out, vars) == -1)
-                        {FAIL("Malformed expression (9)");}
+                        {FAIL("Malformed expression (23)");}
                 }
                 /* mark last assignment token to clear eval stack */
                 (estack_peek(out, ESTACK_TOP))->gen.flags |= CLEAR_STACK;
 
                 /* check vector length and type */
                 if (estack_check_assign_type_and_len(out, vars) == -1)
-                    {FAIL("Malformed expression (10)");}
+                    {FAIL("Malformed expression (24)");}
 
                 /* start another sub-expression */
                 assigning = is_const = 1;
@@ -1354,7 +1356,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         || (op_tbl[op_top->op.idx].precedence < op_tbl[tok.op.idx].precedence))
                         break;
                     estack_push(out, estack_pop(op));
-                    estack_check_type(out, vars, 1);
+                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (25)");}
                 }
                 estack_push(op, &tok);
                 allow_toktype = OBJECT_TOKENS & ~TOK_OP;
@@ -1617,12 +1619,12 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     /* pop assignment operator(s) to output */
     while (op->num_tokens) {
         {FAIL_IF(op->num_tokens == 1 && (estack_peek(op, ESTACK_TOP))->toktype < TOK_ASSIGN,
-                 "Malformed expression (11).");}
+                 "Malformed expression (26).");}
         estack_push(out, estack_pop(op));
         /* check vector length and type */
         {FAIL_IF(   TOK_ASSIGN_USE == (estack_peek(out, ESTACK_TOP))->toktype
                  && estack_check_assign_type_and_len(out, vars) == -1,
-                 "Malformed expression (12).");}
+                 "Malformed expression (27).");}
     }
 
     /* mark last assignment token to clear eval stack */
@@ -1637,7 +1639,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     }
 
     /* check vector length and type */
-    {FAIL_IF(estack_check_assign_type_and_len(out, vars) == -1, "Malformed expression (13).");}
+    {FAIL_IF(estack_check_assign_type_and_len(out, vars) == -1, "Malformed expression (28).");}
 
     /* replace special constants with their typed values */
     {FAIL_IF(estack_replace_special_constants(out), "Error replacing special constants."); }
