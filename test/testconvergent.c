@@ -350,7 +350,7 @@ void loop(void)
                 expected = i * 3.f;
         }
 
-        for (j = num_sources-1; j >= 0; j--) {
+        for (j = num_sources - 1; j >= 0; j--) {
             eprintf("Updating source %d = %i\n", j, i);
             mpr_sig_set_value(sendsigs[j], 0, 1, MPR_INT32, &i);
             mpr_dev_poll(srcs[j], 0);
@@ -402,7 +402,7 @@ int main(int argc, char **argv)
                         return 1;
                         break;
                     case 'f':
-                        period = 1;
+                        period = -1;
                         break;
                     case 'q':
                         verbose = 0;
