@@ -246,7 +246,8 @@ Getting libmapper
 If you are not interested in hacking on the source code (and depending on your
 target language/environment), you may wish to install libmapper using a package manager such as
 [Homebrew](https://formulae.brew.sh/formula/libmapper#default),
-[PyPI](https://pypi.org/project/libmapper/), or
+[PyPI](https://pypi.org/project/libmapper/),
+[Nuget](https://www.nuget.org/packages/Libmapper.NET), or
 [crates.io](https://crates.io/crates/libmapper-rs).
 
 The latest version of libmapper source code and binaries can be downloaded from
