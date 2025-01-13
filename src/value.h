@@ -23,8 +23,18 @@ int mpr_value_remove_inst(mpr_value v, unsigned int inst_idx);
 
 void* mpr_value_get_value(mpr_value v, unsigned int inst_idx, int hist_idx);
 
+int mpr_value_get_has_value(mpr_value v, unsigned int inst_idx);
+
 void mpr_value_set_next(mpr_value v, unsigned int inst_idx, const void *s, mpr_time *t);
 
+void mpr_value_cpy_next(mpr_value v, unsigned int inst_idx);
+
+/*! Set a single element of an instance value vector.
+ *  \param v        The value to modify.
+ *  \param inst_idx Index of the value instance to modify.
+ *  \param el_idx   Index of the element to modify.
+ *  \param new      Pointer to the new value. Should match the internal datatype.
+ *  \return         1 if the value was modified, 0 otherwise. */
 int mpr_value_set_element(mpr_value v, unsigned int inst_idx, int el_idx, void *new);
 
 int mpr_value_set_next_coerced(mpr_value v, unsigned int inst_idx, unsigned int len,
