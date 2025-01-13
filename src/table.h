@@ -101,14 +101,6 @@ int mpr_tbl_add_record(mpr_tbl tbl, int prop, const char *key, int len,
 void mpr_tbl_link_value(mpr_tbl tbl, mpr_prop prop, int length, mpr_type type,
                         void *val, int flags);
 
-/*! Sync an existing value with a table but do not mark is as updated.
- *  Records added using this method must
- *  be added in alphabetical order since `table_sort()` will not be called.
- *  Key and value will not be copied by the table, and will not be freed when
- *  the table is cleared or deleted. */
-void mpr_tbl_link_value_no_default(mpr_tbl t, mpr_prop prop, int len,
-                                   mpr_type type, void *val, int flags);
-
 /*! Add a typed OSC argument from a `mpr_msg` to a string table.
  *  \param tbl      Table to update.
  *  \param atom     Message atom containing pointers to message key and value.

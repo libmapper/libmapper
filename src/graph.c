@@ -275,9 +275,9 @@ mpr_graph mpr_graph_new(int subscribe_flags)
 
     /* TODO: consider whether graph objects should sync properties over the network. */
     tbl = g->obj.props.synced = mpr_tbl_new();
-    mpr_tbl_link_value(tbl, PROP(DATA), 1, MPR_PTR, &g->obj.data,
-                       MOD_LOCAL | INDIRECT | LOCAL_ACCESS);
-    mpr_tbl_add_record(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
+    mpr_tbl_link_value(tbl, MPR_PROP_DATA, 1, MPR_PTR, &g->obj.data,
+                       MOD_LOCAL | INDIRECT | LOCAL_ACCESS | PROP_SET);
+    mpr_tbl_add_record(tbl, MPR_PROP_LIBVER, NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
     /* TODO: add object queries as properties. */
 
     g->expr_eval_buff = mpr_expr_new_eval_buffer(NULL);
@@ -804,16 +804,9 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                     /* User code may be watching the original map pointer to monitor when it becomes
                      * 'ready', so we will copy the new map properties to the original map and
                      * return it instead. */
-                    size_t size;
-                    assert(mpr_obj_get_is_local((mpr_obj)map) == mpr_obj_get_is_local((mpr_obj)map2));
-
-                    size = mpr_map_get_struct_size(mpr_obj_get_is_local((mpr_obj)map));
-                    mpr_map tmp = (mpr_map)alloca(size);
 
                     /* swap contents of new and old maps */
-                    memcpy(tmp, map2, size);
-                    memcpy(map2, map, size);
-                    memcpy(map, tmp, size);
+                    mpr_map_memswap(map, map2);
 
                     /* remove the newer map */
                     mpr_graph_remove_map(g, map, 0);

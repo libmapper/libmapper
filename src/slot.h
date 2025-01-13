@@ -71,6 +71,8 @@ void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time,
 
 int mpr_slot_compare_names(mpr_slot l, mpr_slot r);
 
+void mpr_slot_set_map_ptr(mpr_slot slot, mpr_map map);
+
 lo_address mpr_slot_get_addr(mpr_slot slot);
 
 #endif /* __MPR_SLOT_H__ */

@@ -1642,6 +1642,7 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
             RETURN_ARG_UNLESS(!loc || (loc & mpr_map_get_locality(map)), MPR_MAP_ERROR);
             if (mpr_map_get_num_src(map) < num_src && (flags & UPDATE)) {
                 /* add additional sources */
+                trace("adding additional sources to map.\n");
                 for (i = 0; i < num_src; i++)
                     src_names[i] = &av[src_idx+i]->s;
                 map = mpr_graph_add_map(net->graph, id, num_src, src_names, &av[dst_idx]->s);

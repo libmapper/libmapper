@@ -99,4 +99,6 @@ void mpr_map_clear_empty_props(mpr_local_map map);
 
 mpr_id_map mpr_local_map_get_id_map(mpr_local_map map);
 
+void mpr_map_memswap(mpr_map dst, mpr_map src);
+
 #endif /* __MPR_MAP_H__ */

@@ -91,9 +91,9 @@ void mpr_link_init(mpr_link link, mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 
     if (!link->obj.props.synced) {
         mpr_tbl t = link->obj.props.synced = mpr_tbl_new();
-        mpr_tbl_link_value(t, MPR_PROP_DEV, 2, MPR_DEV, &link->devs, MOD_NONE | LOCAL_ACCESS);
-        mpr_tbl_link_value(t, MPR_PROP_ID, 1, MPR_INT64, &link->obj.id, MOD_NONE);
-        mpr_tbl_link_value(t, MPR_PROP_NUM_MAPS, 1, MPR_INT32, &link->num_maps, MOD_NONE | INDIRECT);
+        mpr_tbl_add_record(t, MPR_PROP_DEV, NULL, 2, MPR_DEV, &link->devs, MOD_NONE | LOCAL_ACCESS);
+        mpr_tbl_add_record(t, MPR_PROP_ID, NULL, 1, MPR_INT64, &link->obj.id, MOD_NONE);
+        mpr_tbl_add_record(t, MPR_PROP_NUM_MAPS, NULL, 1, MPR_INT32, &link->num_maps, MOD_NONE | INDIRECT);
     }
     if (!link->obj.props.staged)
         link->obj.props.staged = mpr_tbl_new();

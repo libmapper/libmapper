@@ -1,4 +1,4 @@
-
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -431,13 +431,22 @@ int mpr_tbl_add_record(mpr_tbl t, int prop, const char *key, int len,
 
 void mpr_tbl_link_value(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *val, int flags)
 {
-    add_record_internal(t, prop, NULL, len, type, val, flags | PROP_SET);
-}
-
-void mpr_tbl_link_value_no_default(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *val,
-                                   int flags)
-{
-    add_record_internal(t, prop, NULL, len, type, val, flags);
+    mpr_tbl_record rec = mpr_tbl_get_record(t, prop, NULL);
+    if (rec) {
+        assert(len == rec->len && type == rec->type);
+        if (rec->val && rec->flags & PROP_OWNED) {
+            void *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
+            if (MPR_LIST == rec->type)
+                mpr_list_free(val);
+            else
+                free(val);
+        }
+        /* update value */
+        rec->val = val;
+    }
+    else {
+        add_record_internal(t, prop, NULL, len, type, val, flags);
+    }
 }
 
 static int update_elements_osc(mpr_tbl_record rec, unsigned int len,

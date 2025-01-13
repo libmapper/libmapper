@@ -66,6 +66,11 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
     return slot;
 }
 
+void mpr_slot_set_map_ptr(mpr_slot slot, mpr_map map)
+{
+    slot->map = map;
+}
+
 static int slot_mask(mpr_slot slot)
 {
     return slot == mpr_map_get_dst_slot(slot->map) ? DST_SLOT_PROP : SRC_SLOT_PROP(slot->id);
@@ -115,7 +120,8 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
         if ((str = mpr_msg_get_prop_as_str(msg, MPR_PROP_DIR | mask))) {
             int dir = mpr_dir_from_str(str);
             if (dir)
-                updated += mpr_tbl_add_record(tbl, PROP(DIR), NULL, 1, MPR_INT32, &dir, MOD_REMOTE);
+                updated += mpr_tbl_add_record(tbl, MPR_PROP_DIR, NULL, 1,
+                                              MPR_INT32, &dir, MOD_REMOTE);
         }
         num_inst = mpr_msg_get_prop_as_int32(msg, MPR_PROP_NUM_INST | mask);
         if (!((mpr_local_slot)slot)->val || (num_inst && num_inst != slot->num_inst)) {
@@ -206,17 +212,18 @@ int mpr_slot_alloc_values(mpr_local_slot slot, unsigned int num_inst, int hist_s
 #endif
 
     if (len != mpr_value_get_vlen(slot->val)) {
-        trace("  updating slot vector length to %d\n", len);
+        trace("  updating slot vector length %d -> %d\n", mpr_value_get_vlen(slot->val), len);
         updated = 1;
     }
 
     if (type != mpr_value_get_type(slot->val)) {
-        trace("  updating slot type to %c\n", type);
+        trace("  updating slot type %c -> %c\n",
+              mpr_value_get_type(slot->val) ? mpr_value_get_type(slot->val) : '?', type);
         updated = 1;
     }
 
     if (hist_size > 0 && hist_size != mpr_value_get_mlen(slot->val)) {
-        trace("  updating slot hist_size to %d\n", hist_size);
+        trace("  updating slot hist_size %d -> %d\n", mpr_value_get_mlen(slot->val), hist_size);
         updated = 1;
     }
 
@@ -224,7 +231,7 @@ int mpr_slot_alloc_values(mpr_local_slot slot, unsigned int num_inst, int hist_s
         num_inst = mpr_sig_get_num_inst_internal(slot->sig);
     }
     if (num_inst > 0 && num_inst != slot->num_inst) {
-        trace("  updating slot num_inst to %d\n", num_inst);
+        trace("  updating slot num_inst %d -> %d\n", slot->num_inst, num_inst);
         slot->num_inst = num_inst;
         updated = 1;
     }

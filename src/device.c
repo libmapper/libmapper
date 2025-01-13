@@ -135,29 +135,31 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
     tbl = dev->obj.props.synced;
 
     /* these properties need to be added in alphabetical order */
-    mpr_tbl_link_value(tbl, PROP(DATA), 1, MPR_PTR, &dev->obj.data,
-                       MOD_LOCAL | INDIRECT | LOCAL_ACCESS);
-    mpr_tbl_link_value(tbl, PROP(ID), 1, MPR_INT64, &dev->obj.id, MOD_NONE);
+#define link(PROP, TYPE, DATA, FLAGS) \
+    mpr_tbl_link_value(tbl, MPR_PROP_##PROP, 1, TYPE, DATA, FLAGS | PROP_SET);
+    link(DATA,         MPR_PTR,   &dev->obj.data,     MOD_LOCAL | INDIRECT | LOCAL_ACCESS);
+    link(ID,           MPR_INT64, &dev->obj.id,       MOD_NONE);
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_DEV, (void*)cmp_qry_linked, "v", &dev);
-    mpr_tbl_link_value(tbl, PROP(LINKED), 1, MPR_LIST, qry, MOD_NONE | PROP_OWNED);
-    mpr_tbl_link_value(tbl, PROP(NAME), 1, MPR_STR, &dev->name, MOD_NONE | INDIRECT | LOCAL_ACCESS);
-    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &dev->num_maps_in, MOD_NONE);
-    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_OUT), 1, MPR_INT32, &dev->num_maps_out, MOD_NONE);
-    mpr_tbl_link_value(tbl, PROP(NUM_SIGS_IN), 1, MPR_INT32, &dev->num_inputs, MOD_NONE);
-    mpr_tbl_link_value(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, MOD_NONE);
-    mpr_tbl_link_value(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, MOD_NONE);
+    link(LINKED,       MPR_LIST,  qry,                MOD_NONE | PROP_OWNED);
+    link(NAME,         MPR_STR,   &dev->name,         MOD_NONE | INDIRECT | LOCAL_ACCESS);
+    link(NUM_MAPS_IN,  MPR_INT32, &dev->num_maps_in,  MOD_NONE);
+    link(NUM_MAPS_OUT, MPR_INT32, &dev->num_maps_out, MOD_NONE);
+    link(NUM_SIGS_IN,  MPR_INT32, &dev->num_inputs,   MOD_NONE);
+    link(NUM_SIGS_OUT, MPR_INT32, &dev->num_outputs,  MOD_NONE);
+    link(ORDINAL,      MPR_INT32, &dev->ordinal,      MOD_NONE);
     if (!is_local) {
         qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)cmp_qry_sigs,
                                   "hi", dev->obj.id, MPR_DIR_ANY);
-        mpr_tbl_link_value(tbl, PROP(SIG), 1, MPR_LIST, qry, MOD_NONE | PROP_OWNED);
+        link(SIG,      MPR_LIST,  qry,                MOD_NONE | PROP_OWNED);
     }
-    mpr_tbl_link_value(tbl, PROP(STATUS), 1, MPR_INT32, &dev->obj.status, MOD_NONE | LOCAL_ACCESS);
-    mpr_tbl_link_value(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, MOD_NONE | LOCAL_ACCESS);
-    mpr_tbl_link_value(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, MOD_NONE);
+    link(STATUS,       MPR_INT32, &dev->obj.status,   MOD_NONE | LOCAL_ACCESS);
+    link(SYNCED,       MPR_TIME,  &dev->synced,       MOD_NONE | LOCAL_ACCESS);
+    link(VERSION,      MPR_INT32, &dev->obj.version,  MOD_NONE);
+#undef link
 
     if (is_local)
-        mpr_tbl_add_record(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
-    mpr_tbl_add_record(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local, LOCAL_ACCESS | MOD_NONE);
+        mpr_tbl_add_record(tbl, MPR_PROP_LIBVER, NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
+    mpr_tbl_add_record(tbl, MPR_PROP_IS_LOCAL, NULL, 1, MPR_BOOL, &is_local, LOCAL_ACCESS | MOD_NONE);
 }
 
 /*! Allocate and initialize a device. This function is called to create a new
@@ -305,8 +307,8 @@ static void on_registered(mpr_local_dev dev)
     }
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)cmp_qry_sigs,
                               "hi", dev->obj.id, MPR_DIR_ANY);
-    mpr_tbl_add_record(dev->obj.props.synced, PROP(SIG), NULL, 1, MPR_LIST, qry,
-                       MOD_NONE | PROP_OWNED);
+    mpr_tbl_add_record(dev->obj.props.synced, MPR_PROP_SIG, NULL,
+                       1, MPR_LIST, qry, MOD_NONE | PROP_OWNED);
     dev->registered = 1;
     dev->ordinal = dev->ordinal_allocator.val;
 
@@ -978,7 +980,7 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
     for (i = 0; i < num; i++) {
         mpr_msg_atom a = mpr_msg_get_atom(m, i);
         switch (MASK_PROP_BITFLAGS(mpr_msg_atom_get_prop(a))) {
-            case PROP(LINKED): {
+            case MPR_PROP_LINKED: {
                 if (!dev->obj.is_local)
                     updated += mpr_dev_update_linked(dev, a);
                 break;

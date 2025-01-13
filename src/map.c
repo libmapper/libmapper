@@ -197,12 +197,36 @@ static void mpr_local_map_init(mpr_local_map map)
     /* Don't run mpr_local_map_update_status() here since user code may add props before push. */
 }
 
+static void relink_props(mpr_map m)
+{
+    mpr_tbl t = m->obj.props.synced;
+    // TODO: do we need to remove old query if it exists
+    mpr_list q = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)cmp_qry_scopes, "v", &m);
+
+#define link(PROP, TYPE, DATA, FLAGS) \
+    mpr_tbl_link_value(t, MPR_PROP_##PROP, 1, TYPE, DATA, FLAGS);
+    link(BUNDLE,      MPR_INT32, &m->bundle,      MOD_ANY | PROP_SET);
+    link(DATA,        MPR_PTR,   &m->obj.data,    MOD_ANY | INDIRECT | LOCAL_ACCESS | PROP_SET);
+    link(EXPR,        MPR_STR,   &m->expr_str,    MOD_ANY | INDIRECT | PROP_SET);
+    link(ID,          MPR_INT64, &m->obj.id,      MOD_NONE | LOCAL_ACCESS | PROP_SET);
+    link(MUTED,       MPR_BOOL,  &m->muted,       MOD_ANY | PROP_SET);
+    link(NUM_SIGS_IN, MPR_INT32, &m->num_src,     MOD_NONE | PROP_SET);
+    link(PROCESS_LOC, MPR_INT32, &m->process_loc, MOD_ANY | PROP_SET);
+    /* do not mark value as set to enable initialization */
+    link(PROTOCOL,    MPR_INT32, &m->protocol,    MOD_REMOTE);
+    link(SCOPE,       MPR_LIST,  q,               MOD_NONE | PROP_OWNED | PROP_SET);
+    link(STATUS,      MPR_INT32, &m->obj.status,  MOD_NONE | LOCAL_ACCESS | PROP_SET);
+    /* do not mark value as set to enable initialization */
+    link(USE_INST,    MPR_BOOL,  &m->use_inst,    MOD_REMOTE);
+    link(VERSION,     MPR_INT32, &m->obj.version, MOD_REMOTE | PROP_SET);
+#undef link
+}
+
 void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_local)
 {
     int i;
     mpr_graph g = m->obj.graph;
-    mpr_tbl t = m->obj.props.synced = mpr_tbl_new();
-    mpr_list q = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)cmp_qry_scopes, "v", &m);
+    m->obj.props.synced = mpr_tbl_new();
     m->obj.props.staged = mpr_tbl_new();
 
     m->num_src = num_src;
@@ -225,26 +249,43 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
     m->dst = mpr_slot_new(m, dst, mpr_obj_get_is_local((mpr_obj)dst) ? MPR_DIR_IN : MPR_DIR_UNDEFINED,
                           is_local, 0);
 
-    /* these properties need to be added in alphabetical order */
-    mpr_tbl_link_value(t, PROP(BUNDLE), 1, MPR_INT32, &m->bundle, MOD_ANY);
-    mpr_tbl_link_value(t, PROP(DATA), 1, MPR_PTR, &m->obj.data, MOD_ANY | INDIRECT | LOCAL_ACCESS);
-    mpr_tbl_link_value(t, PROP(EXPR), 1, MPR_STR, &m->expr_str, MOD_ANY | INDIRECT);
-    mpr_tbl_link_value(t, PROP(ID), 1, MPR_INT64, &m->obj.id, MOD_NONE | LOCAL_ACCESS);
-    mpr_tbl_link_value(t, PROP(MUTED), 1, MPR_BOOL, &m->muted, MOD_ANY);
-    mpr_tbl_link_value(t, PROP(NUM_SIGS_IN), 1, MPR_INT32, &m->num_src, MOD_NONE);
-    mpr_tbl_link_value(t, PROP(PROCESS_LOC), 1, MPR_INT32, &m->process_loc, MOD_ANY);
-    mpr_tbl_link_value_no_default(t, PROP(PROTOCOL), 1, MPR_INT32, &m->protocol, MOD_REMOTE);
-    mpr_tbl_link_value(t, PROP(SCOPE), 1, MPR_LIST, q, MOD_NONE | PROP_OWNED);
-    mpr_tbl_link_value(t, PROP(STATUS), 1, MPR_INT32, &m->obj.status, MOD_NONE | LOCAL_ACCESS);
-    mpr_tbl_link_value_no_default(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, MOD_REMOTE);
-    mpr_tbl_link_value(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, MOD_REMOTE);
+    relink_props(m);
 
-    mpr_tbl_add_record(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local, LOCAL_ACCESS | MOD_NONE);
+    mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_IS_LOCAL, NULL, 1,
+                       MPR_BOOL, &is_local, LOCAL_ACCESS | MOD_NONE);
     m->obj.status = MPR_STATUS_NEW | MPR_STATUS_STAGED;
     m->protocol = MPR_PROTO_UDP;
 
     if (is_local)
         mpr_local_map_init((mpr_local_map)m);
+}
+
+void mpr_map_memswap(mpr_map map1, mpr_map map2)
+{
+    size_t size = mpr_map_get_struct_size(mpr_obj_get_is_local((mpr_obj)map1));
+    mpr_map tmp = (mpr_map)alloca(size);
+    int i;
+
+    assert(map1->obj.is_local == map2->obj.is_local);
+
+    /* swap contents of new and old maps */
+    memcpy(tmp, map1, size);
+    memcpy(map1, map2, size);
+    memcpy(map2, tmp, size);
+
+    /* re-link table */
+    relink_props(map1);
+    relink_props(map2);
+
+    /* update slot map ptrs */
+    mpr_slot_set_map_ptr(map1->dst, map1);
+    for (i = 0; i < map1->num_src; i++) {
+        mpr_slot_set_map_ptr(map1->src[i], map1);
+    }
+    mpr_slot_set_map_ptr(map2->dst, map2);
+    for (i = 0; i < map2->num_src; i++) {
+        mpr_slot_set_map_ptr(map2->src[i], map2);
+    }
 }
 
 static int compare_sig_names(const void *l, const void *r)
@@ -1138,8 +1179,8 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
         m->process_loc = MPR_LOC_DST;
         if (MPR_LOC_SRC == m->locality) {
             /* copy expression string but do not execute it */
-            mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str,
-                               MOD_REMOTE);
+            mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL,
+                               1, MPR_STR, expr_str, MOD_REMOTE);
             mpr_expr_free(expr);
             return 1;
         }
@@ -1149,8 +1190,8 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
 
     if (m->expr_str == expr_str)
         return 0;
-    mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, MOD_REMOTE);
-    mpr_tbl_remove_record(m->obj.props.staged, PROP(EXPR), NULL, 0);
+    mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr_str, MOD_REMOTE);
+    mpr_tbl_remove_record(m->obj.props.staged, MPR_PROP_EXPR, NULL, 0);
     return 0;
 }
 
@@ -1469,7 +1510,8 @@ static int set_expr(mpr_local_map m, const char *expr_str)
     if (!(m->process_loc & m->locality)) {
         /* don't need to compile */
         if (expr_str)
-            mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, MOD_REMOTE);
+            mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL,
+                               1, MPR_STR, expr_str, MOD_REMOTE);
         if (m->expr) {
             trace("freeing unused expression\n");
             mpr_expr_free(m->expr);
@@ -1585,7 +1627,7 @@ int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
 {
     int updated = 0;
     mpr_loc orig_loc = m->process_loc;
-    const char *expr_str = mpr_msg_get_prop_as_str(msg, PROP(EXPR));
+    const char *expr_str = mpr_msg_get_prop_as_str(msg, MPR_PROP_EXPR);
 
     if (MPR_LOC_BOTH == m->locality) {
         m->process_loc = MPR_LOC_SRC;
@@ -1601,7 +1643,7 @@ int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
     }
     else {
         /* try to retrieve process location property from message */
-        const char *loc_str = mpr_msg_get_prop_as_str(msg, PROP(PROCESS_LOC));
+        const char *loc_str = mpr_msg_get_prop_as_str(msg, MPR_PROP_PROCESS_LOC);
         if (loc_str) {
             int new_loc = mpr_loc_from_str(loc_str);
             if (MPR_LOC_UNDEFINED != new_loc)
@@ -1622,7 +1664,7 @@ int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
             ++updated;
     }
     else if (expr_str)
-        updated += mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL,
+        updated += mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL,
                                       1, MPR_STR, expr_str, MOD_REMOTE);
 
     if (orig_loc != m->process_loc)
@@ -1646,7 +1688,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
 
     if (MPR_DIR_OUT == mpr_slot_get_dir(m->dst)) {
         /* check if MPR_PROP_SLOT property is defined */
-        mpr_msg_atom a = mpr_msg_get_prop(msg, PROP(SLOT));
+        mpr_msg_atom a = mpr_msg_get_prop(msg, MPR_PROP_SLOT);
         if (a && mpr_msg_atom_get_len(a) == m->num_src) {
             lo_arg **vals = mpr_msg_atom_get_values(a);
             for (i = 0; i < m->num_src; i++)
@@ -1668,62 +1710,68 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
 
     for (i = 0; i < mpr_msg_get_num_atoms(msg); i++) {
         mpr_msg_atom a = mpr_msg_get_atom(msg, i);
+        mpr_prop prop = mpr_msg_atom_get_prop(a);
         const mpr_type *types = mpr_msg_atom_get_types(a);
         lo_arg **vals = mpr_msg_atom_get_values(a);
 
-        switch (MASK_PROP_BITFLAGS(mpr_msg_atom_get_prop(a))) {
-            case PROP(NUM_SIGS_IN):
-            case PROP(NUM_SIGS_OUT):
+        if (prop & ~0xFFFF) {
+            trace("ignoring slot prop '%s'\n", mpr_msg_atom_get_key(a));
+            continue;
+        }
+
+        switch (MASK_PROP_BITFLAGS(prop)) {
+            case MPR_PROP_NUM_SIGS_IN:
+            case MPR_PROP_NUM_SIGS_OUT:
                 /* these properties will be set by signal args */
                 break;
-            case PROP(STATUS):
+            case MPR_PROP_STATUS:
                 if (!m->obj.is_local)
                     updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE);
                 break;
-            case PROP(PROCESS_LOC): {
+            case MPR_PROP_PROCESS_LOC: {
                 if (!m->obj.is_local) {
                     mpr_loc loc = mpr_loc_from_str(&(vals[0])->s);
                     if (MPR_LOC_UNDEFINED != loc)
-                        updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
+                        updated += mpr_tbl_add_record(tbl, MPR_PROP_PROCESS_LOC, NULL, 1,
                                                       MPR_INT32, &loc, MOD_REMOTE);
                 }
                 break;
             }
-            case PROP(EXPR): {
+            case MPR_PROP_EXPR: {
                 if (!m->obj.is_local) {
                     const char *expr_str = &(vals[0])->s;
-                    updated += mpr_tbl_add_record(tbl, PROP(EXPR), NULL, 1, MPR_STR,
+                    updated += mpr_tbl_add_record(tbl, MPR_PROP_EXPR, NULL, 1, MPR_STR,
                                                   expr_str, MOD_REMOTE);
                 }
                 break;
             }
-            case PROP(SCOPE):
+            case MPR_PROP_SCOPE:
                 if (types && mpr_type_get_is_str(types[0]))
                     updated += update_scope(m, a);
                 break;
-            case PROP(SCOPE) | PROP_ADD:
+            case MPR_PROP_SCOPE | PROP_ADD:
                 for (j = 0; j < mpr_msg_atom_get_len(a); j++) {
                     if (types && MPR_STR == types[j])
                         updated += add_scope(m, &(vals[j])->s);
                 }
                 break;
-            case PROP(SCOPE) | PROP_REMOVE:
+            case MPR_PROP_SCOPE | PROP_REMOVE:
                 for (j = 0; j < mpr_msg_atom_get_len(a); j++) {
                     if (types && MPR_STR == types[j])
                         updated += remove_scope(m, &(vals[j])->s);
                 }
                 break;
-            case PROP(PROTOCOL): {
+            case MPR_PROP_PROTOCOL: {
                 mpr_proto pro;
                 if (mpr_obj_get_is_local((mpr_obj)m) && MPR_LOC_BOTH == ((mpr_local_map)m)->locality)
                     break;
                 pro = mpr_proto_from_str(&(vals[0])->s);
                 if (pro != MPR_PROTO_UNDEFINED)
-                    updated += mpr_tbl_add_record(tbl, PROP(PROTOCOL), NULL, 1, MPR_INT32, &pro,
+                    updated += mpr_tbl_add_record(tbl, MPR_PROP_PROTOCOL, NULL, 1, MPR_INT32, &pro,
                                                   MOD_REMOTE);
                 break;
             }
-            case PROP(USE_INST): {
+            case MPR_PROP_USE_INST: {
                 int use_inst;
                 if (types[0] == 's') {
                     const char *str = &(vals[0])->s;
@@ -1743,16 +1791,16 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                 if (m->obj.is_local && m->use_inst && !use_inst) {
                     /* TODO: release map instances */
                 }
-                updated += mpr_tbl_add_record(tbl, PROP(USE_INST), NULL, 1, MPR_BOOL,
+                updated += mpr_tbl_add_record(tbl, MPR_PROP_USE_INST, NULL, 1, MPR_BOOL,
                                               &use_inst, MOD_REMOTE);
                 break;
             }
-            case PROP(EXTRA): {
+            case MPR_PROP_EXTRA: {
                 const char *key = mpr_msg_atom_get_key(a);
                 if (strcmp(key, "expression")==0) {
                     if (mpr_type_get_is_str(types[0])) {
                         /* set property type to expr and repeat */
-                        mpr_msg_atom_set_prop(a, PROP(EXPR));
+                        mpr_msg_atom_set_prop(a, MPR_PROP_EXPR);
                         --i;
                     }
                 }
@@ -1808,9 +1856,9 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                     /* otherwise continue to mpr_tbl_add_record_from_msg_atom() below */
                 }
             }
-            case PROP(ID):
-            case PROP(MUTED):
-            case PROP(VERSION):
+            case MPR_PROP_ID:
+            case MPR_PROP_MUTED:
+            case MPR_PROP_VERSION:
                 updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE);
                 break;
             default:
@@ -1878,12 +1926,12 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
 
     /* Add unique id */
     if (m->obj.id) {
-        lo_message_add_string(msg, mpr_prop_as_str(PROP(ID), 0));
+        lo_message_add_string(msg, mpr_prop_as_str(MPR_PROP_ID, 0));
         lo_message_add_int64(msg, *((int64_t*)&m->obj.id));
     }
 
     if (MSG_UNMAP == cmd || MSG_UNMAPPED == cmd) {
-        lo_message_add_string(msg, mpr_prop_as_str(PROP(VERSION), 0));
+        lo_message_add_string(msg, mpr_prop_as_str(MPR_PROP_VERSION, 0));
         lo_message_add_int32(msg, version ? version : m->obj.version);
         mpr_net_add_msg(mpr_graph_get_net(m->obj.graph), 0, cmd, msg);
         return i-1;
@@ -1896,7 +1944,7 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
     /* add slot id */
     if (MPR_DIR_IN == dst_dir && (   MSG_MAP_TO == cmd
                                   || ((!staged && !(m->obj.status & MPR_MAP_STATUS_READY))))) {
-        lo_message_add_string(msg, mpr_prop_as_str(PROP(SLOT), 0));
+        lo_message_add_string(msg, mpr_prop_as_str(MPR_PROP_SLOT, 0));
         i = (slot_idx >= 0) ? slot_idx : 0;
         link = mpr_slot_get_is_local(m->src[i]) ? mpr_slot_get_link(m->src[i]) : 0;
         for (; i < m->num_src; i++) {
