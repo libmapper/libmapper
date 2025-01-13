@@ -495,9 +495,9 @@ int run_tests()
     /* 1) Complex string */
     /* TODO: ensure successive constant multiplications are optimized */
     /* TODO: ensure split successive constant additions are optimized */
-    set_expr_str("y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
+    set_expr_str("y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0]-x)*3*4+cos(2.)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    expect_flt[0] = 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_flt[0])*3*4+cosf(2.0f);
+    expect_flt[0] = 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_flt[0]-src_flt[0])*3*4+cosf(2.0f);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
