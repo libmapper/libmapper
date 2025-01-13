@@ -415,10 +415,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         case TOK_TT: {
             int i, hidx = 0;
             double t_d, hwt = 0.0;
-            if (!(tok->gen.flags & VAR_HIST_IDX)) {
-                INCR_STACK_PTR(1);
-            }
-            SET_LEN(tok->gen.vec_len);
 #if TRACE_EVAL
             if (tok->var.idx == VAR_Y)
                 printf("\n\t\ttt.y");
@@ -426,18 +422,16 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 printf("\n\t\ttt.x$%d", tok->var.idx - VAR_X);
             else if (v_vars)
                 printf("\n\t\ttt.%s", expr->vars[tok->var.idx].name);
-
+#endif
             if (tok->gen.flags & VAR_HIST_IDX) {
+#if TRACE_EVAL
                 switch (types[dp]) {
                     case MPR_INT32: printf("{N=%d}", vals[sp].i);   break;
                     case MPR_FLT:   printf("{N=%g}", vals[sp].f);   break;
                     case MPR_DBL:   printf("{N=%g}", vals[sp].d);   break;
                     default:                                        goto error;
                 }
-            }
-            printf("\r\t\t\t\t\t");
 #endif
-            if (tok->gen.flags & VAR_HIST_IDX) {
                 switch (types[dp]) {
                     case MPR_INT32: hidx = vals[sp].i;                                      break;
                     case MPR_FLT:   hidx = (int)vals[sp].f; hwt = fabsf(vals[sp].f - hidx); break;
@@ -445,6 +439,13 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     default:        goto error;
                 }
             }
+            else {
+                INCR_STACK_PTR(1);
+            }
+            SET_LEN(tok->gen.vec_len);
+#if TRACE_EVAL
+            printf("\r\t\t\t\t\t");
+#endif
             if (tok->var.idx == VAR_Y) {
                 mpr_time *t;
                 RETURN_ARG_UNLESS(v_out, status);
@@ -686,7 +687,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 evalue_print(vals + sp + vlen, types[dp + 1], lens[dp + 1], dp + 1);
             }
 #endif
-            if (errno || fetestexcept(FE_DIVBYZERO | FE_INVALID))
+            if (errno == EDOM || fetestexcept(FE_DIVBYZERO | FE_INVALID))
                 goto skip_assignment;
             }
             break;
