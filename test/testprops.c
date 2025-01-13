@@ -86,10 +86,8 @@ int seen_code(const char *key)
 int check_keys(mpr_obj obj)
 {
     const char *key;
-    const void *value;
-    mpr_type type;
-    int i = 0, seen = 0, length;
-    while (mpr_obj_get_prop_by_idx(obj, (mpr_prop)i++, &key, &length, &type, &value, 0)) {
+    int i = 0, seen = 0;
+    while (mpr_obj_get_prop_by_idx(obj, (mpr_prop)i++, &key, NULL, NULL, NULL, 0)) {
         seen |= seen_code(key);
     }
     return seen;
@@ -1263,6 +1261,7 @@ int main(int argc, char **argv)
 
   cleanup:
     if (dev) mpr_dev_free(dev);
+    if (graph) mpr_graph_free(graph);
     if (!verbose)
         printf("..................................................");
     printf("Test %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
