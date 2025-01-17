@@ -969,10 +969,9 @@ int run_tests()
     /* 55) Moving average of inter-sample period */
     /* Tricky - we need to init t_y{-1} to t_x or the first calculated
      * difference will be enormous! */
-    snprintf(str, 256,
-             "t_y{-1}=t_x;"
-             "period=t_x-t_y{-1};"
-             "y=y{-1}*0.9+period*0.1;");
+    set_expr_str("t_y{-1}=t_x;"
+                 "period=t_x-t_y{-1};"
+                 "y=y{-1}*0.9+period*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
@@ -989,11 +988,10 @@ int run_tests()
     /* 56) Moving average of inter-sample jitter */
     /* Tricky - we need to init t_y{-1} to t_x or the first calculated
      * difference will be enormous! */
-    snprintf(str, 256,
-             "t_y{-1}=t_x;"
-             "interval=t_x-t_y{-1};"
-             "sr=sr*0.9+interval*0.1;"
-             "y=y{-1}*0.9+abs(interval-sr)*0.1;");
+    set_expr_str("t_y{-1}=t_x;"
+                 "interval=t_x-t_y{-1};"
+                 "sr=sr*0.9+interval*0.1;"
+                 "y=y{-1}*0.9+abs(interval-sr)*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
@@ -1007,27 +1005,26 @@ int run_tests()
             eprintf("... OK\n");
     }
 
-    /* 57) Expression for limiting output rate */
-    snprintf(str, 256,
-//             "t_y{-1}=t_x;"
-             "diff=t_x-t_y{-1};"
-             "alive=diff>0.1;"
-             "y=x;");
+    /* 57) Expression for limiting output rate
+     * Leaving the initial t_y{-1} initialized to 0 simply means the first update will cause output */
+    set_expr_str("diff=t_x-t_y{-1};"
+                 "alive=diff>0.1;"
+                 "y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, -1))
         return 1;
 
     /* 58) Expression for limiting rate with smoothed output.
-     * Leaving the initial y{-1} initialized to 0 simply means the first update will cause output */
-    snprintf(str, 256,
-             "count{-1}=1;"
-             "alive=(t_x-t_y{-1})>0.1;"
-             "y=(accum+x)/count;"
-             "accum=!alive*accum+x;"
-             "count=alive?1:count+1;");
+     * Leaving the initial t_y{-1} initialized to 0 simply means the first update will cause output */
+    set_expr_str("a=x%100;"
+                 "count{-1}=1;"
+                 "alive=(t_x-t_y{-1})>0.1;"
+                 "y=(accum+a)/count;"
+                 "accum=!alive*accum+a;"
+                 "count=alive?1:count+1;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    expect_dbl[0] = (double)src_int[0];
+    expect_int[0] = (src_int[0] % 100);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, -1))
         return 1;
 
@@ -1714,26 +1711,28 @@ int run_tests()
     setup_test(MPR_FLT, 1, MPR_DBL, 2);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
-    if (dst_dbl[1] < 0.1) {
-        double d = ((double)src_flt[0] * dst_dbl[1] / 0.1);
-        if (fabs(dst_dbl[0] - d) > fabs(d * 0.0000001)) {
-            eprintf("... error at index 0 (expected %g) (1)\n", d);
-            return 1;
+    if (start_index < 0 || start_index == 128) {
+        if (dst_dbl[1] < 0.1) {
+            double d = ((double)src_flt[0] * dst_dbl[1] / 0.1);
+            if (fabs(dst_dbl[0] - d) > fabs(d * 0.0000001)) {
+                eprintf("... error at index 0 (expected %g) (1)\n", d);
+                return 1;
+            }
         }
-    }
-    else if (dst_dbl[1] < 0.11) {
-        double c = (dst_dbl[1] - 0.1) / 0.01;
-        double d = ((double)src_flt[0]) * (1.0 - 0.1 * c);
-        if (fabs(dst_dbl[0] - d) > fabs(d * 0.0000001)) {
-            eprintf("... error at index 0 (expected %g) (2)\n", d);
-            return 1;
+        else if (dst_dbl[1] < 0.11) {
+            double c = (dst_dbl[1] - 0.1) / 0.01;
+            double d = ((double)src_flt[0]) * (1.0 - 0.1 * c);
+            if (fabs(dst_dbl[0] - d) > fabs(d * 0.0000001)) {
+                eprintf("... error at index 0 (expected %g) (2)\n", d);
+                return 1;
+            }
         }
-    }
-    else {
-        double d = (double)src_flt[0] * (double)0.9f;
-        if (dst_dbl[0] != d) {
-            eprintf("... error at index 0 (expected %g) (3)\n", d);
-            return 1;
+        else {
+            double d = (double)src_flt[0] * (double)0.9f;
+            if (dst_dbl[0] != d) {
+                eprintf("... error at index 0 (expected %g) (3)\n", d);
+                return 1;
+            }
         }
     }
 
