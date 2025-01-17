@@ -921,8 +921,12 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             idxp = dp + 1;
 
             if (VAR_Y == tok->var.idx) {
-                if (!alive)
+                if (!alive) {
+#if TRACE_EVAL
+                    printf("<skipped> (alive=0)\n");
+#endif
                     goto assign_done;
+                }
                 status |= muted ? EXPR_MUTED_UPDATE : EXPR_UPDATE;
                 can_advance = 0;
                 if (!v_out)
@@ -933,8 +937,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 uint8_t flags = expr->vars[tok->var.idx].flags;
                 if (flags & VAR_SET_EXTERN) {
 #if TRACE_EVAL
-                    printf("skipping assignment to %s (set externally)\n",
-                           expr->vars[tok->var.idx].name);
+                    printf("<skipped> (set externally)\n");
 #endif
                     goto assign_done;
                 }
