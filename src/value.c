@@ -225,7 +225,6 @@ void mpr_value_cpy_next(mpr_value v, unsigned int inst_idx)
     mpr_time *t;
     mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
 
-    /* TODO: return error code? */
     RETURN_UNLESS(b->pos > 0);
 
     int idx = (b->pos + v->mlen) % v->mlen;
@@ -254,17 +253,18 @@ int mpr_value_set_element(mpr_value v, unsigned int inst_idx, int el_idx, void *
     old = (char*)b->samps + idx * v->vlen * size;
     RETURN_ARG_UNLESS(old, 0);
 
+    /* set bitflag indicating this element has a value */
+    mpr_bitflags_set(b->known, el_idx);
+
     if (memcmp(old + el_idx * size, new, size)) {
         memcpy(old + el_idx * size, new, size);
         return 1;
     }
 
-    /* set bitflag indicating this element has a value */
-    mpr_bitflags_set(b->known, el_idx);
-
     return 0;
 }
 
+/* TODO: use an extra 'value known' bitflag for faster comparison? */
 int mpr_value_get_has_value(mpr_value v, unsigned int inst_idx)
 {
     mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];

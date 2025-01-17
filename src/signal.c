@@ -69,7 +69,6 @@ typedef struct _mpr_sig_inst
     mpr_id id;                      /*!< User-assignable instance id. */
     void *data;                     /*!< User data of this instance. */
     mpr_time created;               /*!< The instance's creation timestamp. */
-    mpr_bitflags has_value_flags;   /*!< Indicates which vector elements have a value. */
 
     uint16_t status;                /*!< Status of this instance. */
     uint8_t idx;                    /*!< Index for accessing value history. */
@@ -93,7 +92,6 @@ typedef struct _mpr_local_sig
     mpr_value value;
     unsigned int num_id_maps;
     mpr_sig_inst *inst;             /*!< Array of pointers to the signal insts. */
-    mpr_bitflags vec_known;         /*!< Bitflags when entire vector is known. */
     mpr_bitflags updated_inst;      /*!< Bitflags to indicate updated instances. */
 
     /*! An optional function to be called when the signal value changes or when
@@ -586,15 +584,17 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
                 status = MPR_STATUS_NEW_VALUE;
                 mpr_value_incr_idx(sig->value, si->idx);
             }
+            else {
+                mpr_value_cpy_next(sig->value, si->idx);
+            }
             /* we can't use mpr_value_set() here since some vector elements may be missing */
             for (i = 0; i < sig->len; i++) {
                 if (types[i] == MPR_NULL)
                     continue;
                 if (mpr_value_set_element(sig->value, si->idx, i, argv[i]))
                     status = MPR_STATUS_NEW_VALUE;
-                mpr_bitflags_set(si->has_value_flags, i);
             }
-            if (!mpr_bitflags_compare(si->has_value_flags, sig->vec_known, sig->len)) {
+            if (mpr_value_get_has_value(sig->value, si->idx)) {
                 si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM | status);
                 sig->obj.status |= si->status;
                 mpr_value_set_time(sig->value, time, si->idx, 0);
@@ -654,7 +654,7 @@ void mpr_local_sig_add_to_net(mpr_local_sig sig, mpr_net net)
 void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const char *name, int len,
                   mpr_type type, const char *unit, const void *min, const void *max, int *num_inst)
 {
-    int i, str_len, mod = is_local ? MOD_ANY : MOD_NONE;
+    int str_len, mod = is_local ? MOD_ANY : MOD_NONE;
     mpr_tbl tbl;
     RETURN_UNLESS(name);
 
@@ -679,9 +679,6 @@ void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const cha
     if (sig->obj.is_local) {
         mpr_local_sig lsig = (mpr_local_sig)sig;
         sig->num_inst = 0;
-        lsig->vec_known = mpr_bitflags_new(len);
-        for (i = 0; i < len; i++)
-            mpr_bitflags_set(lsig->vec_known, i);
         lsig->updated_inst = 0;
         if (num_inst) {
             mpr_sig_reserve_inst((mpr_sig)lsig, *num_inst, 0, 0);
@@ -781,12 +778,10 @@ void mpr_sig_free_internal(mpr_sig sig)
         mpr_local_sig lsig = (mpr_local_sig)sig;
         free(lsig->id_maps);
         for (i = 0; i < lsig->num_inst; i++) {
-            mpr_bitflags_free(lsig->inst[i]->has_value_flags);
             free(lsig->inst[i]);
         }
         free(lsig->inst);
         mpr_bitflags_free(lsig->updated_inst);
-        mpr_bitflags_free(lsig->vec_known);
         mpr_value_free(lsig->value);
 
         FUNC_IF(free, lsig->slots_in);
@@ -1244,7 +1239,6 @@ static int _reserve_inst(mpr_local_sig lsig, mpr_id *id, void *data)
     lsig->inst = realloc(lsig->inst, sizeof(mpr_sig_inst) * (lsig->num_inst + 1));
     lsig->inst[lsig->num_inst] = (mpr_sig_inst) calloc(1, sizeof(struct _mpr_sig_inst));
     si = lsig->inst[lsig->num_inst];
-    si->has_value_flags = mpr_bitflags_new(lsig->len);
     si->status = MPR_STATUS_STAGED;
 
     if (id)
@@ -1541,7 +1535,6 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
 
     /* Free value and timetag memory held by instance */
     mpr_value_remove_inst(lsig->value, i);
-    mpr_bitflags_free(lsig->inst[i]->has_value_flags);
     free(lsig->inst[i]);
 
     for (++i; i < lsig->num_inst; i++)
