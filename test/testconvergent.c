@@ -1,4 +1,5 @@
 #include <mapper/mapper.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -32,7 +33,7 @@ int sent = 0;
 int received = 0;
 int matched = 0;
 
-float expected;
+float expected[3];
 
 static void eprintf(const char *format, ...)
 {
@@ -98,10 +99,17 @@ void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
-        int ok = (*(float*)value) == expected ? 1 : 0;
-        eprintf("handler: Got %f ...%s\n", (*(float*)value), ok ? "OK" : "Error");
+        float *fvalue = (float*)value;
+        int i, ok = 1;
+        assert(3 == length);
+        for (i = 0; i < 3; i++) {
+            if (fvalue[i] != expected[i])
+                ok = 0;
+        }
+        eprintf("handler: Got [%f, %f, %f] ...%s\n", fvalue[0],
+                fvalue[1], fvalue[2], ok ? "OK" : "Error");
         if (!ok)
-            printf("  (expected %f)\n", expected);
+            eprintf("  (expected [%f, %f, %f])\n", expected[0], expected[1], expected[2]);
         matched += ok;
         ++received;
     }
@@ -112,7 +120,7 @@ void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id instance, int length,
 
 int setup_dst(mpr_graph g, const char *iface)
 {
-    float mn=0, mx=1;
+    float mn = 0, mx = 1;
     mpr_list l;
 
     dst = mpr_dev_new("testconvergent-recv", g);
@@ -123,8 +131,10 @@ int setup_dst(mpr_graph g, const char *iface)
     eprintf("destination created using interface %s.\n",
             mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "recvsig", 1, MPR_FLT, NULL,
-                          &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "recvsig", 3, MPR_FLT, NULL,
+                          NULL, NULL, NULL, handler, MPR_SIG_UPDATE);
+    mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_MIN, NULL, 1, MPR_FLT, &mn, 1);
+    mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_MAX, NULL, 1, MPR_FLT, &mx, 1);
 
     eprintf("Input signal 'insig' registered.\n");
     l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
@@ -262,7 +272,7 @@ int setup_maps(void)
             if (done)
                 return 1;
             eprintf("synced!\n");
-            map = mpr_map_new_from_str("%y=%x+_%x+_%x", recvsig2, sendsigs2[0],
+            map = mpr_map_new_from_str("%y=[%x,_%x+1,_%x+2]", recvsig2, sendsigs2[0],
                                        sendsigs2[1], sendsigs2[2]);
             free(sendsigs2);
             if (!map) {
@@ -338,16 +348,19 @@ void loop(void)
     while ((!terminate || i < 50) && !done) {
         switch (config) {
             case 0:
-                expected = i * -3.f;
+                expected[0] = expected[1] = expected[2] = i * -3.f;
                 break;
             case 1:
-                expected = i * 3.f;
+                expected[0] = expected[1] = expected[2] = i * 3.f;
                 break;
             case 2:
-                expected = i;
+                expected[0] = expected[1] = expected[2] = i;
                 break;
             case 3:
-                expected = i * 3.f;
+                expected[0] = i;
+                expected[1] = i + 1;
+                expected[2] = i + 2;
+                break;
         }
 
         for (j = num_sources - 1; j >= 0; j--) {
