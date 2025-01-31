@@ -208,7 +208,7 @@ int setup_src(mpr_graph g, const char *iface)
     float mn=0, mx=10;
     int num_inst = 10;
 
-    src = mpr_dev_new("testinstance-send", g);
+    src = mpr_dev_new("testinstance_no_cb-send", g);
     if (!src)
         goto error;
     if (iface)
@@ -248,7 +248,7 @@ int setup_dst(mpr_graph g, const char *iface)
     float mn=0;
     int i, num_inst;
 
-    dst = mpr_dev_new("testinstance-recv", g);
+    dst = mpr_dev_new("testinstance_no_cb-recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -731,7 +731,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testinstance.c: possible arguments "
+                        printf("testinstance_no_cb.c: possible arguments "
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "

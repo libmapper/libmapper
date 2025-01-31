@@ -405,7 +405,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testcombiner.c: possible arguments "
+                        printf("testconvergent.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-f fast (execute quickly), "
