@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+# You must remove unused comment lines for the released package.
+export DH_VERBOSE = 1
+#export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+#export DEB_CFLAGS_MAINT_APPEND  = -Wall -pedantic
+#export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+export JAVA_HOME=/usr/lib/jvm/default-java
+export CLASSPATH=/usr/share/java/csv.jar:/usr/share/java/debug-disable.jar:/usr/share/java/itext.jar
+
+%:
+	dh $@ --with autoreconf
+
+override_dh_autoreconf:
+	if git remote -v | grep upstream ; then echo upstream git remote exists; else git remote add upstream https://github.com/libmapper/libmapper.git; fi
+	git fetch --all --tags
+	sed -i "s/AM_PATH_PYTHON(2.3/AM_PATH_PYTHON(3.6/g" configure.ac
+	dh_autoreconf ./autogen.sh
+
+PYTHON_DIR := usr/lib/python3/dist-packages
+	
+override_dh_install:
+	mkdir -p debian/python3-libmapper/$(PYTHON_DIR)
+	dh_install
