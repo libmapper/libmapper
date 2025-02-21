@@ -87,10 +87,13 @@ void mpr_value_realloc(mpr_value v, unsigned int vlen, mpr_type type, unsigned i
             b = &v->inst[i];
             b->samps = realloc(b->samps, mlen * samp_size);
             b->times = realloc(b->times, mlen * sizeof(mpr_time));
-            b->known = mpr_bitflags_realloc(b->known, v->vlen, vlen);
+            b->known = b->known ? mpr_bitflags_realloc(b->known, vlen) : mpr_bitflags_new(vlen);
             /* Initialize entire value to 0 */
             memset(b->samps, 0, mlen * samp_size);
             memset(b->times, 0, mlen * sizeof(mpr_time));
+            mpr_bitflags_clear(b->known);
+            if (b->pos >= 0)
+                --v->num_active_inst;
             b->pos = -1;
             b->full = 0;
         }
@@ -193,7 +196,8 @@ void mpr_value_reset_inst(mpr_value v, unsigned int idx, mpr_time t)
     /* store the reset time at idx 0 */
     memset(b->times, 0, v->mlen * sizeof(mpr_time));
     memcpy(b->times, &t, sizeof(mpr_time));
-    mpr_bitflags_clear(b->known, v->vlen);
+    mpr_bitflags_clear(b->known);
+
     if (b->pos >= 0)
         --v->num_active_inst;
     b->pos = -1;
@@ -213,8 +217,11 @@ void* mpr_value_get_value(mpr_value v, unsigned int inst_idx, int hist_idx)
 void mpr_value_set_next(mpr_value v, unsigned int inst_idx, const void *s, mpr_time *t)
 {
     mpr_value_incr_idx(v, inst_idx);
-    if (s)
+    if (s) {
+        mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+        mpr_bitflags_set_all(b->known);
         memcpy(mpr_value_get_value(v, inst_idx, 0), s, v->vlen * mpr_type_get_size(v->type));
+    }
     if (t)
         memcpy(mpr_value_get_time(v, inst_idx, 0), t, sizeof(mpr_time));
 }
@@ -224,16 +231,16 @@ void mpr_value_cpy_next(mpr_value v, unsigned int inst_idx)
     const void *s;
     mpr_time *t;
     mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    int idx = b->pos;
 
-    RETURN_UNLESS(b->pos > 0);
-
-    int idx = (b->pos + v->mlen) % v->mlen;
-    if (idx < 0)
-        idx += v->mlen;
-
-    s = (char*)b->samps + idx * v->vlen * mpr_type_get_size(v->type);
-    t = &b->times[idx];
-    mpr_value_set_next(v, inst_idx, s, t);
+    if (idx < 0) {
+        mpr_value_incr_idx(v, inst_idx);
+    }
+    else if (v->mlen > 1 && mpr_bitflags_get_all(b->known)) {
+        s = (char*)b->samps + idx * v->vlen * mpr_type_get_size(v->type);
+        t = &b->times[idx];
+        mpr_value_set_next(v, inst_idx, s, t);
+    }
 }
 
 /* returns 1 if the element value was changed */
@@ -264,20 +271,42 @@ int mpr_value_set_element(mpr_value v, unsigned int inst_idx, int el_idx, void *
     return 0;
 }
 
+void mpr_value_set_elements_known(mpr_value v, unsigned int inst_idx, int start, int num)
+{
+    // TODO: can we also assert/assume that inst_idx < v->num_inst? test speedup...
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    int i = start, j = start + num;
+    assert(j <= v->vlen);
+    for (; i < j; i++) {
+        mpr_bitflags_set(b->known, i);
+    }
+}
+
+mpr_bitflags mpr_value_get_elements_known(mpr_value v, unsigned int inst_idx)
+{
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    return b->known;
+}
+
 /* TODO: use an extra 'value known' bitflag for faster comparison? */
 int mpr_value_get_has_value(mpr_value v, unsigned int inst_idx)
 {
     mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
-    return b->pos >= 0 && mpr_bitflags_get_all(b->known, v->vlen);
+    return b->pos >= 0 && mpr_bitflags_get_all(b->known);
 }
 
 int mpr_value_set_next_coerced(mpr_value v, unsigned int inst_idx, unsigned int len,
                                mpr_type type, const void *s, mpr_time *t)
 {
+    int status;
     mpr_value_incr_idx(v, inst_idx);
-    if (t)
+    status = mpr_set_coerced(len, type, s, v->vlen, v->type, mpr_value_get_value(v, inst_idx, 0));
+    if (status >= 0) {
+        mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+        mpr_bitflags_set_all(b->known);
         memcpy(mpr_value_get_time(v, inst_idx, 0), t, sizeof(mpr_time));
-    return s ? mpr_set_coerced(len, type, s, v->vlen, v->type, mpr_value_get_value(v, inst_idx, 0)) : 0;
+    }
+    return status;
 }
 
 /* here we return the time at idx 0 even if the value has been reset */
@@ -313,6 +342,10 @@ void mpr_value_incr_idx(mpr_value v, unsigned int inst_idx)
     mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
     if (b->pos < 0)
         ++v->num_active_inst;
+    else if (!mpr_bitflags_get_all(b->known)) {
+        /* don't advance position until all vector elements are known */
+        return;
+    }
     if (++b->pos >= v->mlen) {
         b->pos = 0;
         b->full |= 1;
@@ -355,6 +388,35 @@ unsigned int mpr_value_get_num_active_inst(mpr_value v)
 mpr_type mpr_value_get_type(mpr_value v)
 {
     return v->type;
+}
+
+void mpr_value_add_to_msg(mpr_value v, unsigned int inst_idx, lo_message msg)
+{
+    /* value of vector elements can be <type> or NULL */
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
+    void *val;
+    RETURN_UNLESS(b->pos >= 0);
+    val = (char*)b->samps + b->pos * v->vlen * mpr_type_get_size(v->type);
+
+    switch (v->type) {
+#define TYPED_CASE(MTYPE, TYPE, CAST)                               \
+        case MTYPE: {                                               \
+            int i;                                                  \
+            for (i = 0; i < v->vlen; i++) {                         \
+                if (mpr_bitflags_get(b->known, i))                  \
+                    lo_message_add_##TYPE(msg, ((CAST*)val)[i]);    \
+                else                                                \
+                    lo_message_add_nil(msg);                        \
+            }                                                       \
+            break;                                                  \
+        }
+        TYPED_CASE(MPR_INT32, int32, int);
+        TYPED_CASE(MPR_FLT, float, float);
+        TYPED_CASE(MPR_DBL, double, double);
+#undef TYPED_CASE
+        default:
+            break;
+    }
 }
 
 #ifdef DEBUG

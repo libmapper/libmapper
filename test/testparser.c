@@ -312,7 +312,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
 {
     /* clear output arrays */
     int i, j, result = 0, mlen, status;
-    mpr_bitflags has_value = 0, updated_values = 0;
+    mpr_bitflags updated_values = 0;
 
     if (start_index >= 0 && (expression_count < start_index || expression_count > stop_index)) {
         ++expression_count;
@@ -341,9 +341,9 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     mpr_expr_realloc_eval_buffer(e, eval_buff);
     mpr_time_set(&time_in, MPR_NOW);
     for (i = 0; i < n_sources; i++) {
-        mpr_value_reset_inst(inh[i], 0, time_in);
         mlen = mpr_expr_get_src_mlen(e, i);
-        mpr_value_realloc(inh[i], src_lens[i], src_types[i], mlen, 1, 0);
+        mpr_value_realloc(inh[i], src_lens[i], src_types[i], mlen, 1, 1);
+        mpr_value_reset_inst(inh[i], 0, time_in);
         switch (src_types[i]) {
             case MPR_INT32:
                 mpr_value_set_next(inh[i], 0, src_int, &time_in);
@@ -358,9 +358,9 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
                 assert(0);
         }
     }
-    mpr_value_reset_inst(outh, 0, time_in);
     mlen = mpr_expr_get_dst_mlen(e, 0);
     mpr_value_realloc(outh, dst_len, dst_type, mlen, 1, 1);
+    mpr_value_reset_inst(outh, 0, time_in);
 
     if (mpr_expr_get_num_vars(e) > MAX_VARS) {
         eprintf("Maximum variables exceeded.\n");
@@ -373,8 +373,8 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     for (i = 0; i < e->num_vars; i++) {
         int vlen = mpr_expr_get_var_vlen(e, i);
         mpr_type type = mpr_expr_get_var_type(e, i);
-        mpr_value_reset_inst(user_vars[i], 0, time_in);
         mpr_value_realloc(user_vars[i], vlen, type, 1, 1, 0);
+        mpr_value_reset_inst(user_vars[i], 0, time_in);
         mpr_value_incr_idx(user_vars[i], 0);
     }
 
@@ -399,11 +399,10 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     update_count = 0;
     then = mpr_get_current_time();
 
-    has_value = mpr_bitflags_new(MAX_DST_ARRAY_LEN);
     updated_values = mpr_bitflags_new(MAX_DST_ARRAY_LEN);
 
     eprintf("Try evaluation once... ");
-    status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, has_value, 0);
+    status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, 0);
 
     if (!status) {
         eprintf("FAILED.\n");
@@ -420,7 +419,8 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
                 goto free;
             }
             ++update_count;
-            mpr_bitflags_cpy(updated_values, has_value, MAX_DST_ARRAY_LEN);
+            mpr_bitflags_clear(updated_values);
+            mpr_bitflags_cpy(updated_values, mpr_value_get_elements_known(outh, 0));
         }
     }
 
@@ -446,10 +446,11 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
                     assert(0);
             }
         }
-        status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, has_value, 0);
+        status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, 0);
         if (status & EXPR_UPDATE) {
             ++update_count;
-            mpr_bitflags_cpy(updated_values, has_value, MAX_DST_ARRAY_LEN);
+            mpr_bitflags_clear(updated_values);
+            mpr_bitflags_cpy(updated_values, mpr_value_get_elements_known(outh, 0));
         }
         /* sleep here stops compiler from optimizing loop away */
         usleep(1);
@@ -476,8 +477,6 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     eprintf("Elapsed time: %g seconds.\n", now-then);
 
 free:
-    if (has_value)
-        free(has_value);
     if (updated_values)
         free(updated_values);
     mpr_expr_free(e);

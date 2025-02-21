@@ -37,6 +37,10 @@ void mpr_value_cpy_next(mpr_value v, unsigned int inst_idx);
  *  \return         1 if the value was modified, 0 otherwise. */
 int mpr_value_set_element(mpr_value v, unsigned int inst_idx, int el_idx, void *new);
 
+mpr_bitflags mpr_value_get_elements_known(mpr_value v, unsigned int inst_idx);
+
+void mpr_value_set_elements_known(mpr_value v, unsigned int inst_idx, int start, int num);
+
 int mpr_value_set_next_coerced(mpr_value v, unsigned int inst_idx, unsigned int len,
                                mpr_type type, const void *s, mpr_time *t);
 
@@ -59,6 +63,8 @@ unsigned int mpr_value_get_num_active_inst(mpr_value v);
 mpr_type mpr_value_get_type(mpr_value v);
 
 int mpr_value_cmp(mpr_value v, unsigned int inst_idx, int hist_idx, const void *ptr);
+
+void mpr_value_add_to_msg(mpr_value val, unsigned int inst_idx, lo_message msg);
 
 #ifdef DEBUG
 void mpr_value_print(mpr_value v);

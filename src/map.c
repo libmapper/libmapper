@@ -200,7 +200,6 @@ static void mpr_local_map_init(mpr_local_map map)
 static void relink_props(mpr_map m)
 {
     mpr_tbl t = m->obj.props.synced;
-    // TODO: do we need to remove old query if it exists
     mpr_list q = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)cmp_qry_scopes, "v", &m);
 
 #define link(PROP, TYPE, DATA, FLAGS) \
@@ -759,10 +758,8 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     mpr_local_dev dev;
     mpr_local_slot src_slot;
     mpr_local_sig src_sig;
-    mpr_sig dst_sig;
     mpr_id_map id_map = 0;
     mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
-    mpr_bitflags has_value;
 
     assert(m->obj.is_local);
 
@@ -785,7 +782,6 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     group = mpr_local_sig_get_group(src_sig);
     dev = (mpr_local_dev)mpr_sig_get_dev((mpr_sig)src_sig);
 
-    dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
     dst_val = mpr_slot_get_value(m->dst);
 
     if (m->use_inst) {
@@ -797,7 +793,6 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
             id_map = &m->id_map;
         }
     }
-    has_value = mpr_bitflags_new(mpr_sig_get_len(dst_sig));
 
     /* TODO: once releases are added to bitflags, find an instance with a value first to check
      * whether EXPR_EVAL_DONE flag is added. If not, go back and handle releases for previous
@@ -809,7 +804,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
             continue;
         /* TODO: Check if this instance has enough history to process the expression */
         status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
-                               src_vals, m->vars, dst_val, &time, has_value, i);
+                               src_vals, m->vars, dst_val, &time, i);
         if (!m->use_inst) {
             /* remove EXPR_RELEASE* event flags */
             status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
@@ -846,7 +841,6 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         }
 
         if (status & EXPR_UPDATE) {
-            void *result = mpr_value_get_value(dst_val, i, 0);
             mpr_time *time = mpr_value_get_time(dst_val, i, 0);
             if (MPR_MAP == manage_inst) {
                 if (!id_map->LID) {
@@ -862,7 +856,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
                 }
             }
             /* build and send update message */
-            msg = mpr_map_build_msg(m, 0, result, has_value, id_map);
+            msg = mpr_map_build_msg(m, 0, dst_val, i, id_map);
             mpr_local_slot_send_msg(m->dst, msg, *time, m->protocol);
         }
 
@@ -884,8 +878,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
             break;
     }
 
-    mpr_bitflags_free(has_value);
-    mpr_bitflags_clear(m->updated_inst, m->num_inst);
+    mpr_bitflags_clear(m->updated_inst);
     m->updated = 0;
 }
 
@@ -898,7 +891,6 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     mpr_sig src_sig;
     mpr_local_sig dst_sig;
     mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
-    mpr_bitflags has_value;
 
     assert(m->obj.is_local);
 
@@ -926,13 +918,12 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         map_manages_inst = 1;
     }
 
-    has_value = mpr_bitflags_new(mpr_sig_get_len((mpr_sig)dst_sig));
     for (i = 0; i < m->num_inst; i++) {
         void *value;
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
-                               src_vals, m->vars, dst_val, &time, has_value, i);
+                               src_vals, m->vars, dst_val, &time, i);
         if (!m->use_inst)
             status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
 
@@ -959,50 +950,24 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             mpr_local_sig_set_inst_value(dst_sig, value, i, &m->id_map, status, map_manages_inst, time);
         }
     }
-    mpr_bitflags_free(has_value);
-    mpr_bitflags_clear(m->updated_inst, m->num_inst);
+    mpr_bitflags_clear(m->updated_inst);
     m->updated = 0;
 }
 
 /*! Build a value update message for a given map. */
-lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, const void *val,
-                             mpr_bitflags has_value, mpr_id_map id_map)
+lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, mpr_value val,
+                             unsigned int idx, mpr_id_map id_map)
 {
-    int i, len = 0;
-    mpr_type type = MPR_INT32;
+    int i;
     NEW_LO_MSG(msg, return 0);
-    if (slot) {
-        mpr_sig sig = mpr_slot_get_sig((mpr_slot)slot);
-        len = mpr_sig_get_len(sig);
-        type = mpr_sig_get_type(sig);
-    }
-    else {
-        mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->dst);
-        len = mpr_sig_get_len(sig);
-        type = mpr_sig_get_type(sig);
-    }
 
     if (val) {
-        /* value of vector elements can be <type> or NULL */
-        switch (type) {
-#define TYPED_CASE(MTYPE, TYPE, CAST)                                   \
-            case MTYPE:                                                 \
-                for (i = 0; i < len; i++) {                             \
-                    if (!has_value || mpr_bitflags_get(has_value, i))   \
-                        lo_message_add_##TYPE(msg, ((CAST*)val)[i]);    \
-                    else                                                \
-                        lo_message_add_nil(msg);                        \
-                }                                                       \
-                break;
-                TYPED_CASE(MPR_INT32, int32, int);
-                TYPED_CASE(MPR_FLT, float, float);
-                TYPED_CASE(MPR_DBL, double, double);
-#undef TYPED_CASE
-            default:
-                break;
-        }
+        mpr_value_add_to_msg(val, idx, msg);
     }
     else if (m->use_inst) {
+        /* retrieve length from slot */
+        mpr_sig sig = mpr_slot_get_sig((mpr_slot)(slot ? slot : m->dst));
+        int len = mpr_sig_get_len(sig);
         for (i = 0; i < len; i++)
             lo_message_add_nil(msg);
     }
@@ -1120,7 +1085,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
 
     /* allocate update bitflags */
     if (m->updated_inst)
-        m->updated_inst = mpr_bitflags_realloc(m->updated_inst, m->num_inst, num_inst);
+        m->updated_inst = mpr_bitflags_realloc(m->updated_inst, num_inst);
     else
         m->updated_inst = mpr_bitflags_new(num_inst);
     m->num_inst = num_inst;
@@ -1531,15 +1496,13 @@ static int set_expr(mpr_local_map m, const char *expr_str)
 
     if (!replace_expr_str(m, expr_str)) {
         mpr_time now;
-        mpr_bitflags has_value = mpr_bitflags_new(mpr_sig_get_len(dst_sig));
         mpr_map_alloc_values(m, 1);
 
         /* evaluate expression to initialise literals */
         mpr_time_set(&now, MPR_NOW);
         for (i = 0; i < m->num_inst; i++)
             mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph), 0,
-                          m->vars, mpr_slot_get_value(m->dst), &now, has_value, i);
-        mpr_bitflags_free(has_value);
+                          m->vars, mpr_slot_get_value(m->dst), &now, i);
     }
     else {
         if (!m->expr) {
@@ -1971,7 +1934,7 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
     /* add public expression variables */
     if (m->obj.is_local && ((mpr_local_map)m)->expr) {
         mpr_local_map lm = (mpr_local_map)m;
-        int j, k, l;
+        int j, k;
         char varname[32];
         for (j = 0; j < lm->num_vars; j++) {
             /* TODO: handle multiple instances */
@@ -1979,28 +1942,7 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
             if (mpr_value_get_num_samps(lm->vars[j], k) >= 0) {
                 snprintf(varname, 32, "@var@%s", mpr_expr_get_var_name(lm->expr, j));
                 lo_message_add_string(msg, varname);
-                switch (mpr_value_get_type(lm->vars[j])) {
-                    case MPR_INT32: {
-                        int *v = mpr_value_get_value(lm->vars[j], k, 0);
-                        for (l = 0; l < mpr_value_get_vlen(lm->vars[j]); l++)
-                            lo_message_add_int32(msg, v[l]);
-                        break;
-                    }
-                    case MPR_FLT: {
-                        float *v = mpr_value_get_value(lm->vars[j], k, 0);
-                        for (l = 0; l < mpr_value_get_vlen(lm->vars[j]); l++)
-                            lo_message_add_float(msg, v[l]);
-                        break;
-                    }
-                    case MPR_DBL: {
-                        double *v = mpr_value_get_value(lm->vars[j], k, 0);
-                        for (l = 0; l < mpr_value_get_vlen(lm->vars[j]); l++)
-                            lo_message_add_double(msg, v[l]);
-                        break;
-                    }
-                    default:
-                        break;
-                }
+                mpr_value_add_to_msg(lm->vars[j], k, msg);
             }
             else {
                 trace("public expression variable '%s' is not yet initialised.\n",
@@ -2346,7 +2288,7 @@ mpr_slot mpr_map_get_src_slot_by_id(mpr_map map, int id)
 void mpr_local_map_set_updated(mpr_local_map map, int inst_idx)
 {
     if (inst_idx < 0)
-        mpr_bitflags_set_all(map->updated_inst, map->num_inst);
+        mpr_bitflags_set_all(map->updated_inst);
     else
         mpr_bitflags_set(map->updated_inst, inst_idx);
     map->updated = 1;

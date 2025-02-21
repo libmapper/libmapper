@@ -82,7 +82,7 @@ MPR_INLINE static int _max(int a, int b)
     lens[dp] = LEN;
 
 int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_vars,
-                  mpr_value v_out, mpr_time *time, mpr_bitflags has_value, int inst_idx)
+                  mpr_value v_out, mpr_time *time, int inst_idx)
 {
 #if TRACE_EVAL
     printf("evaluating expression...\n");
@@ -119,11 +119,9 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     }
 
     if (v_out) {
-        /* init has_value */
-        if (has_value)
-            mpr_bitflags_clear(has_value, mpr_value_get_vlen(v_out));
-        /* Increment index position of output data structure. */
-        mpr_value_incr_idx(v_out, inst_idx);
+        /* Increment index position of output data structure.
+         * Also copy last value in case only certain elements are set in this update. */
+        mpr_value_cpy_next(v_out, inst_idx);
     }
 
     /* choose one input to represent active instances
@@ -586,7 +584,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 diff -= min_diff;
             }
             llen = lens[dp];
-            rlen = lens[dp + 1];
+            if (arity > 1)
+                rlen = lens[dp + 1];
             SET_TYPE(tok->gen.datatype);
             switch (types[dp]) {
 #define TYPED_CASE(MTYPE, FN, T)                                                        \
@@ -1016,13 +1015,10 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #endif /* DEBUG */
 #endif /* TRACE_EVAL */
 
-            if (tok->var.idx == VAR_Y) {
-                if (has_value) {
-                    int i, j;
-                    for (i = 0, j = vidx; i < tok->gen.vec_len; i++, j++) {
-                        if (j >= mpr_value_get_vlen(v)) j = 0;
-                        mpr_bitflags_set(has_value, j);
-                    }
+            if (VAR_Y == tok->var.idx) {
+                if (!hidx) {
+                    /* inform value struct that it has value */
+                    mpr_value_set_elements_known(v, inst_idx, vidx, tok->gen.vec_len);
                 }
             }
             else if (tok->var.idx == expr->inst_ctl) {
@@ -1132,7 +1128,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 
     RETURN_ARG_UNLESS(v_out, status);
 
-    if (!has_value) {
+    if (!time) {
         /* Internal evaluation during parsing doesn't contain assignment token,
          * so we need to copy to output here. */
         void *v = mpr_value_get_value(v_out, inst_idx, 0);

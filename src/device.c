@@ -1108,7 +1108,6 @@ void mpr_dev_update_subscribers(mpr_local_dev ldev)
             mpr_dev_send_state((mpr_dev)ldev, MSG_DEV);
         }
         if (ldev->obj.status & MPR_DEV_SIG_CHANGED) {
-            /* TODO: add sig_dirty flag to device */
             mpr_net_use_subscribers(net, ldev, MPR_SIG);
             mpr_dev_send_sigs(ldev, MPR_DIR_ANY, 0);
             ldev->obj.status &= ~MPR_DEV_SIG_CHANGED;

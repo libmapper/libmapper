@@ -60,7 +60,7 @@ void mpr_expr_set_var_updated(mpr_expr expr, int var_idx);
  *                      instances because all instances are reduced using e.g.
  *                      `y=x.instance.mean()`). */
 int mpr_expr_eval(mpr_expr expr, mpr_expr_eval_buffer buff, mpr_value *srcs, mpr_value *expr_vars,
-                  mpr_value result, mpr_time *time, mpr_bitflags has_value, int inst_idx);
+                  mpr_value result, mpr_time *time, int inst_idx);
 
 int mpr_expr_get_num_src(mpr_expr expr);
 

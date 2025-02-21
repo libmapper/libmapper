@@ -31,8 +31,8 @@ void mpr_map_send(mpr_local_map map, mpr_time time);
 
 void mpr_map_receive(mpr_local_map map, mpr_time time);
 
-lo_message mpr_map_build_msg(mpr_local_map map, mpr_local_slot slot, const void *val,
-                             char *has_value, mpr_id_map id_map);
+lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, mpr_value val,
+                             unsigned int idx, mpr_id_map id_map);
 
 /*! Set a mapping's properties based on message parameters. */
 int mpr_map_set_from_msg(mpr_map map, mpr_msg msg);

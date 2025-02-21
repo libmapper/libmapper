@@ -276,8 +276,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
 
         if (MPR_LOC_DST == mpr_map_get_process_loc((mpr_map)map)) {
             /* bypass map processing and bundle value without type coercion */
-            void *value = mpr_value_get_value(sig->value, inst_idx, 0);
-            msg = mpr_map_build_msg(map, src_slot, value, 0,
+            msg = mpr_map_build_msg(map, src_slot, sig->value, inst_idx,
                                     mpr_sig_get_use_inst((mpr_sig)sig) ? id_map : 0);
             mpr_local_slot_send_msg((mpr_local_slot)mpr_map_get_dst_slot((mpr_map)map), msg, *time,
                                     mpr_map_get_protocol((mpr_map)map));
@@ -1322,7 +1321,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
     if (!lsig->updated_inst)
         lsig->updated_inst = mpr_bitflags_new(lsig->num_inst);
     else {
-        lsig->updated_inst = mpr_bitflags_realloc(lsig->updated_inst, old_num, lsig->num_inst);
+        lsig->updated_inst = mpr_bitflags_realloc(lsig->updated_inst, lsig->num_inst);
     }
     return count;
 }

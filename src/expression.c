@@ -56,7 +56,6 @@ mpr_expr mpr_expr_new(unsigned int num_src, unsigned int num_dst, void *stack)
         expr->src_mlen[i] = 1;
     expr->max_src_mlen = 1;
 
-//    expr->num_dst = num_dst;
     expr->dst_mlen = 1;
 
     expr->inst_ctl = -1;
