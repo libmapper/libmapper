@@ -19,6 +19,7 @@ if WINDOWS_DLL
         testinstance \
         testinstance_no_cb \
         testinstance_coordination \
+        testinstance_coord_rel_dnstrm \
         testlinear \
         testlist \
         testlocalmap \
@@ -60,6 +61,7 @@ if WINDOWS_DLL
         testrate \
         testbundle \
         testinstance_coordination \
+        testinstance_coord_rel_dnstrm \
         testreverse \
         testvector \
         testcustomtransport \
@@ -95,6 +97,7 @@ else
         testinstance \
         testinstance_no_cb \
         testinstance_coordination \
+        testinstance_coord_rel_dnstrm \
         testinterrupt \
         testlinear \
         testlist \
@@ -138,6 +141,7 @@ else
         testrate \
         testbundle \
         testinstance_coordination \
+        testinstance_coord_rel_dnstrm \
         testreverse \
         testvector \
         testcustomtransport \
@@ -210,6 +214,10 @@ testinstance_no_cb_LDADD = $(TEST_LDADD)
 testinstance_coordination_CFLAGS = $(TEST_CFLAGS)
 testinstance_coordination_SOURCES = testinstance_coordination.c
 testinstance_coordination_LDADD = $(TEST_LDADD)
+
+testinstance_coord_rel_dnstrm_CFLAGS = $(TEST_CFLAGS)
+testinstance_coord_rel_dnstrm_SOURCES = testinstance_coord_rel_dnstrm.c
+testinstance_coord_rel_dnstrm_LDADD = $(TEST_LDADD)
 
 testinterrupt_CFLAGS = $(TEST_CFLAGS)
 testinterrupt_SOURCES = testinterrupt.c
