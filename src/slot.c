@@ -71,11 +71,6 @@ void mpr_slot_set_map_ptr(mpr_slot slot, mpr_map map)
     slot->map = map;
 }
 
-static int slot_mask(mpr_slot slot)
-{
-    return slot == mpr_map_get_dst_slot(slot->map) ? DST_SLOT_PROP : SRC_SLOT_PROP(slot->id);
-}
-
 void mpr_slot_free(mpr_slot slot)
 {
     if (slot->is_local) {
@@ -85,6 +80,11 @@ void mpr_slot_free(mpr_slot slot)
             mpr_local_sig_remove_slot((mpr_local_sig)slot->sig, lslot, lslot->dir);
     }
     free(slot);
+}
+
+MPR_INLINE static int slot_mask(mpr_slot slot)
+{
+    return slot == mpr_map_get_dst_slot(slot->map) ? DST_SLOT_PROP : SRC_SLOT_PROP(slot->id);
 }
 
 int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
@@ -284,11 +284,6 @@ mpr_map mpr_slot_get_map(mpr_slot slot)
 mpr_dir mpr_slot_get_dir(mpr_slot slot)
 {
     return slot->dir;
-}
-
-void mpr_slot_set_dir(mpr_slot slot, mpr_dir dir)
-{
-    slot->dir = dir;
 }
 
 int mpr_slot_get_id(mpr_slot slot)

@@ -41,8 +41,6 @@ mpr_map mpr_slot_get_map(mpr_slot slot);
 
 mpr_dir mpr_slot_get_dir(mpr_slot slot);
 
-void mpr_slot_set_dir(mpr_slot slot, mpr_dir dir);
-
 int mpr_slot_get_id(mpr_slot slot);
 
 void mpr_slot_set_id(mpr_slot slot, int id);
