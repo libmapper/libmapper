@@ -81,6 +81,24 @@ MPR_INLINE static int _max(int a, int b)
 #define SET_LEN(LEN)    \
     lens[dp] = LEN;
 
+MPR_INLINE static int _newest_val_idx(mpr_value *vals, int num_vals, int inst_idx)
+{
+    int i, newest_idx = 0;
+    for (i = 1; i < num_vals; i++) {
+#if TRACE_EVAL
+        mpr_time_print(*mpr_value_get_time(vals[newest_idx], inst_idx, 0));
+        printf(" : ");
+        mpr_time_print(*mpr_value_get_time(vals[i], inst_idx, 0));
+        printf("\n");
+#endif
+        if (mpr_time_cmp(*mpr_value_get_time(vals[newest_idx], inst_idx, 0),
+                         *mpr_value_get_time(vals[i], inst_idx, 0)) < 0) {
+            newest_idx = i;
+        }
+    }
+    return newest_idx;
+}
+
 int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_vars,
                   mpr_value v_out, mpr_time *time, int inst_idx)
 {
@@ -202,19 +220,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 RETURN_ARG_UNLESS(v_in, status);
                 if (tok->var.idx == VAR_X_NEWEST) {
                     /* Find most recently-updated source signal */
-                    int i, newest_idx = 0;
-                    for (i = 1; i < expr->num_src; i++) {
-#if TRACE_EVAL
-                        mpr_time_print(*mpr_value_get_time(v_in[newest_idx], inst_idx, 0));
-                        printf(" : ");
-                        mpr_time_print(*mpr_value_get_time(v_in[i], inst_idx, 0));
-                        printf("\n");
-#endif
-                        if (mpr_time_cmp(*mpr_value_get_time(v_in[newest_idx], inst_idx, 0),
-                                         *mpr_value_get_time(v_in[i], inst_idx, 0)) < 0) {
-                            newest_idx = i;
-                        }
-                    }
+                    int newest_idx = _newest_val_idx(v_in, expr->num_src, inst_idx);
                     v = v_in[newest_idx];
 #if TRACE_EVAL
                     printf("\n\t\tvar.x$%d", newest_idx);
@@ -393,6 +399,10 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             if (tok->var.idx == VAR_Y) {
                 RETURN_ARG_UNLESS(v_out, status);
                 vals[sp].i = mpr_value_get_num_active_inst(v_out);
+            }
+            else if (tok->var.idx == VAR_X_NEWEST) {
+                int newest_idx = _newest_val_idx(v_in, expr->num_src, inst_idx);
+                vals[sp].i = mpr_value_get_num_active_inst(v_in[newest_idx]);
             }
             else if (tok->var.idx >= VAR_X) {
                 RETURN_ARG_UNLESS(v_in, status);
