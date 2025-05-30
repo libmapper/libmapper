@@ -429,6 +429,8 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
         while (--i >= 0) {
             if (tokens[i].toktype >= TOK_LOOP_START) {
                 can_precompute = enable_optimize = 0;
+                if (tokens[i].toktype == TOK_LOOP_END)
+                    i -= (tokens[i].con.branch_offset - tokens[i].con.cache_offset);
                 continue;
             }
 

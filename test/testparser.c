@@ -1213,11 +1213,11 @@ int run_tests()
         return 1;
 
     /* 81) instance.reduce() */
-    set_expr_str("y=x[1:2].instance.reduce(a, b -> a + b);");
+    set_expr_str("y = 10 + x[1:2].instance.reduce(a, b -> a + b);");
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
-    expect_flt[0] = src_flt[1];
-    expect_flt[1] = src_flt[2];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 1, iterations))
+    expect_flt[0] = src_flt[1] + 10;
+    expect_flt[1] = src_flt[2] + 10;
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 11, 1, iterations))
         return 1;
 
     /* 82) Reducing a constant - syntax error */
