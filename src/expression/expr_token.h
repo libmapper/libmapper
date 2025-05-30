@@ -34,8 +34,10 @@ enum etoken_type {
     TOK_CLOSE_SQUARE    = 0x0001000,
     TOK_CLOSE_CURLY     = 0x0002000,
     TOK_VAR             = 0x0004000,
-    TOK_VAR_NUM_INST    = 0x0008000,
-    TOK_DOLLAR          = 0x0010000,
+    TOK_VAR_NUM_INST    = 0x0004001,
+    TOK_VAR_INST_IDX    = 0x0004002,
+    TOK_DOLLAR          = 0x0008000,
+    TOK_HASH            = 0x0010000,
     TOK_OP              = 0x0020000,
     TOK_COMMA           = 0x0040000,
     TOK_COLON           = 0x0080000,
@@ -64,6 +66,10 @@ struct generic_type {
     uint8_t flags;
 };
 
+/* Used by:
+ * TOK_LITERAL
+ * TOK_VLITERAL
+ */
 struct literal_type {
     enum etoken_type toktype;
     mpr_type datatype;
@@ -81,6 +87,9 @@ struct literal_type {
     } val;
 };
 
+/* Used by:
+ * TOK_OP
+ */
 struct operator_type {
     enum etoken_type toktype;
     mpr_type datatype;
@@ -91,6 +100,15 @@ struct operator_type {
     expr_op_t idx;
 };
 
+/* Used by
+ * TOK_VAR
+ * TOK_VAR_NUM_INST
+ * TOK_ASSIGN
+ * TOK_ASSIGN_USE
+ * TOK_ASSIGN_CONST
+ * TOK_ASSIGN_TT
+ * TOK_TT
+ */
 struct variable_type {
     enum etoken_type toktype;
     mpr_type datatype;
@@ -103,6 +121,12 @@ struct variable_type {
     uint8_t vec_idx;        /* only used by TOK_VAR and TOK_ASSIGN */
 };
 
+/* Used by:
+ * TOK_FN
+ * TOK_VFN
+ * TOK_VFN_DOT
+ * TOK_RFN
+ */
 struct function_type {
     enum etoken_type toktype;
     mpr_type datatype;
@@ -114,6 +138,13 @@ struct function_type {
     uint8_t arity;          /* used by TOK_FN, TOK_VFN, TOK_VECTORIZE */
 };
 
+/* Used by:
+ * TOK_COPY_FROM
+ * TOK_MOVE
+ * TOK_LOOP_START,
+ * TOK_LOOP_END,
+ * TOK_SP_ADD,
+ */
 struct control_type {
     enum etoken_type toktype;
     mpr_type datatype;
@@ -470,15 +501,17 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
                 snprintf(s + d, l - d, "<%d>", tok->var.offset);
             break;
         }
+        case TOK_VAR_INST_IDX:
         case TOK_VAR_NUM_INST:
+            d = snprintf(s, l, "%s\t", TOK_VAR_INST_IDX == tok->toktype ? "INST_IDX" : "NUM_INST");
             if (tok->var.idx == VAR_Y)
-                snprintf(s, l, "NUM_INST\tvar.y");
+                snprintf(s + d, l - d, "var.y");
             else if (tok->var.idx == VAR_X_NEWEST)
-                snprintf(s, l, "NUM_INST\tvar.x$$");
+                snprintf(s + d, l - d, "var.x$$");
             else if (tok->var.idx >= VAR_X)
-                snprintf(s, l, "NUM_INST\tvar.x$%d", tok->var.idx - VAR_X);
+                snprintf(s + d, l - d, "var.x$%d", tok->var.idx - VAR_X);
             else
-                snprintf(s, l, "NUM_INST\tvar.%s%s", vars ? vars[tok->var.idx].name : "?",
+                snprintf(s + d, l - d, "var.%s%s", vars ? vars[tok->var.idx].name : "?",
                          vars ? (vars[tok->var.idx].flags & VAR_INSTANCED) ? ".N" : ".0" : ".?");
             break;
         case TOK_FN:        snprintf(s, l, "FN\t\t%s()", fn_tbl[tok->fn.idx].name);     break;

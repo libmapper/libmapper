@@ -15,8 +15,8 @@
  * sub-expressions that compute the indices need to be presented in the same order. On the output
  * stack they are stored in the order: INST_IDX, VEC_IDX, HIST_IDX, SIG_IDX. On the operator stack
  * (during parsing) this order is reversed.
- * Input signal and vector indices can also be specified using an index stored directly in the
- * token. In this case the token flags are not set. */
+ * Input signal and vector indices can also be specified using an index literal stored directly in
+ * the token. In this case the token flags are not set. */
 
 #define VAR_SIG_IDX     0x0001
 #define VAR_HIST_IDX    0x0002

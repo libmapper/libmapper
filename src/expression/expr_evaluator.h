@@ -420,6 +420,18 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #endif
             break;
         }
+        case TOK_VAR_INST_IDX: {
+            int i;
+            INCR_STACK_PTR(1);
+            SET_TYPE(MPR_INT32);
+            SET_LEN(tok->gen.vec_len);
+            for (i = 0; i < tok->gen.vec_len; i++)
+                vals[sp + i].i = inst_idx;
+#if TRACE_EVAL
+            evalue_print(vals + sp, types[dp], lens[dp], dp);
+#endif
+            break;
+        }
         case TOK_TT: {
             int i, hidx = 0;
             double t_d, hwt = 0.0;

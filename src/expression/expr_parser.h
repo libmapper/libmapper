@@ -56,7 +56,7 @@ typedef struct _temp_var_cache {
 #define ASSIGN_MASK (TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY \
                      | TOK_OPEN_CURLY | TOK_NEGATE | TOK_LITERAL | TOK_COLON)
 #define OBJECT_TOKENS (TOK_VAR | TOK_LITERAL | TOK_FN | TOK_VFN | TOK_MUTED | TOK_NEGATE \
-                       | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_OP | TOK_TT)
+                       | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_OP | TOK_TT | TOK_HASH)
 #define JOIN_TOKENS (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY | TOK_COMMA \
                      | TOK_COLON | TOK_SEMICOLON)
 
@@ -133,6 +133,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             case TOK_OPEN_CURLY:
             case TOK_OPEN_SQUARE:
             case TOK_DOLLAR:
+            case TOK_HASH:
                 if (!(var_flags & tok.toktype))
                     var_flags = 0;
                 break;
@@ -1469,6 +1470,25 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
                 var_flags = (var_flags & ~TOK_OPEN_CURLY) | VAR_HIST_IDX;
                 allow_toktype = OBJECT_TOKENS;
+                break;
+            }
+            case TOK_HASH: {
+                etoken out_top = estack_peek(out, ESTACK_TOP);
+                if (out_top && TOK_VAR == out_top->toktype) {
+                    /* we are specifying signal instance index */
+                    // fail for now
+                    {FAIL_IF(1, "Specifying instance index is not currently supported.")}
+                }
+                else {
+                    /* we are retrieving signal instance index */
+                    GET_NEXT_TOKEN(tok);
+                    {FAIL_IF(tok.toktype != TOK_VAR, "Misplaced instance index query.");}
+                    tok.toktype = TOK_VAR_INST_IDX;
+                    estack_push(out, &tok);
+                    /* disallow vector/history/instance indexes */
+                    var_flags = VAR_INST_IDX | VAR_HIST_IDX | VAR_VEC_IDX;
+                    allow_toktype = JOIN_TOKENS | TOK_DOLLAR;
+                }
                 break;
             }
             case TOK_NEGATE:

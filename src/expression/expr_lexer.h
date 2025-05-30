@@ -256,6 +256,9 @@ static int expr_lex(const char *str, int idx, etoken tok)
     case '$':
         tok->toktype = TOK_DOLLAR;
         return ++idx;
+    case '#':
+        tok->toktype = TOK_HASH;
+        return ++idx;
     case ' ':
     case '\t':
     case '\r':

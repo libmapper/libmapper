@@ -399,10 +399,12 @@ Input and output signals addressed by libmapper may be *instanced* meaning that 
 
 dimension        | syntax  | application
 -----------------|---------|-------------
-vector elements  | `x[n]`  | representation of signals that are naturally multidimensional, e.g. 3D position
-input signals    | `x$n`   | [convergent maps](#convergent-maps)
-signal history   | `x{-n}` | DSP (e.g. smoothing filters); [live looping](https://nime.pubpub.org/pub/2pqbusk7/release/1)
-signal instances | TBA     | representation of signals that are [naturally multiplex and/or ephemeral](https://ieeexplore.ieee.org/document/8259406), e.g. multitouch
+vector elements  | `a[n]`  | representation of signals that are naturally multidimensional, e.g. 3D position
+signals          | `a$n`,`$a`*  | representation of multiple source or destination signals; [convergent](#convergent-maps), [divergent](#divergent-maps), and [complex](#complex-maps) maps
+signal history   | `a{-n}` | representation of past values; DSP (e.g. smoothing filters); [live looping](https://nime.pubpub.org/pub/2pqbusk7/release/1)
+instances        | `#a`,`a#n`* | representation of signals that are [naturally multiplex and/or ephemeral](https://ieeexplore.ieee.org/document/8259406), e.g. multitouch<br/>`#x` retrieves the instance index of signal `x` instance currently being updated
+
+*not yet implemented
 
 As mentioned in the section on vectors above, the index `n` can be a literal, a variable, or an expression. In the case of expression-type input signal indices parentheses must be used to indicate the scope of the index, e.g. `y=x$(sin(x)>0);`.
 

@@ -1870,6 +1870,13 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
+    /* 143) get instance index */
+    set_expr_str("y=#x + x.instance.reduce(a, b -> a * #a + b);");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = 0;
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+        return 1;
+
 //    /* 137) Signal count() */
 //    set_expr_str("y=x / x.signal.count();");
 //    types[0] = MPR_FLT;
