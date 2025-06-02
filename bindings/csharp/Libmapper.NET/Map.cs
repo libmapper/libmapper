@@ -196,4 +196,32 @@ public class Map : MapperObject
     {
         return mpr_map_get_sig_idx(NativePtr, signal.NativePtr);
     }
+
+    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+    private static extern int mpr_map_add_scope(IntPtr map, IntPtr dev);
+
+    /// <summary>
+    ///     Add a scope to this map.
+    /// </summary>
+    /// <param name="device">The device to add as a scope for this map</param>
+    /// <returns>The same instance to allow for chaining</returns>
+    public Map AddScope(Device device)
+    {
+        mpr_map_add_scope(NativePtr, device.NativePtr);
+        return this;
+    }
+
+    [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+    private static extern int mpr_map_remove_scope(IntPtr map, IntPtr dev);
+
+    /// <summary>
+    ///     Remove a scope from this map.
+    /// </summary>
+    /// <param name="device">The device to remove as a scope from this map</param>
+    /// <returns>The same instance to allow for chaining</returns>
+    public Map RemoveScope(Device device)
+    {
+        mpr_map_remove_scope(NativePtr, device.NativePtr);
+        return this;
+    }
 }
