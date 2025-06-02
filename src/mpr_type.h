@@ -25,6 +25,7 @@ MPR_INLINE static int mpr_type_get_size(mpr_type type)
         case MPR_INT64:     return sizeof(int64_t);
         case MPR_TIME:      return sizeof(mpr_time);
         case MPR_TYPE:      return sizeof(mpr_type);
+        case MPR_NULL:      return 0;
         default:
             die_unless(0, "Unknown type '%c' in mpr_type_get_size().\n", type);
             return 0;

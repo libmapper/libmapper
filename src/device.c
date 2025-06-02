@@ -558,10 +558,10 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
 {
     mpr_local_dev ldev = (mpr_local_dev)dev;
     RETURN_UNLESS(dev && dev->obj.is_local && memcmp(&time, &(ldev)->time, sizeof(mpr_time)));
-    mpr_time_set(&ldev->time, time);
-    ldev->time_is_stale = 0;
     if (!ldev->polling)
         process_outgoing_maps(ldev);
+    mpr_time_set(&ldev->time, time);
+    ldev->time_is_stale = 0;
 }
 
 void mpr_dev_reserve_id_map(mpr_local_dev dev)

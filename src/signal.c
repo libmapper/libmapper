@@ -167,7 +167,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
     mpr_local_map map;
     int i, j, inst_idx;
     uint8_t *locked = &sig->locked;
-    mpr_time *time;
+    mpr_time time;
 
     /* abort if signal is already being processed - might be a local loop */
     if (*locked) {
@@ -177,7 +177,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
 
     si = _get_inst_by_id_map_idx(sig, id_map_idx);
     inst_idx = si->idx;
-    time = mpr_value_get_time(sig->value, inst_idx, 0);
+    time = mpr_dev_get_time((mpr_dev)sig->dev);
 
     /* TODO: remove duplicate flag set */
     mpr_local_dev_set_sending(sig->dev); /* mark as updated */
@@ -201,13 +201,13 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
             }
 
             /* reset associated output memory */
-            mpr_slot_set_value(dst_slot, inst_idx, NULL, *time);
+            mpr_slot_set_value(dst_slot, inst_idx, NULL, time);
 
             for (j = 0; j < mpr_map_get_num_src((mpr_map)map); j++) {
                 mpr_local_slot src_slot = (mpr_local_slot)mpr_map_get_src_slot((mpr_map)map, j);
 
                 /* reset associated input memory */
-                mpr_slot_set_value(src_slot, inst_idx, NULL, *time);
+                mpr_slot_set_value(src_slot, inst_idx, NULL, time);
 
                 if (!mpr_local_map_get_has_scope(map, id_map->GID))
                     continue;
@@ -216,7 +216,8 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
 
                 /* send release to upstream */
                 msg = mpr_map_build_msg(map, 0, 0, 0, id_map);
-                mpr_local_slot_send_msg(src_slot, msg, *time, mpr_map_get_protocol((mpr_map)map));
+                /* TODO: consider calling this later for batch releases */
+                mpr_local_slot_send_msg(src_slot, msg, time, mpr_map_get_protocol((mpr_map)map));
             }
         }
         for (i = 0; i < sig->num_maps_out; i++) {
@@ -227,10 +228,10 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
 
             /* reset associated output memory */
             dst_slot = (mpr_local_slot)mpr_map_get_dst_slot((mpr_map)map);
-            mpr_slot_set_value(dst_slot, inst_idx, NULL, *time);
+            mpr_slot_set_value(dst_slot, inst_idx, NULL, time);
 
             /* reset associated input memory */
-            mpr_slot_set_value(src_slot, inst_idx, NULL, *time);
+            mpr_slot_set_value(src_slot, inst_idx, NULL, time);
 
             /* send release to downstream */
             if (MPR_LOC_SRC == mpr_map_get_process_loc((mpr_map)map)) {
@@ -239,7 +240,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
                     /* TODO: use updated bitflags (or released before/after if necessary) to mark release,
                      * don't send immediately */
                     msg = mpr_map_build_msg(map, 0, 0, 0, id_map);
-                    mpr_local_slot_send_msg(dst_slot, msg, *time, mpr_map_get_protocol((mpr_map)map));
+                    mpr_local_slot_send_msg(dst_slot, msg, time, mpr_map_get_protocol((mpr_map)map));
                 }
                 else {
                     mpr_local_map_set_updated(map, inst_idx);
@@ -248,7 +249,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
             else if (mpr_local_map_get_has_scope(map, id_map->GID)) {
                 /* need to send immediately since id_map won't be available later */
                 msg = mpr_map_build_msg(map, src_slot, 0, 0, id_map);
-                mpr_local_slot_send_msg(dst_slot, msg, *time, mpr_map_get_protocol((mpr_map)map));
+                mpr_local_slot_send_msg(dst_slot, msg, time, mpr_map_get_protocol((mpr_map)map));
             }
         }
         *locked = 0;
@@ -278,7 +279,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
             /* bypass map processing and bundle value without type coercion */
             msg = mpr_map_build_msg(map, src_slot, sig->value, inst_idx,
                                     mpr_sig_get_use_inst((mpr_sig)sig) ? id_map : 0);
-            mpr_local_slot_send_msg((mpr_local_slot)mpr_map_get_dst_slot((mpr_map)map), msg, *time,
+            mpr_local_slot_send_msg((mpr_local_slot)mpr_map_get_dst_slot((mpr_map)map), msg, time,
                                     mpr_map_get_protocol((mpr_map)map));
             continue;
         }
@@ -289,7 +290,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
         }
 
         /* copy input value */
-        mpr_slot_set_value(src_slot, inst_idx, mpr_value_get_value(sig->value, inst_idx, 0), *time);
+        mpr_slot_set_value(src_slot, inst_idx, mpr_value_get_value(sig->value, inst_idx, 0), time);
 
         if (!mpr_slot_get_causes_update((mpr_slot)src_slot))
             continue;

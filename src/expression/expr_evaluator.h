@@ -1037,13 +1037,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #endif /* DEBUG */
 #endif /* TRACE_EVAL */
 
-            if (VAR_Y == tok->var.idx) {
-                if (!hidx) {
-                    /* inform value struct that it has value */
-                    mpr_value_set_elements_known(v, inst_idx, vidx, tok->gen.vec_len);
-                }
-            }
-            else if (tok->var.idx == expr->inst_ctl) {
+            if (tok->var.idx == expr->inst_ctl) {
                 if (alive && vals[sp].i == 0) {
                     if (status & EXPR_UPDATE)
                         status |= EXPR_RELEASE_AFTER_UPDATE;
@@ -1056,6 +1050,12 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             else if (tok->var.idx == expr->mute_ctl) {
                 muted = vals[sp].i != 0;
                 can_advance = 0;
+            }
+            else if (VAR_Y >= tok->var.idx) {
+                if (!hidx) {
+                    /* inform value struct that it has value */
+                    mpr_value_set_elements_known(v, inst_idx, vidx, tok->gen.vec_len);
+                }
             }
 
         assign_done:
