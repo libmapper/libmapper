@@ -2064,23 +2064,13 @@ void mpr_local_sig_remove_slot(mpr_local_sig sig, mpr_local_slot slot, mpr_dir d
     }
 }
 
-/* Functions below are only used by testinstance.c for printing instance indices */
-mpr_sig_inst *mpr_local_sig_get_insts(mpr_local_sig sig)
-{
-    return sig->inst;
-}
-
-uint8_t mpr_sig_get_inst_idx(mpr_sig_inst si)
-{
-    return si->idx;
-}
-
-unsigned int mpr_local_sig_get_num_id_maps(mpr_local_sig sig)
-{
-    return sig->num_id_maps;
-}
-
 mpr_sig_group mpr_local_sig_get_group(mpr_local_sig sig)
 {
     return sig->group;
+}
+
+/* Functions below are only used by testinstance.c for printing instance indices */
+unsigned int mpr_local_sig_get_num_id_maps(mpr_local_sig sig)
+{
+    return sig->num_id_maps;
 }

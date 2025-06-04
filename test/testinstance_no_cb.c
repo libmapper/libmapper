@@ -312,20 +312,6 @@ void print_instance_ids(mpr_sig sig)
     eprintf("]   ");
 }
 
-void print_instance_idx(mpr_sig sig)
-{
-    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ANY);
-    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
-    mpr_sig_inst *si = mpr_local_sig_get_insts((mpr_local_sig)sig);
-    eprintf("%s: [ ", name);
-    for (i = 0; i < n; i++) {
-        eprintf("%4i, ", mpr_sig_get_inst_idx(si[i]));
-    }
-    if (i)
-        eprintf("\b\b ");
-    eprintf("]   ");
-}
-
 void print_instance_vals(mpr_sig sig)
 {
     int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ANY);
@@ -475,17 +461,6 @@ int loop(test_config *config)
                 print_instance_ids(monorecv);
             if (config->dst_type & INST)
                 print_instance_ids(multirecv);
-            printf("\n");
-
-            printf("INDEX:  ");
-            if (config->src_type & SNGL)
-                print_instance_idx(monosend);
-            if (config->src_type & INST)
-                print_instance_idx(multisend);
-            if (config->dst_type & SNGL)
-                print_instance_idx(monorecv);
-            if (config->dst_type & INST)
-                print_instance_idx(multirecv);
             printf("\n");
 
             printf("VALUE:  ");
