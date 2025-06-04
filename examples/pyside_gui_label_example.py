@@ -19,7 +19,8 @@ except:
 
 numsliders = 3
 
-icon_path = os.getcwd() + '/icons/libmapper_logo_flat_black.png'
+icon_path = os.getcwd() + '/../icons/libmapper_logo_flat_black.png'
+print('icon path: ', icon_path)
 
 class DragDropButton(QtWidgets.QPushButton):
     def __init__(self):
