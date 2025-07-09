@@ -260,7 +260,7 @@ mpr_value mpr_slot_get_value(mpr_local_slot slot)
 int mpr_slot_set_value(mpr_local_slot slot, unsigned int inst_idx, const void *value, mpr_time time)
 {
     if (value)
-        mpr_value_set_next(slot->val, inst_idx, value, &time);
+        mpr_value_set_next(slot->val, inst_idx, value, time);
     else
         mpr_value_reset_inst(slot->val, inst_idx, time);
     return slot->causes_update;

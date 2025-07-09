@@ -91,8 +91,8 @@ MPR_INLINE static int _newest_val_idx(mpr_value *vals, int num_vals, int inst_id
         mpr_time_print(*mpr_value_get_time(vals[i], inst_idx, 0));
         printf("\n");
 #endif
-        if (mpr_time_cmp(*mpr_value_get_time(vals[newest_idx], inst_idx, 0),
-                         *mpr_value_get_time(vals[i], inst_idx, 0)) < 0) {
+        if (mpr_time_cmp(mpr_value_get_time(vals[newest_idx], inst_idx, 0),
+                         mpr_value_get_time(vals[i], inst_idx, 0)) < 0) {
             newest_idx = i;
         }
     }
@@ -139,7 +139,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     if (v_out) {
         /* Increment index position of output data structure.
          * Also copy last value in case only certain elements are set in this update. */
-        mpr_value_cpy_next(v_out, inst_idx);
+        mpr_value_cpy_next(v_out, inst_idx, time ? *time : MPR_NOW);
     }
 
     /* choose one input to represent active instances
@@ -467,31 +467,31 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             printf("\r\t\t\t\t\t");
 #endif
             if (tok->var.idx == VAR_Y) {
-                mpr_time *t;
+                mpr_time t;
                 RETURN_ARG_UNLESS(v_out, status);
                 t = mpr_value_get_time(v_out, inst_idx, hidx);
-                t_d = mpr_time_as_dbl(*t);
+                t_d = mpr_time_as_dbl(t);
                 if (hwt) {
                     t = mpr_value_get_time(v_out, inst_idx, hidx - 1);
-                    t_d = t_d * hwt + mpr_time_as_dbl(*t) * (1 - hwt);
+                    t_d = t_d * hwt + mpr_time_as_dbl(t) * (1 - hwt);
                 }
             }
             else if (tok->var.idx >= VAR_X) {
                 mpr_value v;
-                mpr_time *t;
+                mpr_time t;
                 RETURN_ARG_UNLESS(v_in, status);
                 v = v_in[tok->var.idx - VAR_X];
                 t = mpr_value_get_time(v, inst_idx, hidx);
-                t_d = mpr_time_as_dbl(*t);
+                t_d = mpr_time_as_dbl(t);
                 if (hwt) {
                     t = mpr_value_get_time(v, inst_idx, hidx);
-                    t_d = t_d * hwt + mpr_time_as_dbl(*t) * (1 - hwt);
+                    t_d = t_d * hwt + mpr_time_as_dbl(t) * (1 - hwt);
                 }
             }
             else if (v_vars) {
                 mpr_value v = v_vars[tok->var.idx];
-                mpr_time *t = mpr_value_get_time(v, inst_idx, 0);
-                t_d = mpr_time_as_dbl(*t);
+                mpr_time t = mpr_value_get_time(v, inst_idx, 0);
+                t_d = mpr_time_as_dbl(t);
             }
             else
                 goto error;

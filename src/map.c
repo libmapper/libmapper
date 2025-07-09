@@ -844,7 +844,6 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         }
 
         if (status & EXPR_UPDATE) {
-            mpr_time *time = mpr_value_get_time(dst_val, i, 0);
             if (MPR_MAP == manage_inst) {
                 if (!id_map->LID) {
                     /* need to (re)create id_map */
@@ -860,7 +859,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
             }
             /* build and send update message */
             msg = mpr_map_build_msg(m, 0, dst_val, i, id_map);
-            mpr_local_slot_send_msg(m->dst, msg, *time, m->protocol);
+            mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
         }
 
         /* send instance release if dst is instanced and either src or map is also instanced. */
@@ -1053,7 +1052,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
             /* set position to 0 since we are not currently allowing history on user variables */
         }
         for (j = 0; j < var_num_inst; j++)
-            mpr_value_incr_idx(vars[i], j);
+            mpr_value_incr_idx(vars[i], j, MPR_NOW);
     }
 
     /* free old variables and replace with new */

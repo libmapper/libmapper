@@ -502,7 +502,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     }
     si = _get_inst_by_id_map_idx(sig, id_map_idx);
     inst_idx = si->idx;
-    diff = mpr_time_get_diff(time, *mpr_value_get_time(sig->value, si->idx, 0));
+    diff = mpr_time_get_diff(time, mpr_value_get_time(sig->value, si->idx, 0));
     id_map = sig->id_maps[id_map_idx].id_map;
 
     if (vals == 0) {
@@ -582,10 +582,10 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             uint16_t status = 0;
             if (!(si->status & MPR_STATUS_HAS_VALUE)) {
                 status = MPR_STATUS_NEW_VALUE;
-                mpr_value_incr_idx(sig->value, si->idx);
+                mpr_value_incr_idx(sig->value, si->idx, time);
             }
             else {
-                mpr_value_cpy_next(sig->value, si->idx);
+                mpr_value_cpy_next(sig->value, si->idx, time);
             }
             /* we can't use mpr_value_set() here since some vector elements may be missing */
             for (i = 0; i < sig->len; i++) {
@@ -597,7 +597,6 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
             if (mpr_value_get_has_value(sig->value, si->idx)) {
                 si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM | status);
                 sig->obj.status |= si->status;
-                mpr_value_set_time(sig->value, time, si->idx, 0);
                 mpr_bitflags_unset(sig->updated_inst, si->idx);
                 mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, id_map->LID, si->idx, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */
@@ -822,7 +821,7 @@ void mpr_sig_call_handler(mpr_local_sig lsig, int evt, mpr_id id, unsigned int i
 {
     mpr_sig_handler *h;
     void *value = NULL;
-    mpr_time *time;
+    mpr_time time;
 
     /* abort if signal is already being processed - might be a local loop */
     if (lsig->locked) {
@@ -840,7 +839,7 @@ void mpr_sig_call_handler(mpr_local_sig lsig, int evt, mpr_id id, unsigned int i
     RETURN_UNLESS((h = (mpr_sig_handler*)lsig->handler));
     time = mpr_value_get_time(lsig->value, inst_idx, 0);
 
-    h((mpr_sig)lsig, evt, lsig->use_inst ? id : 0, value ? lsig->len : 0, lsig->type, value, *time);
+    h((mpr_sig)lsig, evt, lsig->use_inst ? id : 0, value ? lsig->len : 0, lsig->type, value, time);
 }
 
 /**** Instances ****/
@@ -1423,17 +1422,17 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     si = _get_inst_by_id_map_idx(lsig, id_map_idx);
 
     /* update time */
-    mpr_sig_update_timing_stats(lsig, (si->status & MPR_STATUS_HAS_VALUE) ? mpr_time_get_diff(time, *mpr_value_get_time(lsig->value, si->idx, 0)) : 0);
+    mpr_sig_update_timing_stats(lsig, (si->status & MPR_STATUS_HAS_VALUE) ? mpr_time_get_diff(time, mpr_value_get_time(lsig->value, si->idx, 0)) : 0);
 
     /* update value */
     if (type != lsig->type || len < lsig->len) {
-        if (!mpr_value_set_next_coerced(lsig->value, si->idx, lsig->len, type, val, &time))
+        if (!mpr_value_set_next_coerced(lsig->value, si->idx, lsig->len, type, val, time))
             status |= MPR_STATUS_NEW_VALUE;
     }
     else {
         if (mpr_value_cmp(lsig->value, si->idx, 0, val))
             si->status |= MPR_STATUS_NEW_VALUE;
-        mpr_value_set_next(lsig->value, si->idx, val, &time);
+        mpr_value_set_next(lsig->value, si->idx, val, time);
     }
     si->status |= status;
     sig->obj.status |= status;
@@ -1509,7 +1508,7 @@ void mpr_local_sig_release_inst_by_origin(mpr_local_sig lsig, mpr_dev origin)
             /* decrement the id_map's global refcount */
             mpr_dev_GID_decref(lsig->dev, lsig->group, id_map);
 
-            diff = mpr_time_get_diff(time, *mpr_value_get_time(lsig->value, si->idx, 0));
+            diff = mpr_time_get_diff(time, mpr_value_get_time(lsig->value, si->idx, 0));
             mpr_sig_call_handler(lsig, MPR_STATUS_REL_UPSTRM, si->id, si->idx, diff);
         }
     }
@@ -1572,11 +1571,11 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
     }
     RETURN_ARG_UNLESS(si, 0);
     if (time)
-        mpr_time_set(time, *mpr_value_get_time(lsig->value, si->idx, 0));
+        mpr_time_set(time, mpr_value_get_time(lsig->value, si->idx, 0));
     RETURN_ARG_UNLESS(si->status & MPR_STATUS_HAS_VALUE, 0)
     mpr_time_set(&now, MPR_NOW);
     if (lsig->dir == MPR_DIR_IN && !lsig->handler)
-        mpr_sig_update_timing_stats(lsig, mpr_time_get_diff(now, *mpr_value_get_time(lsig->value, si->idx, 0)));
+        mpr_sig_update_timing_stats(lsig, mpr_time_get_diff(now, mpr_value_get_time(lsig->value, si->idx, 0)));
     return mpr_value_get_value(lsig->value, si->idx, 0);
 }
 
@@ -1932,7 +1931,7 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst
 
         id_map = sig->id_maps[id_map_idx].id_map;
 
-        diff = mpr_time_get_diff(time, *mpr_value_get_time(sig->value, si->idx, 0));
+        diff = mpr_time_get_diff(time, mpr_value_get_time(sig->value, si->idx, 0));
 
         /* TODO: would it be better to release all instance first, then update, etc? */
 
@@ -1961,7 +1960,7 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst
             si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM);
             if (mpr_value_cmp(sig->value, si->idx, 0, value))
                 si->status |= MPR_STATUS_NEW_VALUE;
-            mpr_value_set_next(sig->value, si->idx, value, &time);
+            mpr_value_set_next(sig->value, si->idx, value, time);
             sig->obj.status |= si->status;
 
             mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, si->id, si->idx, diff);

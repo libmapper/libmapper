@@ -256,7 +256,7 @@ static int precompute(estack stk, uint8_t num_tokens_to_compute)
     expr = mpr_expr_new(0, 0, stk);
     buff = mpr_expr_new_eval_buffer(expr);
     val = mpr_value_new(vec_len, type, 1, 1);
-    mpr_value_incr_idx(val, 0);
+    mpr_value_incr_idx(val, 0, MPR_NOW);
 
     if (!(mpr_expr_eval(expr, buff, 0, 0, val, 0, 0) & 1)) {
         ret = 1;

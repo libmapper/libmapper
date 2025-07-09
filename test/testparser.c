@@ -178,6 +178,7 @@ int check_result(mpr_bitflags updated, mpr_value value, int check)
 {
     int i, error = 0, error_idx = -1, len = mpr_value_get_vlen(value);
     mpr_type type = mpr_value_get_type(value);
+    mpr_time time;
     if (!updated || len < 1)
         return 1;
 
@@ -192,7 +193,8 @@ int check_result(mpr_bitflags updated, mpr_value value, int check)
             memcpy(dst_dbl, mpr_value_get_value(outh, 0, 0), sizeof(double) * len);
             break;
     }
-    memcpy(&time_out, mpr_value_get_time(outh, 0, 0), sizeof(mpr_time));
+    time = mpr_value_get_time(outh, 0, 0);
+    memcpy(&time_out, &time, sizeof(mpr_time));
 
     eprintf("Got: ");
     if (len > 1)
@@ -346,13 +348,13 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
         mpr_value_reset_inst(inh[i], 0, time_in);
         switch (src_types[i]) {
             case MPR_INT32:
-                mpr_value_set_next(inh[i], 0, src_int, &time_in);
+                mpr_value_set_next(inh[i], 0, src_int, time_in);
                 break;
             case MPR_FLT:
-                mpr_value_set_next(inh[i], 0, src_flt, &time_in);
+                mpr_value_set_next(inh[i], 0, src_flt, time_in);
                 break;
             case MPR_DBL:
-                mpr_value_set_next(inh[i], 0, src_dbl, &time_in);
+                mpr_value_set_next(inh[i], 0, src_dbl, time_in);
                 break;
             default:
                 assert(0);
@@ -375,7 +377,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
         mpr_type type = mpr_expr_get_var_type(e, i);
         mpr_value_realloc(user_vars[i], vlen, type, 1, 1, 0);
         mpr_value_reset_inst(user_vars[i], 0, time_in);
-        mpr_value_incr_idx(user_vars[i], 0);
+        mpr_value_incr_idx(user_vars[i], 0, MPR_NOW);
     }
 
     eprintf("Parser returned %d tokens...", e->stack->num_tokens);
@@ -434,13 +436,13 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
         for (j = 0; j < n_sources; j++) {
             switch (mpr_value_get_type(inh[j])) {
                 case MPR_INT32:
-                    mpr_value_set_next(inh[j], 0, src_int, &time_in);
+                    mpr_value_set_next(inh[j], 0, src_int, time_in);
                     break;
                 case MPR_FLT:
-                    mpr_value_set_next(inh[j], 0, src_flt, &time_in);
+                    mpr_value_set_next(inh[j], 0, src_flt, time_in);
                     break;
                 case MPR_DBL:
-                    mpr_value_set_next(inh[j], 0, src_dbl, &time_in);
+                    mpr_value_set_next(inh[j], 0, src_dbl, time_in);
                     break;
                 default:
                     assert(0);
