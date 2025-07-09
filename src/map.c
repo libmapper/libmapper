@@ -386,10 +386,13 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     return m;
 }
 
-/* TODO: if map is local handle locally and don't send unmap to network bus */
 void mpr_map_release(mpr_map m)
 {
-    mpr_net_use_bus(mpr_graph_get_net(m->obj.graph));
+    mpr_net net = mpr_graph_get_net(m->obj.graph);
+    if (m->obj.is_local && MPR_LOC_BOTH == ((mpr_local_map)m)->locality)
+        mpr_net_use_local(net);
+    else
+        mpr_net_use_bus(net);
     mpr_map_send_state(m, -1, MSG_UNMAP, 0);
 }
 

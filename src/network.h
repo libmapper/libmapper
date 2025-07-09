@@ -49,6 +49,8 @@ int mpr_net_stop_polling(mpr_net net);
 
 int mpr_net_init(mpr_net n, const char *iface, const char *group, int port);
 
+void mpr_net_use_local(mpr_net n);
+
 void mpr_net_use_bus(mpr_net n);
 
 void mpr_net_use_mesh(mpr_net n, lo_address addr);

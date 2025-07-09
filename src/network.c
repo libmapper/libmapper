@@ -52,13 +52,17 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 #define SERVER_BUS      0   /* Multicast comms. */
 #define SERVER_MESH     1   /* Mesh comms. */
 
-#define BUNDLE_DST_SUBSCRIBERS (void*)-1
-#define BUNDLE_DST_BUS          0
-
 #define MAX_BUNDLE_LEN 8192
 #define FIND 0
 #define UPDATE 1
 #define ADD 2
+
+typedef enum {
+    BUNDLE_DST_LOCAL,
+    BUNDLE_DST_BUS,
+    BUNDLE_DST_MESH,
+    BUNDLE_DST_SUBSCRIBERS
+} bundle_dst;
 
 /*! A structure that keeps information about network communications. */
 typedef struct _mpr_net {
@@ -71,9 +75,10 @@ typedef struct _mpr_net {
 
     struct {
         lo_address bus;             /*!< LibLo address for the multicast bus. */
-        lo_address dst;
+        lo_address mesh;            /*!< LibLo address for p2p. */
         struct _mpr_local_dev *dev;
         char *url;
+        bundle_dst dst;
     } addr;
 
     struct {
@@ -738,14 +743,31 @@ void mpr_net_send(mpr_net net)
 {
     RETURN_UNLESS(net->bundle);
 
-    if (BUNDLE_DST_SUBSCRIBERS == net->addr.dst) {
-        mpr_local_dev_send_to_subscribers(net->addr.dev, net->bundle, net->msg_type,
-                                          net->servers[SERVER_MESH]);
+    switch (net->addr.dst) {
+        case BUNDLE_DST_SUBSCRIBERS:
+            mpr_local_dev_send_to_subscribers(net->addr.dev, net->bundle, net->msg_type,
+                                              net->servers[SERVER_MESH]);
+            break;
+        case BUNDLE_DST_MESH:
+            if (net->addr.mesh) {
+                lo_send_bundle_from(net->addr.mesh, net->servers[SERVER_MESH], net->bundle);
+                break;
+            }
+            /* otherwise fall back to local */
+        case BUNDLE_DST_LOCAL: {
+            size_t data_len;
+            char *data = (char*) lo_bundle_serialise(net->bundle, NULL, &data_len);
+            if (data) {
+                lo_server_dispatch_data(net->servers[SERVER_MESH], data, data_len);
+                free(data);
+                break;
+            }
+            /* otherwise fall back to bus */
+        }
+        case BUNDLE_DST_BUS:
+            lo_send_bundle_from(net->addr.bus, net->servers[SERVER_MESH], net->bundle);
+            break;
     }
-    else if (BUNDLE_DST_BUS == net->addr.dst)
-        lo_send_bundle_from(net->addr.bus, net->servers[SERVER_MESH], net->bundle);
-    else
-        lo_send_bundle_from(net->addr.dst, net->servers[SERVER_MESH], net->bundle);
 
     lo_bundle_free_recursive(net->bundle);
     net->bundle = 0;
@@ -760,6 +782,15 @@ static int init_bundle(mpr_net net)
     return net->bundle ? 0 : 1;
 }
 
+void mpr_net_use_local(mpr_net net)
+{
+    if (net->bundle && (net->addr.dst != BUNDLE_DST_BUS))
+        mpr_net_send(net);
+    net->addr.dst = BUNDLE_DST_LOCAL;
+    if (!net->bundle)
+        init_bundle(net);
+}
+
 void mpr_net_use_bus(mpr_net net)
 {
     if (net->bundle && (net->addr.dst != BUNDLE_DST_BUS))
@@ -771,9 +802,10 @@ void mpr_net_use_bus(mpr_net net)
 
 void mpr_net_use_mesh(mpr_net net, lo_address addr)
 {
-    if (net->bundle && (net->addr.dst != addr))
+    if (net->bundle && (net->addr.dst != BUNDLE_DST_MESH || net->addr.mesh != addr))
         mpr_net_send(net);
-    net->addr.dst = addr;
+    net->addr.dst = BUNDLE_DST_MESH;
+    net->addr.mesh = addr;
     if (!net->bundle)
         init_bundle(net);
 }
