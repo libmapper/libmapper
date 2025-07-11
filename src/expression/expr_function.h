@@ -296,17 +296,56 @@ REV_VFUNC(vrevi, int, i)
 REV_VFUNC(vrevf, float, f)
 REV_VFUNC(vrevd, double, d)
 
-#define TYPED_EMA(TYPE, T)                              \
-static TYPE ema##T(TYPE memory, TYPE val, TYPE weight)  \
-    { return memory + (val - memory) * weight; }
-TYPED_EMA(float, f)
-TYPED_EMA(double, d)
+/* The emd() function needs to read and write 2 variables (ema and ema of difference). Since this
+ * is not possible with regular functions we will use a vector function here, even though each
+ * vector element is processed separately. For convenience and reduced code we will also use vector
+ * functions for ema and schmitt since they also require "memory". */
 
-#define TYPED_SCHMITT(TYPE, T)                                      \
-static TYPE schmitt##T(TYPE memory, TYPE val, TYPE low, TYPE high)  \
-    { return memory ? val > low : val >= high; }
-TYPED_SCHMITT(float, f)
-TYPED_SCHMITT(double, d)
+#define EMA_VFUNC(NAME, TYPE, T)                    \
+static void NAME(evalue ema, uint8_t *dim, int inc)      \
+{                                                        \
+    evalue new = ema + inc, weight = new + inc;          \
+    uint8_t i;                                           \
+    for (i = 0; i < dim[0]; i++) {                       \
+        ema[i].T += (new[i].T - ema[i].T) * weight[i].T; \
+    }                                                    \
+}
+EMA_VFUNC(vemaf, float, f)
+EMA_VFUNC(vemad, double, d)
+
+#define EMD_VFUNC(NAME, TYPE, T)                        \
+static void NAME(evalue emd, uint8_t *dim, int inc)     \
+{                                                       \
+    evalue ema = emd + inc,                             \
+           new = ema + inc,                             \
+           weight = new + inc;                          \
+    uint8_t i;                                          \
+    for (i = 0; i < dim[0]; i++) {                      \
+        register TYPE diff = ema[i].T - new[i].T;       \
+        emd[i].T += (diff - emd[i].T) * weight[i].T;    \
+        ema[i].T -= diff * weight[i].T;                 \
+    }                                                   \
+}
+EMD_VFUNC(vemdf, float, f)
+EMD_VFUNC(vemdd, double, d)
+
+#define SCHMITT_VFUNC(NAME, TYPE, T)                    \
+static void NAME(evalue mem, uint8_t *dim, int inc)     \
+{                                                       \
+    evalue new = mem + inc,                             \
+           low = new + inc,                             \
+           high = low + inc;                            \
+    uint8_t i;                                          \
+    for (i = 0; i < dim[0]; i++) {                      \
+        if (mem[i].T)                                   \
+            mem[i].T = new[i].T > low[i].T;             \
+        else                                            \
+            mem[i].T = new[i].T >= high[i].T;           \
+    }                                                   \
+}
+SCHMITT_VFUNC(vschmiti, int, i)
+SCHMITT_VFUNC(vschmitf, float, f)
+SCHMITT_VFUNC(vschmitd, double, d)
 
 typedef enum {
     FN_UNKNOWN = -1,
@@ -322,7 +361,6 @@ typedef enum {
     FN_CEIL,
     FN_COS,
     FN_COSH,
-    FN_EMA,
     FN_EXP,
     FN_EXP2,
     FN_FLOOR,
@@ -337,7 +375,6 @@ typedef enum {
     FN_MIN,
     FN_POW,
     FN_ROUND,
-    FN_SCHMITT,
     FN_SIGN,
     FN_SIN,
     FN_SINH,
@@ -405,51 +442,48 @@ static double dbl_tanh(double x) { return tanh(x); }
 static struct {
     const char *name;
     uint8_t arity;
-    uint8_t memory;
     void *fn_int;
     void *fn_flt;
     void *fn_dbl;
 } fn_tbl[] = {
-    { "abs",      1, 0, (void*)abs,   (void*)fabsf2,    (void*)fabs      },
-    { "acos",     1, 0, 0,            (void*)flt_acos,  (void*)dbl_acos  },
-    { "acosh",    1, 0, 0,            (void*)acoshf,    (void*)acosh     },
-    { "asin",     1, 0, 0,            (void*)flt_asin,  (void*)dbl_asin  },
-    { "asinh",    1, 0, 0,            (void*)asinhf,    (void*)asinh     },
-    { "atan",     1, 0, 0,            (void*)flt_atan,  (void*)dbl_atan  },
-    { "atan2",    2, 0, 0,            (void*)flt_atan2, (void*)dbl_atan2 },
-    { "atanh",    1, 0, 0,            (void*)atanhf,    (void*)atanh     },
-    { "cbrt",     1, 0, 0,            (void*)cbrtf,     (void*)cbrt      },
-    { "ceil",     1, 0, (void*)passi, (void*)flt_ceil,  (void*)dbl_ceil  },
-    { "cos",      1, 0, 0,            (void*)flt_cos,   (void*)dbl_cos   },
-    { "cosh",     1, 0, 0,            (void*)flt_cosh,  (void*)dbl_cosh  },
-    { "ema",      3, 1, 0,            (void*)emaf,      (void*)emad      },
-    { "exp",      1, 0, 0,            (void*)flt_exp,   (void*)dbl_exp   },
-    { "exp2",     1, 0, 0,            (void*)exp2f,     (void*)exp2      },
-    { "floor",    1, 0, (void*)passi, (void*)flt_floor, (void*)dbl_floor },
-    { "hypot",    2, 0, 0,            (void*)hypotf,    (void*)hypot     },
-    { "hzToMidi", 1, 0, 0,            (void*)hzToMidif, (void*)hzToMidid },
-    { "log",      1, 0, 0,            (void*)flt_log,   (void*)dbl_log   },
-    { "log10",    1, 0, 0,            (void*)flt_log10, (void*)dbl_log10 },
-    { "log2",     1, 0, 0,            (void*)flt_log2,  (void*)dbl_log2  },
-    { "logb",     1, 0, 0,            (void*)logbf,     (void*)logb      },
-    { "max",      2, 0, (void*)maxi,  (void*)maxf,      (void*)maxd      },
-    { "midiToHz", 1, 0, 0,            (void*)midiToHzf, (void*)midiToHzd },
-    { "min",      2, 0, (void*)mini,  (void*)minf,      (void*)mind      },
-    { "pow",      2, 0, 0,            (void*)flt_pow,   (void*)dbl_pow   },
-    { "round",    1, 0, (void*)passi, (void*)roundf,    (void*)round     },
-    { "schmitt",  4, 1, 0,            (void*)schmittf,  (void*)schmittd  },
-    { "sign",     1, 0, (void*)signi, (void*)signf,     (void*)signd     },
-    { "sin",      1, 0, 0,            (void*)flt_sin,   (void*)dbl_sin   },
-    { "sinh",     1, 0, 0,            (void*)flt_sinh,  (void*)dbl_sinh  },
-    { "sqrt",     1, 0, 0,            (void*)flt_sqrt,  (void*)dbl_sqrt  },
-    { "tan",      1, 0, 0,            (void*)flt_tan,   (void*)dbl_tan   },
-    { "tanh",     1, 0, 0,            (void*)flt_tanh,  (void*)dbl_tanh  },
-    { "trunc",    1, 0, 0,            (void*)truncf,    (void*)trunc     },
+    { "abs",      1, (void*)abs,   (void*)fabsf2,    (void*)fabs      },
+    { "acos",     1, 0,            (void*)flt_acos,  (void*)dbl_acos  },
+    { "acosh",    1, 0,            (void*)acoshf,    (void*)acosh     },
+    { "asin",     1, 0,            (void*)flt_asin,  (void*)dbl_asin  },
+    { "asinh",    1, 0,            (void*)asinhf,    (void*)asinh     },
+    { "atan",     1, 0,            (void*)flt_atan,  (void*)dbl_atan  },
+    { "atan2",    2, 0,            (void*)flt_atan2, (void*)dbl_atan2 },
+    { "atanh",    1, 0,            (void*)atanhf,    (void*)atanh     },
+    { "cbrt",     1, 0,            (void*)cbrtf,     (void*)cbrt      },
+    { "ceil",     1, (void*)passi, (void*)flt_ceil,  (void*)dbl_ceil  },
+    { "cos",      1, 0,            (void*)flt_cos,   (void*)dbl_cos   },
+    { "cosh",     1, 0,            (void*)flt_cosh,  (void*)dbl_cosh  },
+    { "exp",      1, 0,            (void*)flt_exp,   (void*)dbl_exp   },
+    { "exp2",     1, 0,            (void*)exp2f,     (void*)exp2      },
+    { "floor",    1, (void*)passi, (void*)flt_floor, (void*)dbl_floor },
+    { "hypot",    2, 0,            (void*)hypotf,    (void*)hypot     },
+    { "hzToMidi", 1, 0,            (void*)hzToMidif, (void*)hzToMidid },
+    { "log",      1, 0,            (void*)flt_log,   (void*)dbl_log   },
+    { "log10",    1, 0,            (void*)flt_log10, (void*)dbl_log10 },
+    { "log2",     1, 0,            (void*)flt_log2,  (void*)dbl_log2  },
+    { "logb",     1, 0,            (void*)logbf,     (void*)logb      },
+    { "max",      2, (void*)maxi,  (void*)maxf,      (void*)maxd      },
+    { "midiToHz", 1, 0,            (void*)midiToHzf, (void*)midiToHzd },
+    { "min",      2, (void*)mini,  (void*)minf,      (void*)mind      },
+    { "pow",      2, 0,            (void*)flt_pow,   (void*)dbl_pow   },
+    { "round",    1, (void*)passi, (void*)roundf,    (void*)round     },
+    { "sign",     1, (void*)signi, (void*)signf,     (void*)signd     },
+    { "sin",      1, 0,            (void*)flt_sin,   (void*)dbl_sin   },
+    { "sinh",     1, 0,            (void*)flt_sinh,  (void*)dbl_sinh  },
+    { "sqrt",     1, 0,            (void*)flt_sqrt,  (void*)dbl_sqrt  },
+    { "tan",      1, 0,            (void*)flt_tan,   (void*)dbl_tan   },
+    { "tanh",     1, 0,            (void*)flt_tanh,  (void*)dbl_tanh  },
+    { "trunc",    1, 0,            (void*)truncf,    (void*)trunc     },
     /* place functions which should never be precomputed below this point */
-    { "delay",    1, 0, (void*)1,     0,                0                },
-    { "sig_idx",  1, 0, (void*)1,     0,                0                },
-    { "vec_idx",  1, 0, (void*)1,     0,                0                },
-    { "uniform",  1, 0, 0,            (void*)uniformf,  (void*)uniformd  },
+    { "delay",    1, (void*)1,     0,                0                },
+    { "sig_idx",  1, (void*)1,     0,                0                },
+    { "vec_idx",  1, (void*)1,     0,                0                },
+    { "uniform",  1, 0,            (void*)uniformf,  (void*)uniformd  },
 };
 
 typedef enum {
@@ -474,37 +508,44 @@ typedef enum {
     VFN_INDEX,
     VFN_LENGTH,
     VFN_MEDIAN,
+    VFN_EMA,
+    VFN_EMD,
+    VFN_SCHMITT,
     N_VFN
 } expr_vfn_t;
 
 static struct {
     const char *name;
     uint8_t arity;
+    uint8_t memory;
     uint8_t reduce; /* TODO: use bitflags */
     uint8_t dot_notation;
     void (*fn_int)(evalue, uint8_t*, int);
     void (*fn_flt)(evalue, uint8_t*, int);
     void (*fn_dbl)(evalue, uint8_t*, int);
 } vfn_tbl[] = {
-    { "all",    1, 1, 1, valli,    vallf,    valld    },
-    { "any",    1, 1, 1, vanyi,    vanyf,    vanyd    },
-    { "center", 1, 1, 1, 0,        vcenterf, vcenterd },
-    { "max",    1, 1, 1, vmaxi,    vmaxf,    vmaxd    },
-    { "mean",   1, 1, 1, 0,        vmeanf,   vmeand   },
-    { "min",    1, 1, 1, vmini,    vminf,    vmind    },
-    { "sum",    1, 1, 1, vsumi,    vsumf,    vsumd    },
-    { "product",1, 1, 1, vprodi,   vprodf,   vprodd   },
-    { "concat", 3, 0, 0, vconcati, vconcatf, vconcatd },
-    { "norm",   1, 1, 1, 0,        vnormf,   vnormd   },
-    { "rev",    1, 0, 1, vrevi,    vrevf,    vrevd    },
-    { "sort",   2, 0, 1, vsorti,   vsortf,   vsortd   },
-    { "maxmin", 3, 0, 0, vmaxmini, vmaxminf, vmaxmind },
-    { "sumnum", 3, 0, 0, vsumnumi, vsumnumf, vsumnumd },
-    { "angle",  2, 1, 0, 0,        vanglef,  vangled  },
-    { "dot",    2, 1, 0, vdoti,    vdotf,    vdotd    },
-    { "index",  2, 1, 1, vindexi,  vindexf,  vindexd  },
-    { "length", 1, 1, 1, vleni,    vlenf,    vlend    },
-    { "median", 1, 1, 1, vmediani, vmedianf, vmediand }
+    { "all",     1, 0, 1, 1, valli,    vallf,    valld    },
+    { "any",     1, 0, 1, 1, vanyi,    vanyf,    vanyd    },
+    { "center",  1, 0, 1, 1, 0,        vcenterf, vcenterd },
+    { "max",     1, 0, 1, 1, vmaxi,    vmaxf,    vmaxd    },
+    { "mean",    1, 0, 1, 1, 0,        vmeanf,   vmeand   },
+    { "min",     1, 0, 1, 1, vmini,    vminf,    vmind    },
+    { "sum",     1, 0, 1, 1, vsumi,    vsumf,    vsumd    },
+    { "product", 1, 0, 1, 1, vprodi,   vprodf,   vprodd   },
+    { "concat",  3, 0, 0, 0, vconcati, vconcatf, vconcatd },
+    { "norm",    1, 0, 1, 1, 0,        vnormf,   vnormd   },
+    { "rev",     1, 0, 0, 1, vrevi,    vrevf,    vrevd    },
+    { "sort",    2, 0, 0, 1, vsorti,   vsortf,   vsortd   },
+    { "maxmin",  3, 0, 0, 0, vmaxmini, vmaxminf, vmaxmind },
+    { "sumnum",  3, 0, 0, 0, vsumnumi, vsumnumf, vsumnumd },
+    { "angle",   2, 0, 1, 0, 0,        vanglef,  vangled  },
+    { "dot",     2, 0, 1, 0, vdoti,    vdotf,    vdotd    },
+    { "index",   2, 0, 1, 1, vindexi,  vindexf,  vindexd  },
+    { "length",  1, 0, 1, 1, vleni,    vlenf,    vlend    },
+    { "median",  1, 0, 1, 1, vmediani, vmedianf, vmediand },
+    { "ema",     3, 1, 0, 0, 0,        vemaf,    vemad    },
+    { "emd",     4, 2, 0, 0, 0,        vemdf,    vemdd    },
+    { "schmitt", 4, 1, 0, 0, vschmiti, vschmitf, vschmitd }
 };
 
 typedef enum {

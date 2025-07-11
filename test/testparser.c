@@ -904,32 +904,60 @@ int run_tests()
         return 1;
 
     /* 50) Functions with memory: ema() */
-    set_expr_str("y=x-ema(x,0.1)+2");
-    setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    expect_flt[0] = 0;
+    set_expr_str("y=x-ema(x,[0.1,0.2,0.3])+2");
+    setup_test(MPR_INT32, 3, MPR_FLT, 3);
+    expect_flt[0] = expect_flt[1] = expect_flt[2] = 0;
     for (i = 0; i < iterations; i++) {
         expect_flt[0] += ((float)src_int[0] - expect_flt[0]) * 0.1f;
+        expect_flt[1] += ((float)src_int[1] - expect_flt[1]) * 0.2f;
+        expect_flt[2] += ((float)src_int[2] - expect_flt[2]) * 0.3f;
     }
     expect_flt[0] = (float)src_int[0] - expect_flt[0] + 2.f;
+    expect_flt[1] = (float)src_int[1] - expect_flt[1] + 2.f;
+    expect_flt[2] = (float)src_int[2] - expect_flt[2] + 2.f;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 51) Functions with memory: schmitt() */
-    set_expr_str("y=y{-1}+(schmitt(y{-1},20,80)?-1:1)");
+    /* 51) Functions with memory: emd() */
+    set_expr_str("y=emd(x,[0.1,0.2,0.3]);");
+    setup_test(MPR_INT32, 3, MPR_FLT, 3);
+    assert (MAX_DST_ARRAY_LEN >= 6);
+    /* we will use expect_flt[3:5] for storing the ema values */
+    expect_flt[0] = expect_flt[1] = expect_flt[2] = 0;
+    expect_flt[3] = expect_flt[4] = expect_flt[5] = 0;
+    for (i = 0; i < iterations; i++) {
+        /* update emd */
+        expect_flt[0] += ((expect_flt[3] - (float)src_int[0]) - expect_flt[0]) * 0.1f;
+        expect_flt[1] += ((expect_flt[4] - (float)src_int[1]) - expect_flt[1]) * 0.2f;
+        expect_flt[2] += ((expect_flt[5] - (float)src_int[2]) - expect_flt[2]) * 0.3f;
+
+        /* update ema */
+        expect_flt[3] += ((float)src_int[0] - expect_flt[3]) * 0.1f;
+        expect_flt[4] += ((float)src_int[1] - expect_flt[4]) * 0.2f;
+        expect_flt[5] += ((float)src_int[2] - expect_flt[5]) * 0.3f;
+    }
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 52) Functions with memory: schmitt() */
+    set_expr_str("y=y{-1}+(schmitt(y{-1},[20,21,22],80)?-1:1)");
     setup_test(MPR_INT32, 3, MPR_FLT, 3);
     if (iterations < 80) {
         expect_flt[0] = expect_flt[1] = expect_flt[2] = iterations;
     }
     else {
-        int cycles = (iterations-80) / 60;
-        int remainder = (iterations-80) % 60;
-        float ans = (cycles % 2) ? 20 + remainder : 80 - remainder;
-        expect_flt[0] = expect_flt[1] = expect_flt[2] = ans;
+        for (i = 0; i < 3; i++) {
+            int range = 80 - 20 - i;
+            int cycles = (iterations - 80) / range;
+            int remainder = (iterations - 80) % range;
+            float ans = (cycles % 2) ? 20 + i + remainder : 80 - remainder;
+            expect_flt[i] = ans;
+        }
     }
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 52) Multiple output assignment */
+    /* 53) Multiple output assignment */
     set_expr_str("y=x-10000; y=max(min(y,1),0)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = src_flt[0] - 10000;
@@ -938,7 +966,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 53) Access timetags */
+    /* 54) Access timetags */
     set_expr_str("y=t_x");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
@@ -952,7 +980,7 @@ int run_tests()
             eprintf("... OK\n");
     }
 
-    /* 54) Access timetags from past samples */
+    /* 55) Access timetags from past samples */
     set_expr_str("y=t_x-t_y{-1}");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
@@ -967,7 +995,7 @@ int run_tests()
             eprintf("... OK\n");
     }
 
-    /* 55) Moving average of inter-sample period */
+    /* 56) Moving average of inter-sample period */
     /* Tricky - we need to init t_y{-1} to t_x or the first calculated
      * difference will be enormous! */
     set_expr_str("t_y{-1}=t_x;"
@@ -986,7 +1014,7 @@ int run_tests()
             eprintf("... OK\n");
     }
 
-    /* 56) Moving average of inter-sample jitter */
+    /* 57) Moving average of inter-sample jitter */
     /* Tricky - we need to init t_y{-1} to t_x or the first calculated
      * difference will be enormous! */
     set_expr_str("t_y{-1}=t_x;"
@@ -1006,7 +1034,7 @@ int run_tests()
             eprintf("... OK\n");
     }
 
-    /* 57) Expression for limiting output rate
+    /* 58) Expression for limiting output rate
      * Leaving the initial t_y{-1} initialized to 0 simply means the first update will cause output */
     set_expr_str("diff=t_x-t_y{-1};"
                  "alive=diff>0.1;"
@@ -1016,7 +1044,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, -1))
         return 1;
 
-    /* 58) Expression for limiting rate with smoothed output.
+    /* 59) Expression for limiting rate with smoothed output.
      * Leaving the initial t_y{-1} initialized to 0 simply means the first update will cause output */
     set_expr_str("a=x%100;"
                  "count{-1}=1;"
@@ -1029,7 +1057,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, -1))
         return 1;
 
-    /* 59) Manipulate timetag directly. This functionality may be used in the
+    /* 60) Manipulate timetag directly. This functionality may be used in the
      *     future to schedule delays, however it currently will not affect
      *     message timing. Disabled for now. */
     set_expr_str("y=x[0]{0}; t_y=t_x+10");
@@ -1046,13 +1074,13 @@ int run_tests()
      }
  */
 
-    /* 60) Faulty timetag syntax */
+    /* 61) Faulty timetag syntax */
     set_expr_str("y=t_x-y;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 61) Instance management */
+    /* 62) Instance management */
     set_expr_str("count{-1}=0;alive=count>=5;y=x;count=(count+1)%10;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
@@ -1065,14 +1093,14 @@ int run_tests()
         }
     }
 
-    /* 62) Filter unchanged values */
+    /* 63) Filter unchanged values */
     set_expr_str("muted=(x==x{-1});y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, 1))
         return 1;
 
-    /* 63) Buddy logic */
+    /* 64) Buddy logic */
     set_expr_str("alive=(t_x$0>t_y{-1})&&(t_x$1>t_y{-1});y=x$0+x$1[1:2];");
     /* types[] and lens[] are already defined */
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
@@ -1081,38 +1109,38 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 64) Variable delays */
+    /* 65) Variable delays */
     set_expr_str("y=x{abs(x%10)-10,10}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
 
-    /* 65) Variable delay with missing maximum */
+    /* 66) Variable delay with missing maximum */
     set_expr_str("y=x{abs(x%10)-10}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(PARSE_FAILURE, 0, 0, iterations))
         return 1;
 
-    /* 66) Calling delay() function explicitly */
+    /* 67) Calling delay() function explicitly */
     set_expr_str("y=delay(x, abs(x%10)-10), 10)");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(PARSE_FAILURE, 0, 0, iterations))
         return 1;
 
-    /* 67) Fractional delays */
+    /* 68) Fractional delays */
     set_expr_str("ratio{-1}=0;y=x{-10+ratio, 10};ratio=(ratio+0.01)%5;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
 
-    /* 68) Pooled instance functions: any() and all() */
+    /* 69) Pooled instance functions: any() and all() */
     set_expr_str("y=(x-1).instance.any() + (x+1).instance.all();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 2;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 69) Pooled instance functions: sum(), count() and mean() */
+    /* 70) Pooled instance functions: sum(), count() and mean() */
     set_expr_str("y=(x.instance.sum()/x.instance.count())==x.instance.mean();");
     setup_test(MPR_INT32, 3, MPR_INT32, 3);
     expect_int[0] = 1;
@@ -1121,14 +1149,14 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 70) Pooled instance functions: max(), min(), and size() */
+    /* 71) Pooled instance functions: max(), min(), and size() */
     set_expr_str("y=(x.instance.max()-x.instance.min())==x.instance.size();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 1;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 71) Pooled instance function: center() */
+    /* 72) Pooled instance function: center() */
     set_expr_str("y=x.instance.center()==(x.instance.max()+x.instance.min())*0.5;");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = 1;
@@ -1136,19 +1164,19 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 72) Pooled instance mean length of centered vectors */
+    /* 73) Pooled instance mean length of centered vectors */
     set_expr_str("m=x.instance.mean(); y=(x-m).norm().instance.mean()");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
 
-    /* 73) Pooled instance mean linear displacement */
+    /* 74) Pooled instance mean linear displacement */
     set_expr_str("y=(x-x{-1}).instance.mean()");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations-1))
         return 1;
 
-    /* 74) Dot product of two vectors */
+    /* 75) Dot product of two vectors */
     set_expr_str("y=dot(x, x$1);");
     lens[0] = 3;
     setup_test_multisource(2, types, lens, MPR_FLT, 1);
@@ -1158,14 +1186,14 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 75) 2D Vector angle */
+    /* 76) 2D Vector angle */
     set_expr_str("y=angle([-1,-1], [1,0]);");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = M_PI * 0.75f;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 76) Pooled instance mean angular displacement */
+    /* 77) Pooled instance mean angular displacement */
     set_expr_str("c0{-1}=x.instance.center();"
                  "c1=x.instance.center();"
                  "y=angle(x{-1}-c0,x-c1).instance.mean();"
@@ -1175,14 +1203,14 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations-1))
         return 1;
 
-    /* 77) Integer divide-by-zero */
+    /* 78) Integer divide-by-zero */
     set_expr_str("foo=1; y=x/foo; foo=!foo;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     /* we expect only half of the evaluation attempts to succeed (i.e. when 'foo' == 1) */
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, (iterations + 1) / 2))
         return 1;
 
-    /* 78) Optimization: Vector squashing (10 tokens instead of 12) */
+    /* 79) Optimization: Vector squashing (10 tokens instead of 12) */
     set_expr_str("y=x*[3,3,x[1]]+[x[0],1,1];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = src_flt[0] * 3.0f;
@@ -1194,7 +1222,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 10, 1, iterations))
         return 1;
 
-    /* 79) Wrapping vectors, vector variables (6 tokens instead of 11) */
+    /* 80) Wrapping vectors, vector variables (6 tokens instead of 11) */
     set_expr_str("y=x*[3,3,3]+[1.23,4.56];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = src_flt[0] * 3.0f;
@@ -1206,7 +1234,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 6, 1, iterations))
         return 1;
 
-    /* 80) Just instance count */
+    /* 81) Just instance count */
     set_expr_str("y=x.instance.count();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = 1;
@@ -1214,7 +1242,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 2, 1, iterations))
         return 1;
 
-    /* 81) instance.reduce() */
+    /* 82) instance.reduce() */
     set_expr_str("y = 10 + x[1:2].instance.reduce(a, b -> a + b);");
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
     expect_flt[0] = src_flt[1] + 10;
@@ -1222,7 +1250,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 11, 1, iterations))
         return 1;
 
-    /* 82) Reducing a constant - syntax error */
+    /* 83) Reducing a constant - syntax error */
     set_expr_str("y=(1*0).instance.mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = 1;
@@ -1230,7 +1258,7 @@ int run_tests()
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 83) Reducing a user variable */
+    /* 84) Reducing a user variable */
     set_expr_str("n=(x-100);y=n.vector.sum();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[0] - 100.f + src_flt[1] - 100.f + src_flt[2] - 100.f;
@@ -1238,7 +1266,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 84) History mean() - windowed running mean */
+    /* 85) History mean() - windowed running mean */
     set_expr_str("y=x.history(5).mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = expect_flt[1] = 0.f;
@@ -1251,7 +1279,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 85) Reducing a user variable over history */
+    /* 86) Reducing a user variable over history */
     set_expr_str("n=(x-100);y=n.history(5).mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[0] - 100;
@@ -1259,7 +1287,7 @@ int run_tests()
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 86) history.reduce() with accumulator initialisation */
+    /* 87) history.reduce() with accumulator initialisation */
     set_expr_str("y=x.history(5).reduce(x, a = 100 -> x + a);");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = expect_flt[1] = 100;
@@ -1270,7 +1298,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 1, iterations))
         return 1;
 
-    /* 87) vector.mean() */
+    /* 88) vector.mean() */
     set_expr_str("y=x.vector.mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = (src_flt[0] + src_flt[1] + src_flt[2]) / 3;
@@ -1278,7 +1306,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 88) vector.reduce() */
+    /* 89) vector.reduce() */
     set_expr_str("y=x.vector.reduce(x,a -> x+a);");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[0] + src_flt[1] + src_flt[2];
@@ -1286,7 +1314,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 89) signal.mean() */
+    /* 90) signal.mean() */
     set_expr_str("y=x.signal.mean();");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1300,7 +1328,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 90) signal.reduce() */
+    /* 91) signal.reduce() */
     set_expr_str("y=x.signal.reduce(x,a->x+a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1314,7 +1342,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 91) Nested reduce(): sum of last 3 samples of all input signals with extra input reference */
+    /* 92) Nested reduce(): sum of last 3 samples of all input signals with extra input reference */
     set_expr_str("y=(x+1).signal.reduce(a,b->b+a.history(3).reduce(c,d->c+d)+a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1327,7 +1355,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 92) mean() nested with reduce() using sequential dot syntax - not currently allowed */
+    /* 93) mean() nested with reduce() using sequential dot syntax - not currently allowed */
     // TODO: should we allow this syntax?
     set_expr_str("y=x.vector.reduce(x, a -> x + a).signal.mean();");
     types[0] = MPR_INT32;
@@ -1340,7 +1368,7 @@ int run_tests()
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 93) vector.reduce() on specific signal */
+    /* 94) vector.reduce() on specific signal */
     set_expr_str("y=x$1.vector.reduce(x,a=1 -> x*a) == x$1.vector.product();");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1353,7 +1381,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 94) instance.count() on specific signal */
+    /* 95) instance.count() on specific signal */
     set_expr_str("y=x$1.instance.count();");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1366,7 +1394,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 95) vector.reduce() with vector subset */
+    /* 96) vector.reduce() with vector subset */
     set_expr_str("y=x[1:2].vector.reduce(x,a -> x+a);");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[1] + src_flt[2];
@@ -1374,7 +1402,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 96) signal.reduce() nested with instance count() */
+    /* 97) signal.reduce() nested with instance count() */
     set_expr_str("y=x.signal.reduce(x, a -> x.instance.count() + a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1387,7 +1415,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 97) signal.reduce() nested with instance mean() */
+    /* 98) signal.reduce() nested with instance mean() */
     set_expr_str("y=x.signal.reduce(x, a -> x.instance.mean() + a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1400,7 +1428,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 98) Nested reduce() of same type */
+    /* 99) Nested reduce() of same type */
     set_expr_str("y=x.signal.reduce(a, b -> a.signal.reduce(c, d -> c + d) + b);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1412,7 +1440,7 @@ int run_tests()
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 99) Nested reduce(): sum of all vector elements of all input signals */
+    /* 100) Nested reduce(): sum of all vector elements of all input signals */
     /* TODO: need to modify tokens to allow variable vector length (per signal) */
     set_expr_str("y=x.signal.reduce(a, b -> a.vector.reduce(c, d -> c + d) + b);");
     types[0] = MPR_INT32;
@@ -1428,7 +1456,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 100) reduce() nested with mean() */
+    /* 101) reduce() nested with mean() */
     set_expr_str("y=x.signal.reduce(x, aLongerName -> x.vector.mean() + aLongerName);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1443,7 +1471,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 101) reduce() nested with mean(), accum ref before input ref */
+    /* 102) reduce() nested with mean(), accum ref before input ref */
     set_expr_str("y=x.signal.reduce(x, a -> a - x.vector.mean());");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1458,7 +1486,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 102) Misplaced commas */
+    /* 103) Misplaced commas */
     set_expr_str("y=(0.00417,0.00719*x$0+0.0025*x$1+0,0)*[990,750]/2");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1468,42 +1496,42 @@ int run_tests()
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 103) sort() */
+    /* 104) sort() */
     set_expr_str("a=[4,2,3,1,5,0]; a = a.sort(1); y=a[round(x)];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = (((int)round(src_flt[0])) % 6 + 6) % 6;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 104) Call sort() directly on vector */
+    /* 105) Call sort() directly on vector */
     set_expr_str("a=[4,2,3,1,5,0].sort(1); y=a[0];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 0;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 105) Variable vector index */
+    /* 106) Variable vector index */
     set_expr_str("a=[0,1,2,3,4,5]; y=a[x];");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = ((src_int[0]) % 6 + 6) % 6;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 106) Expression vector index */
+    /* 107) Expression vector index */
     set_expr_str("a=[0,1,2,3,4,5]; y=a[sin(x)>0?0:1];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = sin(src_flt[0]) > 0.f ? 0.f : 1.f;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 107) Fractional vector index */
+    /* 108) Fractional vector index */
     set_expr_str("y=x[1.5];");
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
     expect_flt[0] = (src_flt[1] + src_flt[2]) * 0.5;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 108) Variable signal index */
+    /* 109) Variable signal index */
     set_expr_str("y=x$(x$1)");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1514,7 +1542,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 109) Expression signal index */
+    /* 110) Expression signal index */
     set_expr_str("y=x$(sin(x)>0);");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1525,13 +1553,13 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 110) Fractional signal index */
+    /* 111) Fractional signal index */
     set_expr_str("y=x$0.5;");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 111) Indexing vectors by range with wrap-around */
+    /* 112) Indexing vectors by range with wrap-around */
     set_expr_str("y=x[2:0]+100");
     setup_test(MPR_DBL, 3, MPR_FLT, 2);
     expect_flt[0] = (float)(src_dbl[2] + 100);
@@ -1539,7 +1567,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 112) Reduce with vector initialisation for accumulator */
+    /* 113) Reduce with vector initialisation for accumulator */
     set_expr_str("y = x.history(5).reduce(a, b = [1,2,3] -> a + b);");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = 1;
@@ -1553,7 +1581,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 113) Reduce with function initialisation for accumulator */
+    /* 114) Reduce with function initialisation for accumulator */
     set_expr_str("y = x$1.history(4).reduce(a, b = sin(x$0 - 10) -> a + b);");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1566,7 +1594,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 114) Nested reduce with function initialisation for accumulator */
+    /* 115) Nested reduce with function initialisation for accumulator */
     set_expr_str("y=x$1.history(4).reduce(a,b=sin(x$0-10)->a.vector.reduce(c,d=cos(b)->c-d)+b);");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1583,7 +1611,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 115) Arpeggiator */
+    /* 116) Arpeggiator */
     /* TODO: add timing */
     /* optimisation possibility here: miditohz() could be precomputed on vector p */
     set_expr_str("i{-1}=0;p=[60,61,62,63,64];y=miditohz(p[i]);i=i+1;");
@@ -1595,27 +1623,27 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 116) Multiple variable indices */
+    /* 117) Multiple variable indices */
     set_expr_str("a=0; b=1; c=-1; y=x$(a)[b]{c,2};");
     setup_test(MPR_INT32, 2, MPR_FLT, 1);
     expect_flt[0] = src_int[1];
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 117) Mixed input and output references in history reduce */
+    /* 118) Mixed input and output references in history reduce */
     set_expr_str("y=(x-y).history(4).mean();");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 118) Turn history into vector */
+    /* 119) Turn history into vector */
     set_expr_str("a = x.history(5).concat(5).sort(1); y = a[2];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = (iterations > 3) || (src_flt[0] < 0) ? src_flt[0] : 0.f;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 13, 1, iterations))
         return 1;
 
-    /* 119) Turn signals into vector */
+    /* 120) Turn signals into vector */
     set_expr_str("a = x.signal.concat(10).sort(-1); y = a[0];");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1638,14 +1666,14 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 13, 1, iterations))
         return 1;
 
-    /* 120) Turn instances into vector and return a function of vector size */
+    /* 121) Turn instances into vector and return a function of vector size */
     set_expr_str("y = x.instance.concat(5).length() * 10;");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 10.f;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 121) Turn instances into vector and arpeggiate */
+    /* 122) Turn instances into vector and arpeggiate */
     /* TODO: add timing */
     /* TODO: ensure variable 'i' is not reset to zero for each new instance. */
     set_expr_str("i{-1}=0;p=(x%128).instance.concat(10).sort(1);y=miditohz(p[i]);i=i+1;");
@@ -1654,26 +1682,26 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 122) Count instances over time */
+    /* 123) Count instances over time */
     set_expr_str("y = y{-1} + x.instance.count();");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = iterations;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 1, iterations))
         return 1;
 
-    /* 123) Reduce without lambda operator */
+    /* 124) Reduce without lambda operator */
     set_expr_str("y=x.history(5).reduce(x, a = 100, x + a);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 124) Reduce with extra lambda operator */
+    /* 125) Reduce with extra lambda operator */
     set_expr_str("y=x.history(5).reduce(x, a = 100 -> x + a -> x + 1);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 125) Fractional indices for both vector and history */
+    /* 126) Fractional indices for both vector and history */
     set_expr_str("y=x[0.3]{-0.25};");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[1] = src_flt[0] * 0.7f;
@@ -1683,7 +1711,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 126) Fractional indices for both history and vector */
+    /* 127) Fractional indices for both history and vector */
     set_expr_str("y=x{-1.75}[0.6];");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[1] = src_flt[0] * (1.f - 0.6f);
@@ -1693,13 +1721,13 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 127) Fractional vector index with non-integer length */
+    /* 128) Fractional vector index with non-integer length */
     set_expr_str("y=x[0.2:1.1];");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     if (parse_and_eval(PARSE_FAILURE, 0, 0, iterations))
         return 1;
 
-    /* 128) Multi-step linear envelope */
+    /* 129) Multi-step linear envelope */
     set_expr_str("tstart{-1}=t_x;"                          /* cache the instance start time */
                  "times=[0.1,0.01];"                        /* durations for our envelope */
                  "sumtimes=[0.1,0.11];"                     /* aggregated durations */
@@ -1737,14 +1765,14 @@ int run_tests()
         }
     }
 
-    /* 129) Find vector index by value */
+    /* 130) Find vector index by value */
     set_expr_str("v=[60,61,62,63,64]; y=v.index(62) + index(v, 0);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 1;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
 
-    /* 130) Check assignment vector length */
+    /* 131) Check assignment vector length */
     i = 0;
     set_expr_str("y{-1}=[0,0,0]; y[0]=x;");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
@@ -1755,7 +1783,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 131) Concatenate source values over time */
+    /* 132) Concatenate source values over time */
     set_expr_str("i{-1}=0; a{-1}=[0,0,0,0,0,0]; a[i]=i; i=i+1; muted=i%6; y=a;");
     setup_test(MPR_FLT, 1, MPR_FLT, MAX_DST_ARRAY_LEN);
     for (i = 0; i < MAX_DST_ARRAY_LEN; i++) {
@@ -1766,14 +1794,14 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations / MAX_DST_ARRAY_LEN))
         return 1;
 
-    /* 132) Vector median value (precomputed by the optimizer in this case) */
+    /* 133) Vector median value (precomputed by the optimizer in this case) */
     set_expr_str("y=[0,1,2,3,4,5].median();");
     setup_test(MPR_FLT, 3, MPR_INT32, 2);
     expect_int[0] = expect_int[1] = floor(2.5f);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 133) Setting vector to uniform; ensure is not precomputed. */
+    /* 134) Setting vector to uniform; ensure is not precomputed. */
     set_expr_str("y=1+2+uniform(2);");
     setup_test(MPR_FLT, 1, MPR_FLT, 4);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 5, 0, iterations))
@@ -1790,7 +1818,7 @@ int run_tests()
         }
     }
 
-    /* 134) Use latest source of a convergent map */
+    /* 135) Use latest source of a convergent map */
     set_expr_str("y=x.signal.newest();");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1801,7 +1829,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 135) Use latest source of a convergent map (shorthand) */
+    /* 136) Use latest source of a convergent map (shorthand) */
     set_expr_str("y=x$$;");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1812,7 +1840,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 136) Implicit reduce with variable timetag argument instead of value */
+    /* 137) Implicit reduce with variable timetag argument instead of value */
     set_expr_str("y=t_x.instance.mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 0, iterations))
@@ -1826,7 +1854,7 @@ int run_tests()
             eprintf("... OK\n");
     }
 
-    /* 137) Vector reverse */
+    /* 138) Vector reverse */
     set_expr_str("y=x+[2,4,6,8].rev();");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
     expect_int[0] = src_int[0] + 8;
@@ -1835,7 +1863,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 138) Inverse trigonometric functions */
+    /* 139) Inverse trigonometric functions */
     set_expr_str("a=abs(x)%2-1;y=[sin(asin(a[0])),cos(acos(a[1])),tan(atan(a[2]))];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = sinf(asinf(fmodf(fabsf(src_flt[0]), 2.f) - 1));
@@ -1844,7 +1872,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 139) Inverse trigonometric functions outside bounds: precomputed */
+    /* 140) Inverse trigonometric functions outside bounds: precomputed */
     set_expr_str("y=[sin(asin(2)),cos(acos(-2)),tan(atan(100))];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = sinf(asinf(src_flt[0]));
@@ -1853,26 +1881,26 @@ int run_tests()
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 140) Inverse trigonometric functions outside bounds: NOT precomputed */
+    /* 141) Inverse trigonometric functions outside bounds: NOT precomputed */
     set_expr_str("y=sin(asin(x+20));");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 141) Divide-by-zero: NOT precomputed */
+    /* 142) Divide-by-zero: NOT precomputed */
     set_expr_str("y=x/(x-x);");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 142) Round/Ceiling/Floor with integer operand (should call pass() function) */
+    /* 143) Round/Ceiling/Floor with integer operand (should call pass() function) */
     set_expr_str("y=round(x)+floor(x)+ceil(x);");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0] * 3;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 143) get instance index */
+    /* 144) get instance index */
     set_expr_str("y=#x + x.instance.reduce(a, b -> a * #a + b);");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 0;

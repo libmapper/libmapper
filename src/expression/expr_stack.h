@@ -511,7 +511,8 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
             skip += etoken_get_arity(&tokens[i]);
             if (TOK_VFN == tokens[i].toktype && (   VFN_MAXMIN == tokens[i].fn.idx
                                                  || VFN_SUMNUM == tokens[i].fn.idx
-                                                 || VFN_CONCAT == tokens[i].fn.idx)) {
+                                                 || VFN_CONCAT == tokens[i].fn.idx
+                                                 || VFN_EMD == tokens[i].fn.idx)) {
                 /* these functions have 2 outputs */
                 --skip;
             }
@@ -623,10 +624,14 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
         }
     }
 
+    // TODO: fix ordering of these VFN exceptions for more efficient check
     if (!(tokens[sp].gen.flags & VEC_LEN_LOCKED)) {
         if (   tokens[sp].toktype != TOK_VFN
             || VFN_REVERSE == tokens[sp].fn.idx
-            || VFN_SORT == tokens[sp].fn.idx)
+            || VFN_SORT == tokens[sp].fn.idx
+            || VFN_EMA == tokens[sp].fn.idx
+            || VFN_EMD == tokens[sp].fn.idx
+            || VFN_SCHMITT == tokens[sp].fn.idx)
             tokens[sp].gen.vec_len = vec_len;
     }
 

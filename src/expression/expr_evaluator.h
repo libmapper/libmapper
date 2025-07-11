@@ -72,7 +72,7 @@ MPR_INLINE static int _max(int a, int b)
 
 #define INCR_STACK_PTR(ADDEND)          \
     dp += ADDEND;                       \
-    assert(dp >= 0 || dp < buff->size); \
+    assert(dp >= 0 && dp < buff->size); \
     sp = dp * vlen;
 
 #define SET_TYPE(TYPE)  \
@@ -1073,6 +1073,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 
             if (tok->gen.flags & CLEAR_STACK)
                 dp = -1;
+            else if (dp && TOK_ASSIGN_USE != tok->toktype)
+                --dp;
             sp = dp * vlen;
             break;
         }

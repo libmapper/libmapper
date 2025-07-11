@@ -72,7 +72,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     /* TODO: use bitflags instead? */
     uint8_t assigning = 0, is_const = 1, out_assigned = 0, muted = 0, vectorizing = 0;
     uint8_t lambda_allowed = 0, reduce_types = 0;
-    int var_flags = 0;
+    int decorating_var = 0;
     int allow_toktype = 0x2FFFFF;
     int vec_len_ctx = 0;
 
@@ -113,6 +113,16 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 #endif
 
     while (str[lex_idx]) {
+        /* check last token */
+        switch (tok.toktype) {
+            case TOK_VAR:
+            case TOK_CLOSE_PAREN:
+            case TOK_CLOSE_CURLY:
+                decorating_var = 1;
+                break;
+            default:
+                decorating_var = 0;
+        }
         GET_NEXT_TOKEN(tok);
         /* TODO: streamline handling assigning and lambda_allowed flags */
         if (TOK_LAMBDA == tok.toktype) {
@@ -128,19 +138,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             printf("Illegal token sequence (2)\n");
 #endif
             goto error;
-        }
-        switch (tok.toktype) {
-            case TOK_OPEN_CURLY:
-            case TOK_OPEN_SQUARE:
-            case TOK_DOLLAR:
-            case TOK_HASH:
-                if (!(var_flags & tok.toktype))
-                    var_flags = 0;
-                break;
-            default:
-                if (!(var_flags & VAR_IDXS))
-                    var_flags = 0;
-                break;
         }
         switch (tok.toktype) {
             case TOK_MUTED:
@@ -203,13 +200,12 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     is_const = 0;
                     estack_push(out, &tok);
 
-                    var_flags = 0;
-                    if (!(reduce_types & RT_VECTOR))
-                        var_flags |= TOK_OPEN_SQUARE;
-                    if (!(reduce_types & RT_HISTORY))
-                        var_flags |= TOK_OPEN_CURLY;
-                    allow_toktype = (var_flags | TOK_VFN_DOT | TOK_RFN | TOK_OP | TOK_CLOSE_PAREN
+                    allow_toktype = (TOK_VFN_DOT | TOK_RFN | TOK_OP | TOK_CLOSE_PAREN
                                      | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY | TOK_COLON);
+                    if (!(reduce_types & RT_VECTOR))
+                        allow_toktype |= TOK_OPEN_SQUARE;
+                    if (!(reduce_types & RT_HISTORY))
+                        allow_toktype |= TOK_OPEN_CURLY;
                     break;
                 }
                 if (found_accum) {
@@ -313,10 +309,11 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 estack_push(out, &tok);
 
                 /* variables can have vector and history indices */
-                var_flags = TOK_OPEN_SQUARE | TOK_OPEN_CURLY;
+                allow_toktype = TOK_OPEN_SQUARE | TOK_OPEN_CURLY | TOK_RFN;
                 if (VAR_X == tok.var.idx)
-                    var_flags |= TOK_DOLLAR;
-                allow_toktype = TOK_RFN | (var_flags | (assigning ? TOK_ASSIGN | TOK_ASSIGN_TT : 0));
+                    allow_toktype |= TOK_DOLLAR;
+                if (assigning)
+                    allow_toktype |= TOK_ASSIGN | TOK_ASSIGN_TT;
                 if (TOK_VAR == tok.toktype)
                     allow_toktype |= TOK_VFN_DOT;
                 if (tok.var.idx != VAR_Y || out_assigned > 1)
@@ -324,32 +321,9 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 muted = 0;
                 break;
             }
-            case TOK_FN: {
-                etoken_t newtok;
+            case TOK_FN:
                 tok.gen.datatype = fn_tbl[tok.fn.idx].fn_int ? MPR_INT32 : MPR_FLT;
                 tok.fn.arity = fn_tbl[tok.fn.idx].arity;
-                if (fn_tbl[tok.fn.idx].memory) {
-                    /* add assignment token */
-                    char varname[7];
-                    uint8_t varidx = num_var;
-                    {FAIL_IF(num_var >= N_USER_VARS, "Maximum number of variables exceeded.");}
-                    do {
-                        snprintf(varname, 7, "var%d", varidx++);
-                    } while (expr_var_find_by_name(vars, num_var, varname, 7) >= 0);
-                    /* need to store new variable */
-                    expr_var_set(&vars[num_var], varname, 0, type_hi, 1, VAR_ASSIGNED);
-
-                    newtok.toktype = TOK_ASSIGN_USE;
-                    newtok.var.idx = num_var++;
-                    newtok.gen.datatype = type_hi;
-                    newtok.gen.casttype = 0;
-                    newtok.gen.vec_len = 1;
-                    newtok.gen.flags = 0;
-                    newtok.var.vec_idx = 0;
-                    newtok.var.offset = 0;
-                    is_const = 0;
-                    estack_push(op, &newtok);
-                }
                 estack_push(op, &tok);
                 if (fn_tbl[tok.fn.idx].arity)
                     allow_toktype = TOK_OPEN_PAREN;
@@ -360,17 +334,42 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 }
                 if (tok.fn.idx >= FN_DEL_IDX)
                     is_const = 0;
-                if (fn_tbl[tok.fn.idx].memory) {
-                    newtok.toktype = TOK_VAR;
-                    newtok.gen.flags = 0;
-                    estack_push(out, &newtok);
-                }
                 break;
-            }
-            case TOK_VFN:
+            case TOK_VFN: {
+                etoken_t newtok;
+                int memory = vfn_tbl[tok.fn.idx].memory;
                 tok.toktype = TOK_VFN;
                 tok.gen.datatype = vfn_tbl[tok.fn.idx].fn_int ? MPR_INT32 : MPR_FLT;
                 tok.fn.arity = vfn_tbl[tok.fn.idx].arity;
+                while (memory) {
+                    /* add assignment token */
+                    char varname[7];
+                    uint8_t varidx = num_var;
+                    {FAIL_IF(num_var >= N_USER_VARS, "Maximum number of variables exceeded.");}
+                    do {
+                        snprintf(varname, 7, "var%d", varidx++);
+                    } while (expr_var_find_by_name(vars, num_var, varname, 7) >= 0);
+                    /* need to store new variable */
+                    expr_var_set(&vars[num_var], varname, 0, type_hi, 1, VAR_ASSIGNED);
+
+                    newtok.toktype = (memory == vfn_tbl[tok.fn.idx].memory) ? TOK_ASSIGN_USE : TOK_ASSIGN;
+                    newtok.var.idx = num_var++;
+                    newtok.gen.datatype = type_hi;
+                    newtok.gen.casttype = 0;
+                    newtok.gen.vec_len = 1;
+                    newtok.gen.flags = 0;
+                    newtok.var.vec_idx = 0;
+                    newtok.var.offset = 0;
+                    is_const = 0;
+                    estack_push(op, &newtok);
+                    --memory;
+                }
+                memory = vfn_tbl[tok.fn.idx].memory;
+                if (memory > 1) {
+                    newtok.toktype = TOK_SP_ADD;
+                    newtok.lit.val.i = memory - 1;
+                    estack_push(op, &newtok);
+                }
                 if (VFN_ANGLE == tok.fn.idx) {
                     tok.gen.vec_len = 2;
                     tok.gen.flags |= VEC_LEN_LOCKED;
@@ -378,8 +377,16 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 else
                     tok.gen.vec_len = 1;
                 estack_push(op, &tok);
+                while (memory) {
+                    newtok.toktype = TOK_VAR;
+                    newtok.var.idx = num_var - memory;
+                    newtok.gen.flags = 0;
+                    estack_push(out, &newtok);
+                    --memory;
+                }
                 allow_toktype = TOK_OPEN_PAREN;
                 break;
+            }
             case TOK_VFN_DOT: {
                 etoken t = estack_peek(op, ESTACK_TOP);
                 if (t->toktype != TOK_RFN || t->fn.idx < RFN_HISTORY) {
@@ -922,10 +929,9 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             }
             case TOK_OPEN_PAREN: {
                 etoken t = estack_peek(op, ESTACK_TOP);
-                if (TOK_FN == t->toktype && fn_tbl[t->fn.idx].memory)
-                    tok.fn.arity = 2;
-                else
-                    tok.fn.arity = 1;
+                tok.fn.arity = 1;
+                if (TOK_VFN == t->toktype)
+                    tok.fn.arity += vfn_tbl[t->fn.idx].memory;
                 tok.fn.idx = (TOK_FN == t->toktype || TOK_VFN == t->toktype) ? t->fn.idx : FN_UNKNOWN;
                 estack_push(op, &tok);
                 allow_toktype = OBJECT_TOKENS;
@@ -984,6 +990,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         etoken top_m1 = estack_peek(out, ESTACK_TOP - 1);
                         {FAIL_IF(TOK_VAR != top->toktype || VAR_X != top->var.idx,
                                  "Signal index used on incompatible token.");}
+                        {FAIL_IF(top->gen.flags & VAR_SIG_IDX, "Signal index already set.");}
                         if (TOK_LITERAL == top_m1->toktype) {
                             /* Optimize by storing signal idx in variable token */
                             int sig_idx;
@@ -993,29 +1000,27 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             if (sig_idx < 0)
                                 sig_idx += num_src;
                             top->var.idx = sig_idx + VAR_X;
-                            top->gen.flags &= ~VAR_SIG_IDX;
                             estack_cpy_tok(out, ESTACK_TOP - 1, ESTACK_TOP);
                             estack_pop(out);
                         }
-                        else if (type_hi != type_lo) {
-                            /* heterogeneous types, need to cast */
-                            top->var.datatype = type_lo;
-                            top->var.casttype = type_hi;
+                        else {
+                            top->gen.flags |= VAR_SIG_IDX;
+                            /* signal indices must be integers */
+                            if (top_m1->gen.datatype != MPR_INT32)
+                                top_m1->gen.casttype = MPR_INT32;
+                            if (type_hi != type_lo) {
+                                /* heterogeneous types, need to cast */
+                                top->var.datatype = type_lo;
+                                top->var.casttype = type_hi;
+                            }
                         }
                         estack_pop(op);
 
-                        /* signal indices must be integers */
-                        if (top_m1->gen.datatype != MPR_INT32)
-                            top_m1->gen.casttype = MPR_INT32;
-
                         /* signal index set */
-                        /* recreate var_flags from variable token */
-                        var_flags = top->gen.flags & VAR_IDXS;
                         if (!(top->gen.flags & VAR_VEC_IDX) && !top->var.vec_idx)
-                            var_flags |= TOK_OPEN_SQUARE;
+                            allow_toktype |= TOK_OPEN_SQUARE;
                         if (!(top->gen.flags & VAR_HIST_IDX))
-                            var_flags |= TOK_OPEN_CURLY;
-                        allow_toktype |= (var_flags & ~VAR_IDXS);
+                            allow_toktype |= TOK_OPEN_CURLY;
                     }
                     else if (FN_DEL_IDX == (estack_peek(op, ESTACK_TOP))->fn.idx) {
                         int buffer_size = 0;
@@ -1086,15 +1091,12 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             default:
                                 {FAIL("Illegal arity for variable delay.");}
                         }
-                        /* recreate var_flags from variable token */
-                        t = estack_peek(out, ESTACK_TOP);
-                        var_flags = t->gen.flags & VAR_IDXS;
-                        if (!(t->gen.flags & VAR_SIG_IDX) && VAR_X == t->var.idx)
-                            var_flags |= TOK_DOLLAR;
-                        if (!(t->gen.flags & VAR_VEC_IDX) && !t->var.vec_idx)
-                            var_flags |= TOK_OPEN_SQUARE;
 
-                        allow_toktype |= (var_flags & ~VAR_IDXS);
+                        t = estack_peek(out, ESTACK_TOP);
+                        if (!(t->gen.flags & VAR_SIG_IDX) && VAR_X == t->var.idx)
+                            allow_toktype |= TOK_DOLLAR;
+                        if (!(t->gen.flags & VAR_VEC_IDX) && !t->var.vec_idx)
+                            allow_toktype |= TOK_OPEN_SQUARE;
                     }
                     else if (FN_VEC_IDX == (estack_peek(op, ESTACK_TOP))->fn.idx) {
                         etoken top = estack_peek(out, ESTACK_TOP);
@@ -1132,14 +1134,10 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         top->var.vec_len = 1;
 
                         /* vector index set */
-                        /* recreate var_flags from variable token */
-                        var_flags = top->gen.flags & VAR_IDXS;
                         if (!(top->gen.flags & VAR_SIG_IDX) && VAR_X == top->var.idx)
-                            var_flags |= TOK_DOLLAR;
+                            allow_toktype |= TOK_DOLLAR;
                         if (!(top->gen.flags & VAR_HIST_IDX))
-                            var_flags |= TOK_OPEN_CURLY;
-
-                        allow_toktype |= (var_flags & ~VAR_IDXS);
+                            allow_toktype |= TOK_OPEN_CURLY;
                         break;
                     }
                     else {
@@ -1283,8 +1281,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     GET_NEXT_TOKEN(tok);
                     {FAIL_IF(tok.toktype != TOK_CLOSE_SQUARE, "Unmatched bracket.");}
                     /* vector index set */
-                    var_flags &= ~VAR_VEC_IDX;
-                    allow_toktype = (JOIN_TOKENS | TOK_VFN_DOT | TOK_RFN | (var_flags & ~VAR_IDXS));
+                    allow_toktype = (JOIN_TOKENS | TOK_VFN_DOT | TOK_RFN);
                     if (assigning)
                         allow_toktype |= TOK_ASSIGN | TOK_ASSIGN_TT;
                     break;
@@ -1371,8 +1368,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 {FAIL_IF(VAR_X != out_top->var.idx || out_top->gen.flags & VAR_SIG_IDX,
                          "Signal index on non-input type or index already set.");}
 
-                out_top->gen.flags |= VAR_SIG_IDX;
-
                 GET_NEXT_TOKEN(tok);
                 {FAIL_IF(TOK_OPEN_PAREN != tok.toktype,
                          "Signal index token must be followed by an integer or use parentheses.");}
@@ -1393,12 +1388,11 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 /* sig_idx should come last on output stack (first on operator stack) so we
                  * don't need to move any other tokens */
 
-                var_flags = (var_flags & ~TOK_DOLLAR) | VAR_SIG_IDX;
                 allow_toktype = OBJECT_TOKENS;
                 break;
             }
             case TOK_OPEN_SQUARE:
-                if (var_flags & TOK_OPEN_SQUARE) { /* vector index not set */
+                if (decorating_var) { /* vector index */
                     etoken t;
                     {FAIL_IF(TOK_VAR != (estack_peek(out, ESTACK_TOP))->toktype,
                              "error: vector index on non-variable type. (1)");}
@@ -1428,7 +1422,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             estack_push(op, estack_pop(out));
                     }
 
-                    var_flags = (var_flags & ~TOK_OPEN_SQUARE) | VAR_VEC_IDX;
                     allow_toktype = OBJECT_TOKENS;
                     break;
                 }
@@ -1468,7 +1461,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         estack_push(op, estack_pop(out));
                 }
 
-                var_flags = (var_flags & ~TOK_OPEN_CURLY) | VAR_HIST_IDX;
                 allow_toktype = OBJECT_TOKENS;
                 break;
             }
@@ -1485,8 +1477,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     {FAIL_IF(tok.toktype != TOK_VAR, "Misplaced instance index query.");}
                     tok.toktype = TOK_VAR_INST_IDX;
                     estack_push(out, &tok);
-                    /* disallow vector/history/instance indexes */
-                    var_flags = VAR_INST_IDX | VAR_HIST_IDX | VAR_VEC_IDX;
                     allow_toktype = JOIN_TOKENS | TOK_DOLLAR;
                 }
                 break;
@@ -1503,7 +1493,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 break;
             case TOK_ASSIGN: {
                 etoken out_top = estack_peek(out, ESTACK_TOP);
-                var_flags = 0;
                 /* assignment to variable */
                 {FAIL_IF(!assigning, "Misplaced assignment operator.");}
                 {FAIL_IF(op->num_tokens || !out->num_tokens,
