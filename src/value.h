@@ -5,6 +5,7 @@
 #include <string.h>
 #include "util/mpr_inline.h"
 #include "mpr_type.h"
+#include "bitflags.h"
 
 /*! A structure that stores the current and historical values of a signal. The
  *  size of the history array is determined by the needs of mapping expressions.
@@ -47,6 +48,8 @@ int mpr_value_set_next_coerced(mpr_value v, unsigned int inst_idx, unsigned int 
 mpr_time mpr_value_get_time(mpr_value v, unsigned int inst_idx, int hist_idx);
 
 void mpr_value_set_time(mpr_value v, mpr_time t, unsigned int inst_idx, int hist_idx);
+
+mpr_time mpr_value_get_start(mpr_value v, unsigned int inst_idx);
 
 void mpr_value_incr_idx(mpr_value v, unsigned int inst_idx, mpr_time t);
 

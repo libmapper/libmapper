@@ -14,7 +14,7 @@
 
 typedef struct _mpr_value_buffer
 {
-    mpr_time created;           /*!< Time at which this instance was created. */
+    mpr_time start;             /*!< Time at which this instance was activated. */
     void *samps;                /*!< Value for each sample of stored history. */
     mpr_time *times;            /*!< Time for each sample of stored history. */
     mpr_bitflags known;         /*!< Bitflags indicating which value elements are known. */
@@ -262,6 +262,12 @@ mpr_time mpr_value_get_time(mpr_value v, unsigned int inst_idx, int hist_idx)
     return *t;
 }
 
+mpr_time mpr_value_get_start(mpr_value v, unsigned int inst_idx)
+{
+    mpr_value_buffer b = GET_BUFFER();
+    return b->start;
+}
+
 int mpr_value_set_next(mpr_value v, unsigned int inst_idx, const void *s, mpr_time t)
 {
     int cmp = 1;
@@ -390,7 +396,7 @@ void mpr_value_incr_idx(mpr_value v, unsigned int inst_idx, mpr_time t)
     mpr_value_buffer b = GET_BUFFER();
     if (b->pos < 0) {
         ++v->num_active_inst;
-        b->created = t;
+        b->start = t;
     }
     else if (!mpr_bitflags_get_all(b->known)) {
         /* don't advance position until all vector elements are known */
