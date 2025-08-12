@@ -994,6 +994,7 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
         dev->obj.status |= MPR_STATUS_MODIFIED;
         mpr_obj_incr_version((mpr_obj)dev);
     }
+    dev->obj.status |= MPR_STATUS_ACTIVE;
     return updated;
 }
 
