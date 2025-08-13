@@ -80,6 +80,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     /* TODO: optimise these vars */
     int num_var = 0;
     etoken_t tok;
+    tok.toktype = TOK_UNKNOWN;
     mpr_type type_hi = MPR_INT32, type_lo = MPR_DBL;
 
     /* ignoring spaces at start of expression */
