@@ -1337,7 +1337,7 @@ namespace mapper {
          *  \param idx      The index of the Instance to retrieve.
          *  \param status   The status pool to query: `ACTIVE`, `RESERVED`, or `ANY`.
          *  \return         An Instance. */
-        Instance instance(int idx, InstanceStatus status = InstanceStatus::ANY) const
+        Instance instance(int idx, InstanceStatus status) const
             { return Instance(_obj, mpr_sig_get_inst_id(_obj, idx, static_cast<mpr_status>(status))); }
 
         /*! Remove an Instance and free its resources.
