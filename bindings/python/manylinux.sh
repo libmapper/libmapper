@@ -43,7 +43,7 @@ PKG_CONFIG_PATH=$INST/lib/pkgconfig $ROOT/configure \
 make clean
 make install -j4
 
-python3.6 -m pip wheel -w $TMP/wheelhouse $TMP/libmapper/bindings/python
+python3 -m pip wheel -w $TMP/wheelhouse $TMP/libmapper/bindings/python
 unzip -t $TMP/wheelhouse/*.whl
 for WHL in $TMP/wheelhouse/*.whl; do
     auditwheel repair $WHL --plat "$PLAT" -w $ROOT/wheelhouse || bash -i
