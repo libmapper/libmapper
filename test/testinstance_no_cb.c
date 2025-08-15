@@ -736,7 +736,6 @@ int main(int argc, char **argv)
                         if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
                             i++;
                             iface = argv[i];
-                            j = len;
                         }
                         else if (strcmp(argv[i], "--config")==0 && argc>i+1) {
                             i++;
@@ -763,8 +762,8 @@ int main(int argc, char **argv)
                                     ++i;
                                 }
                             }
-                            j = len;
                         }
+                        j = len;
                         break;
                     default:
                         break;

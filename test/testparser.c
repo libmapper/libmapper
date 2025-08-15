@@ -1938,26 +1938,27 @@ int main(int argc, char **argv)
                         eprintf("testparser.c: possible arguments "
                                 "-q quiet (suppress output), "
                                 "-h help, "
-                                "-i index (default all), "
-                                "--num_iterations <int> (default %d)\n",
+                                "--expr expression index <int (...)> (default all), "
+                                "--iterations <int> (default %d)\n",
                                 iterations);
                         return 1;
                         break;
                     case 'q':
                         verbose = 0;
                         break;
-                    case 'i':
-                        if (++i < argc)
-                            start_index = stop_index = atoi(argv[i]);
-                        if (i + 1 < argc && strcmp(argv[i + 1], "...")==0) {
-                            stop_index = 1000000;
-                            ++i;
-                        }
-                        break;
                     case '-':
-                        if (++j < len && strcmp(argv[i]+j, "num_iterations")==0)
-                            if (++i < argc)
-                                iterations = atoi(argv[i]);
+                        if (strcmp(argv[i], "--expr")==0 && argc>i+1) {
+                            ++i;
+                            start_index = stop_index = atoi(argv[i]);
+                            if (argc>i+1 && strcmp(argv[i + 1], "...")==0) {
+                                stop_index = 1000000;
+                                ++i;
+                            }
+                        }
+                        else if (strcmp(argv[i], "--iterations")==0 && argc>i+1) {
+                            ++i;
+                            iterations = atoi(argv[i]);
+                        }
                         j = len;
                         break;
                     default:
