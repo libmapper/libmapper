@@ -1,5 +1,51 @@
 # libmapper NEWS
 
+version 2.4.14
+--------------
+
+We are pleased to announce the release of version 2.4.14 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This release is focused on bugfixes, improvements to the expression engine and test suite, and documentation.
+
+Bug fixes and improvements:
+
+- Convergent maps built with remote signals now return the original map pointer after handshaking.
+- Remote devices now automatically set `STATUS_ACTIVE` bitflag.
+- Added helper function `mpr_obj_get_prop_as_dbl()` to public API.
+- Enabled casting from `MPR_TIME` type to other typed property getters.
+- Internal improvements to the `mpr_bitflags` and `mpr_value` data structures and methods.
+- Added local bundle handling as a message destination to `network.c` for more efficient handling of local maps.
+- Fixed handling of write-protected object properties.
+- Fixed timestamp behaviour for devices which only update signals through local maps.
+
+Expression engine:
+
+- Added vector `product()` and `reverse()` functions.
+- Added exponential moving deviation function `emd()`.
+- Optimized vector `mean()` function.
+- Added a `pass()` function for e.g. rounding integers.
+- Detect divide-by-zero and out-of-bounds arguments in evaluator.
+- Detect evaluation errors during precomputation of expression fragments rather than over whole expression.
+- Use sub-expression evaluation errors detection to simplify `linear()` macro expansion.
+- Limited errno checking to EDOM.
+- Improved trace messages.
+- Fixed vector construction bug in parser.
+- Enabled retrieval of current instance index in expression mini-language.
+- Fixed possible reference to most recent input by TOK_VAR_NUM_INST.
+- Fixed parser fail when operand was a reduce expression; added test.
+
+Test suite:
+
+- Added additional tests for `MPR_TIME`-typed properties and write-access to `testprops.c`
+- Reversed configuration order in `testconvergent.c` to test map handshaking from 3rd party graph before signals are known.
+- Added tests for inverse trig functions including out-of-bounds argmuments to `testparser.c`
+- Separated tracking of parser and evaluator failure in `testparser.c`.
+- Fixed memory leak when checking list-typed properties in `testprops.c`.
+- Fixed possible `powf` and int overflows in `testparser.c`.
+- Use polling arg `-1` when running `testconvergent.c` in fast mode.
+- Added configuration to `testconvergent.c` to test per-element convergent mapping.
+- Fixed naming in several tests.
+
 Version 2.4.13
 --------------
 
