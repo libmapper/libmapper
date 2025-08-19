@@ -42,7 +42,7 @@ jobs:
 
   MacOS:
     runs-on: macOS-13
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       CC: clang
       CXX: clang++
