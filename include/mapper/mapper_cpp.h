@@ -2649,7 +2649,7 @@ namespace mapper {
     inline Device Signal::device() const
         { return Device(mpr_sig_get_dev(_obj)); }
 
-    List<Signal::Instance> Signal::instances(Status status) const
+    inline List<Signal::Instance> Signal::instances(Status status) const
         { return List<Signal::Instance>(_obj, static_cast<mpr_status>(status)); }
 
     inline std::string version()
