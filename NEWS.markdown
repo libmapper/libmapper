@@ -1,5 +1,49 @@
 # libmapper NEWS
 
+version 2.5.2
+-------------
+
+We are pleased to announce the release of version 2.5.2 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+In addition to containing various bug fixes, this release introduces dramatic improvements to distributed clock synchronization. Linked devices will now automatically compensate for clock offsets when sending signal updates.
+
+General fixes and improvements:
+
+- Enabled printing graph object properties using `mpr_obj_print()`.
+- Fixed handling of object properties when using `MPR_PROP_UNKNOWN` property constant.
+- Ensured `mpr_value` instances are allocated with reasonable default type and vector length.
+- Disabled storage of self-reported device IP addresses as device metadata.
+- Improved inter-device clock offset estimation and enabled automatic timestamp translation over links.
+- Improved handling of local-only links and maps, including clean up on map free and sending instance release messages 'upstream'.
+- Improved handling of proxy `id_maps` when mapping persistent instanced signals.
+- Restored and improved reporting of signal period and jitter metadata.
+- Added call to disable threaded polling (if enabled) before device free, in case `mpr_dev_stop_polling()` was not called.
+- Cleaned up debug messaging
+- Refactoring.
+
+Expression engine:
+
+- Fixed erroneous optimization of modulo operations
+- Fixed token misreference bug in expression parser that would result in wrong number of internal memory variables being allocated.
+
+Test suite:
+
+- Added `test_time_sync.c`
+- Added more configurations to `testinstance_no_cb.c`
+
+C++ bindings:
+
+- Added missing `inline` keyword for `Signal::instances()` method.
+
+Python bindings:
+
+- Updated documentation, tests, and examples.
+
+CI:
+
+- CI/Windows: install Python setuptools
+
+
 version 2.5.1
 -------------
 
