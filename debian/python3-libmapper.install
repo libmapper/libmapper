@@ -1,0 +1,2 @@
+# You must remove unused comment lines for the released package.
+usr/lib/python3*/site-packages/libmapper* usr/lib/python3/dist-packages
