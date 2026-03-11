@@ -367,7 +367,9 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     dev = sig->dev;
 
 #ifdef DEBUG
-    trace("'%s:%s' received update: ", mpr_dev_get_name((mpr_dev)dev), sig->name);
+    trace("<%s> '%s:%s' received update: ",
+          lo_address_get_protocol(lo_message_get_source(msg)) == LO_TCP ? "TCP" : "UDP",
+          mpr_dev_get_name((mpr_dev)dev), sig->name);
     lo_message_pp(msg);
 #endif
 

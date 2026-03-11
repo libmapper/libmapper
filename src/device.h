@@ -110,7 +110,7 @@ void mpr_local_dev_set_receiving(mpr_local_dev dev);
 int mpr_local_dev_has_subscribers(mpr_local_dev dev);
 
 void mpr_local_dev_send_to_subscribers(mpr_local_dev dev, lo_bundle bundle, int msg_type,
-                                       lo_server from);
+                                       lo_server *servers);
 
 void mpr_local_dev_handler_name(mpr_local_dev dev, const char *name,
                                 int temp_id, int random_id, int hint);

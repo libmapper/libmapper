@@ -49,11 +49,12 @@ static unsigned __stdcall net_thread_func(void *data);
 
 extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 
-#define NUM_NET_SERVERS 2
+#define NUM_NET_SERVERS 3
 #define NUM_DEV_SERVERS 2
 
 #define SERVER_BUS      0   /* Multicast comms. */
-#define SERVER_MESH     1   /* Mesh comms. */
+#define SERVER_MESH_UDP 1   /* UDP Mesh comms. */
+#define SERVER_MESH_TCP 2   /* TCP Mesh comms. */
 
 #define MAX_BUNDLE_LEN 8192
 #define FIND 0
@@ -723,8 +724,7 @@ int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     net->servers[SERVER_BUS] = temp_server1;
     FUNC_IF(lo_server_free, temp_server2);
 
-    /* Also open address/server for mesh-style communications */
-    /* TODO: use TCP instead? */
+    /* Open address/server for UDP mesh communications */
     /* Use lo_server_new_from_config() so we can specify the network interface */
     lo_server_config config = {sizeof(lo_server_config), NULL, NULL, net->iface.name, NULL, LO_UDP, handler_error, NULL};
     while (!(temp_server1 = lo_server_new_from_config(&config))) {}
@@ -734,8 +734,26 @@ int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     mpr_net_add_graph_methods(net, temp_server1);
 
     /* Swap and free old server structure if necessary */
-    temp_server2 = net->servers[SERVER_MESH];
-    net->servers[SERVER_MESH] = temp_server1;
+    temp_server2 = net->servers[SERVER_MESH_UDP];
+    net->servers[SERVER_MESH_UDP] = temp_server1;
+    FUNC_IF(lo_server_free, temp_server2);
+
+    /* Open address/server for TCP mesh communications */
+    /* Extract port from UDP admin server. */
+    snprintf(port_str, 10, "%d", lo_server_get_port(temp_server1));
+    config.port = port_str;
+    config.proto = LO_TCP;
+    while (!(temp_server1 = lo_server_new_from_config(&config))) {
+        ;
+    }
+
+    /* Disable liblo message queueing and add methods. */
+    lo_server_enable_queue(temp_server1, 0, 1);
+    mpr_net_add_graph_methods(net, temp_server1);
+
+    /* Swap and free old server structure if necessary */
+    temp_server2 = net->servers[SERVER_MESH_TCP];
+    net->servers[SERVER_MESH_TCP] = temp_server1;
     FUNC_IF(lo_server_free, temp_server2);
 
     for (i = 0; i < net->num_devs; i++) {
@@ -771,11 +789,13 @@ void mpr_net_send(mpr_net net)
     switch (net->addr.dst) {
         case BUNDLE_DST_SUBSCRIBERS:
             mpr_local_dev_send_to_subscribers(net->addr.dev, bundle, net->msg_type,
-                                              net->servers[SERVER_MESH]);
+                                              &net->servers[SERVER_MESH_UDP]);
             break;
         case BUNDLE_DST_MESH:
             if (net->addr.mesh) {
-                lo_send_bundle_from(net->addr.mesh, net->servers[SERVER_MESH], bundle);
+                int idx = (  LO_TCP == lo_address_get_protocol(net->addr.mesh)
+                           ? SERVER_MESH_TCP : SERVER_MESH_UDP);
+                lo_send_bundle_from(net->addr.mesh, net->servers[idx], bundle);
                 break;
             }
             /* otherwise fall back to local */
@@ -783,14 +803,14 @@ void mpr_net_send(mpr_net net)
             size_t data_len;
             char *data = (char*) lo_bundle_serialise(bundle, NULL, &data_len);
             if (data) {
-                lo_server_dispatch_data(net->servers[SERVER_MESH], data, data_len);
+                lo_server_dispatch_data(net->servers[SERVER_MESH_UDP], data, data_len);
                 free(data);
                 break;
             }
             /* otherwise fall back to bus */
         }
         case BUNDLE_DST_BUS:
-            lo_send_bundle_from(net->addr.bus, net->servers[SERVER_MESH], bundle);
+            lo_send_bundle_from(net->addr.bus, net->servers[SERVER_MESH_UDP], bundle);
             break;
     }
 
