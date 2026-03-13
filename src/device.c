@@ -1279,11 +1279,11 @@ static int check_collisions(mpr_net net, mpr_allocated resource)
         }
         return 0;
     }
-    else if (timediff >= 2.0 && resource->collision_count < 2) {
+    else if (timediff >= 1.0 && resource->collision_count < 2) {
         resource->locked = 1;
         return 2;
     }
-    else if (timediff >= 0.5 && resource->collision_count > 1) {
+    else if (timediff >= 0.25 && resource->collision_count > 1) {
         for (i = 0; i < 8; i++) {
             if (!resource->hints[i])
                 break;
