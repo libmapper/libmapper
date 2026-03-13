@@ -706,11 +706,11 @@ int run_test(test_config *config)
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_USE_INST, NULL, 1, MPR_BOOL, &use_inst, 1);
     mpr_obj_push((mpr_obj)map);
     while (!done && !mpr_map_get_is_ready(map)) {
-        mpr_dev_poll(src, 100);
-        mpr_dev_poll(dst, 100);
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
     }
-    mpr_dev_poll(src, 100);
-    mpr_dev_poll(dst, 100);
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
 
     /* remove any extra destination instances allocated by previous tests */
     while (5 <= mpr_sig_get_num_inst(multirecv, MPR_STATUS_ANY)) {
@@ -720,8 +720,8 @@ int run_test(test_config *config)
             mpr_sig_remove_inst(multirecv, id);
     }
 
-    mpr_dev_poll(src, 100);
-    mpr_dev_poll(dst, 100);
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
 
     if (INST == config->dst_type) {
         /* activate 2 destination instances */
@@ -748,8 +748,8 @@ int run_test(test_config *config)
     release_active_instances(multisend1);
     release_active_instances(multisend2);
 
-    mpr_dev_poll(src, 100);
-    mpr_dev_poll(dst, 100);
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
 
     /* Warning: assuming that map has not been released by a peer process is not safe! Do not do
      * this in non-test code. Instead you should try to fetch a fresh map object from the graph
@@ -757,15 +757,12 @@ int run_test(test_config *config)
     mpr_map_release(map);
 
     /* TODO: we shouldn't have to wait here... */
-    mpr_dev_poll(src, 100);
-    mpr_dev_poll(dst, 100);
-    mpr_dev_poll(src, 100);
-    mpr_dev_poll(dst, 100);
-
-    mpr_dev_poll(src, 100);
-    mpr_dev_poll(dst, 100);
-    mpr_dev_poll(src, 100);
-    mpr_dev_poll(dst, 100);
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
 
     release_active_instances(multirecv);
 
