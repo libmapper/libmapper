@@ -1004,9 +1004,23 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
         return;
     }
     else if (mpr_obj_get_is_local((mpr_obj)d)) {
-        /* don't bother subscribing to local device */
-        trace_graph(g, "aborting subscription, device is local.\n");
-        return;
+        if (g == mpr_obj_get_graph((mpr_obj)d)) {
+            /* don't bother subscribing to local device */
+            trace_graph(g, "aborting subscription, device is local.\n");
+            return;
+        }
+        else {
+            trace_graph(g, "subscribing to device from another graph.\n")
+            mpr_dev ld = (mpr_dev)get_obj_by_id(g, g->devs, ((mpr_obj)d)->id);
+            if (ld) {
+                trace_graph(g, "  found local copy\n")
+                d = ld;
+            }
+            else {
+                /* need to add temporary copy */
+                d = mpr_graph_add_dev(g, mpr_dev_get_name(d), NULL, NULL, 1);
+            }
+        }
     }
     if (0 == flags || 0 == timeout) {
         mpr_subscription *s = &g->subscriptions, temp;
