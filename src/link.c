@@ -207,6 +207,8 @@ void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time 
     b = (proto == MPR_PROTO_UDP) ? &link->bundles[bundle_idx].udp : &link->bundles[bundle_idx].tcp;
     if (!(*b))
         *b = lo_bundle_new(t);
+    else if (!lo_bundle_count(*b))
+        lo_bundle_set_timestamp(*b, t);
     lo_bundle_add_message(*b, path, msg);
 }
 
@@ -226,20 +228,18 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t)
     if (!link->is_local_only) {
         mpr_local_dev ldev = (mpr_local_dev)link->devs[LINK_LOCAL_DEV];
         if ((lb = mb->udp)) {
-            mb->udp = 0;
             if ((num_msg = lo_bundle_count(lb))) {
                 lo_send_bundle_from(link->addr.data.udp, mpr_net_get_dev_server(net, ldev, SERVER_DATA_UDP), lb);
             }
-            lo_bundle_free_recursive(lb);
+            lo_bundle_clear(lb);
         }
         if ((lb = mb->tcp)) {
-            mb->tcp = 0;
             int count;
             if ((count = lo_bundle_count(lb))) {
                 num_msg += count;
                 lo_send_bundle_from(link->addr.data.tcp, mpr_net_get_dev_server(net, ldev, SERVER_DATA_TCP), lb);
             }
-            lo_bundle_free_recursive(lb);
+            lo_bundle_clear(lb);
         }
     }
     else {
@@ -251,7 +251,6 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t)
                 const char *path;
                 int j = 0, count;
 
-                lbs[i] = 0;
                 /* set out-of-band timestamp */
                 mpr_net_set_bundle_time(net, lo_bundle_get_timestamp(lb));
                 /* call handler directly instead of sending over the network */
@@ -265,7 +264,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t)
                                             lo_message_get_argc(m), m, dst);
                     ++j;
                 }
-                lo_bundle_free_recursive(lb);
+                lo_bundle_clear(lb);
                 num_msg += count;
             }
         }
