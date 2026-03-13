@@ -43,6 +43,7 @@ if WINDOWS_DLL
         testsignals \
         testspeed \
         teststealing \
+        test_subscriptions \
         test_time_sync \
         testunmap \
         testvector \
@@ -81,6 +82,7 @@ if WINDOWS_DLL
         testsetremote \
         testselfmap \
         teststealing \
+        test_subscriptions \
         test_time_sync \
         test
 
@@ -123,6 +125,7 @@ else
         testsignals \
         testspeed \
         teststealing \
+        test_subscriptions \
         testthread \
         test_time_sync \
         testunmap \
@@ -164,6 +167,7 @@ else
         testsetremote \
         testselfmap \
         teststealing \
+        test_subscriptions \
         test_time_sync \
         test
 
@@ -316,6 +320,10 @@ testspeed_LDADD = $(TEST_LDADD)
 teststealing_CFLAGS = $(TEST_CFLAGS)
 teststealing_SOURCES = teststealing.c
 teststealing_LDADD = $(TEST_LDADD)
+
+test_subscriptions_CFLAGS = $(TEST_CFLAGS)
+test_subscriptions_SOURCES = test_subscriptions.c
+test_subscriptions_LDADD = $(TEST_LDADD)
 
 testthread_CFLAGS = $(TEST_CFLAGS)
 testthread_SOURCES = testthread.c

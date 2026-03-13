@@ -202,9 +202,9 @@ void loop(void)
         }
     }
     if (SYNCED == status)
-        printf("\n  Sync achieved in %2.2f seconds\n", sync_time);
+        printf("\r  Sync achieved in %2.2f seconds ", sync_time);
     else
-        printf("\n  Sync not achieved\n");
+        printf("\r  Sync not achieved ............");
 
     mpr_dev_stop_polling(dev1);
     mpr_dev_stop_polling(dev2);
@@ -305,7 +305,7 @@ int main(int argc, char **argv)
     mpr_dev_free(dev2);
     if (g)
         mpr_graph_free(g);
-    printf("...................Test %s\x1B[0m.\n",
+    printf("..................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

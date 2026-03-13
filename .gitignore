@@ -94,6 +94,7 @@ test/testsignalhierarchy
 test/testsignals
 test/testspeed
 test/teststealing
+test/test_subscriptions
 test/testthread
 test/test_time_sync
 test/testunmap
