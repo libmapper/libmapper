@@ -11,6 +11,7 @@ typedef struct _estack
     etoken_t *tokens;
     uint8_t offset;
     uint8_t num_tokens;
+    uint8_t size;
     uint8_t vec_len;
 } estack_t, *estack;
 
@@ -21,8 +22,10 @@ static void estack_print(const char *s, estack stk, expr_var_t *vars, int show_i
 estack estack_new(uint8_t num_tokens)
 {
     estack stk = calloc(1, sizeof(estack_t));
-    if (num_tokens)
+    if (num_tokens) {
+        stk->size = num_tokens;
         stk->tokens = calloc(1, num_tokens * sizeof(etoken_t));
+    }
     return stk;
 }
 
@@ -64,6 +67,8 @@ static int estack_replace_special_constants(estack stk)
 
 static etoken estack_push(estack stk, etoken tok)
 {
+    if (stk->num_tokens >= stk->size)
+        return 0;
     memcpy(stk->tokens + stk->num_tokens, tok, sizeof(etoken_t));
     ++stk->num_tokens;
     return &stk->tokens[stk->num_tokens - 1];
@@ -358,6 +363,29 @@ static void estack_cpy_tok(estack stk, int dst_idx, int src_idx)
     assert(dst_idx >= 0 && dst_idx < stk->num_tokens);
 
     etoken_cpy(&stk->tokens[dst_idx], &stk->tokens[src_idx]);
+}
+
+static etoken estack_insert(estack stk, int idx, int num_tokens, etoken_t *src)
+{
+    int i;
+    if (!src || num_tokens <= 0 || stk->num_tokens + num_tokens > stk->size)
+        return 0;
+
+    if (idx < 0)
+        idx += stk->num_tokens;
+    assert(idx >= 0 && idx < stk->num_tokens);
+
+    /* move tokens starting at idx num_tokens to the right */
+    for (i = stk->num_tokens - 1; i >= idx; i--) {
+        etoken_cpy(&stk->tokens[i + num_tokens], &stk->tokens[i]);
+    }
+
+    /* copy tokens from src to stk */
+    for (i = 0; i < num_tokens; i++) {
+        etoken_cpy(&stk->tokens[idx + i], &src[i]);
+    }
+    stk->num_tokens += num_tokens;
+    return &stk->tokens[idx + num_tokens - 1];
 }
 
 MPR_INLINE static int estack_squash(estack stk)

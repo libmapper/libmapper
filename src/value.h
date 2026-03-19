@@ -8,6 +8,8 @@
 #include "mpr_type.h"
 #include "bitflags.h"
 
+#define MPR_MAX_VECTOR_LEN 128
+
 /*! A structure that stores the current and historical values of a signal. The
  *  size of the history array is determined by the needs of mapping expressions.
  *  @ingroup signals */

@@ -142,13 +142,25 @@ static int expr_lex(const char *str, int idx, etoken tok)
         etoken_set_dbl(tok, atof(str+i));
         return idx;
     case '+':
-        etoken_set_op(tok, OP_ADD);
-        return ++idx;
+        tok->toktype = TOK_OP;
+        if (str[++idx] == '+') {
+            tok->toktype = TOK_OP_UNARY;
+            tok->op.idx = OP_INCREMENT_PRE;
+            ++idx;
+        }
+        else
+            etoken_set_op(tok, OP_ADD);
+        return idx;
     case '-':
         /* could be either subtraction, negation, or lambda */
         c = str[++idx];
-        if (c == '>') {
+        if ('>' == c) {
             tok->toktype = TOK_LAMBDA;
+            return idx + 1;
+        }
+        else if ('-' == c) {
+            tok->toktype = TOK_OP_UNARY;
+            tok->op.idx = OP_DECREMENT_PRE;
             return idx + 1;
         }
         i = idx - 2;
@@ -177,8 +189,19 @@ static int expr_lex(const char *str, int idx, etoken tok)
             etoken_set_op(tok, OP_IS_EQUAL);
             ++idx;
         }
-        else
-            tok->toktype = TOK_ASSIGN;
+        else {
+            tok->toktype = TOK_ASSIGN_OP;
+            ++idx;
+            switch(c) {
+                case '+':   tok->op.idx = OP_ADD;       break;
+                case '-':   tok->op.idx = OP_SUBTRACT;  break;
+                case '*':   tok->op.idx = OP_MULTIPLY;  break;
+                case '/':   tok->op.idx = OP_DIVIDE;    break;
+                default:
+                    tok->toktype = TOK_ASSIGN;
+                    --idx;
+            }
+        }
         return idx;
     case '<':
         /* could be '<', '<=', '<<' */
@@ -209,11 +232,14 @@ static int expr_lex(const char *str, int idx, etoken tok)
     case '!':
         /* could be '!', '!=' */
         /* TODO: handle factorial case */
-        etoken_set_op(tok, OP_LOGICAL_NOT);
         c = str[++idx];
         if (c == '=') {
-            tok->op.idx = OP_IS_NOT_EQUAL;
+            etoken_set_op(tok, OP_IS_NOT_EQUAL);
             ++idx;
+        }
+        else {
+            tok->toktype = TOK_OP_UNARY;
+            tok->op.idx = OP_LOGICAL_NOT;
         }
         return idx;
     case '&':
@@ -313,7 +339,7 @@ static int expr_lex(const char *str, int idx, etoken tok)
             idx += var_lookup(tok, str+i, idx-i);
         return idx;
     }
-    return 1;
+    return 0;
 }
 
 #endif /* #ifndef __MPR_EXPR_LEXER_H__ */

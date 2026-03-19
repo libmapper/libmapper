@@ -80,35 +80,6 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-typedef struct _expr_var {
-    char *name;
-    mpr_type datatype;
-    uint8_t vec_len;
-    uint8_t flags;
-} expr_var_t, *expr_var;
-
-typedef struct _estack
-{
-    void *tokens;
-    uint8_t offset;
-    uint8_t num_tokens;
-    uint8_t vec_len;
-} estack_t, *estack;
-
-struct _mpr_expr
-{
-    estack stack;
-    expr_var_t *vars;
-    uint16_t *src_mlen;
-    uint16_t max_src_mlen;
-    uint16_t dst_mlen;
-    uint8_t num_vars;
-    int8_t inst_ctl;
-    int8_t mute_ctl;
-    int8_t num_src;
-    int8_t own_stack;
-};
-
 /*! A helper function to seed the random number generator. */
 static void seed_srand()
 {
@@ -313,7 +284,7 @@ void setup_test(mpr_type in_type, int in_len, mpr_type out_type, int out_len)
 int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
 {
     /* clear output arrays */
-    int i, j, result = 0, mlen, status;
+    int i, j, result = 0, mlen, status, num_tokens;
     mpr_bitflags updated_values = 0;
 
     if (start_index >= 0 && (expression_count < start_index || expression_count > stop_index)) {
@@ -372,7 +343,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     }
 
     /* reallocate variable value histories */
-    for (i = 0; i < e->num_vars; i++) {
+    for (i = 0; i < mpr_expr_get_num_vars(e); i++) {
         int vlen = mpr_expr_get_var_vlen(e, i);
         mpr_type type = mpr_expr_get_var_type(e, i);
         mpr_value_realloc(user_vars[i], vlen, type, 1, 1, 0);
@@ -380,8 +351,9 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
         mpr_value_incr_idx(user_vars[i], 0, MPR_NOW);
     }
 
-    eprintf("Parser returned %d tokens...", e->stack->num_tokens);
-    if (max_tok && e->stack->num_tokens > max_tok) {
+    num_tokens = mpr_expr_get_num_tokens(e);
+    eprintf("Parser returned %d tokens...", num_tokens);
+    if (max_tok && num_tokens > max_tok) {
         eprintf(" (expected %d)\n", max_tok);
         result = 1;
         goto free;
@@ -396,7 +368,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     }
 #endif
 
-    token_count += e->stack->num_tokens;
+    token_count += num_tokens;
 
     update_count = 0;
     then = mpr_get_current_time();
@@ -1631,7 +1603,7 @@ int run_tests()
         return 1;
 
     /* 118) Multiple variable indices */
-    set_expr_str("a=0; b=1; c=-1; y=x$(a)[b]{c,2};");
+    set_expr_str("a=0; b=1; c= -1; y=x$(a)[b]{c,2};");
     setup_test(MPR_INT32, 2, MPR_FLT, 1);
     expect_flt[0] = src_int[1];
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
@@ -1967,7 +1939,84 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-//    /* 151) Signal count() */
+    /* 151) ++i, --i */
+    set_expr_str("y=(++a)-(--b)");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = iterations * 2;
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 10, 1, iterations))
+        return 1;
+
+    /* 152) i++, i-- */
+    set_expr_str("y=(a++)-(b--)");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = (iterations - 1) * 2;
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 12, 1, iterations))
+        return 1;
+
+    /* 153) malformed increment/decrement */
+    set_expr_str("y=2-(x+a)++");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = (iterations - 1) * 2;
+    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+        return 1;
+
+    /* 154) malformed increment/decrement */
+    set_expr_str("y=2--(x+a)");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = (iterations - 1) * 2;
+    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+        return 1;
+
+    /* 155) malformed increment/decrement */
+    set_expr_str("y=y{-1}++");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = (iterations - 1) * 2;
+    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+        return 1;
+
+    /* 156) malformed increment/decrement */
+    set_expr_str("y=(--a++)");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = (iterations - 1) * 2;
+    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+        return 1;
+
+    /* 157) increment vector element */
+    set_expr_str("a[1]++; y=a;");
+    setup_test(MPR_INT32, 2, MPR_INT32, 2);
+    expect_int[0] = 0;
+    expect_int[1] = iterations;
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 158) postfix increment vector index */
+    set_expr_str("y=x[a++];");
+    setup_test(MPR_INT32, 3, MPR_INT32, 2);
+    expect_int[0] = expect_int[1] = src_int[(iterations - 1) % 3];
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 159) prefix increment vector index */
+    set_expr_str("y=x[++a];");
+    setup_test(MPR_INT32, 3, MPR_INT32, 2);
+    expect_int[0] = expect_int[1] = src_int[(iterations) % 3];
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 160) isolated increment and decrement */
+    set_expr_str("++a; b--; y=b-a;");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = iterations * -2;
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 161) increment operator inside reduce expression */
+    set_expr_str("y=x.vector.reduce(a,b -> ++a);");
+    setup_test(MPR_INT32, 2, MPR_INT32, 2);
+    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+        return 1;
+
+//    /* 159) Signal count() */
 //    set_expr_str("y=x / x.signal.count();");
 //    types[0] = MPR_FLT;
 //    types[1] = MPR_INT32;

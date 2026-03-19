@@ -15,8 +15,6 @@ typedef int mpr_sig_group;
 #include "slot.h"
 #include "value.h"
 
-#define MPR_MAX_VECTOR_LEN 128
-
 size_t mpr_sig_get_struct_size(int is_local);
 
 int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int argc,

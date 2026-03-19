@@ -23,6 +23,10 @@ typedef enum {
     OP_LOGICAL_AND,
     OP_LOGICAL_OR,
     OP_PRIME,
+    OP_INCREMENT_PRE,
+    OP_DECREMENT_PRE,
+    OP_INCREMENT_POST,
+    OP_DECREMENT_POST,
     OP_IF,
     OP_IF_ELSE,
     OP_IF_THEN_ELSE
@@ -61,6 +65,10 @@ static struct {
     { "&&",         2, 2,  GET_ZERO | GET_ZERO <<4 | NONE     <<8 | NONE     <<12 },
     { "||",         2, 1,  GET_OPER | GET_OPER <<4 | GET_ONE  <<8 | GET_ONE  <<12 },
     { "'",          1, 12, GET_ZERO | NONE     <<4 | GET_ZERO <<8 | NONE     <<12 },
+    { "++.",         1, 12, GET_ONE  | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { "--.",         1, 12, NONE     | NONE     <<4 | GET_ZERO <<8 | NONE     <<12 },
+    { ".++",         1, 12, GET_ONE  | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { ".--",         1, 12, NONE     | NONE     <<4 | GET_ZERO <<8 | NONE     <<12 },
     /* TODO: handle optimization of ternary operator */
     { "IFTHEN",     2, 0,  NONE     | NONE     <<4 | NONE     <<8 | NONE     <<12 },
     { "IFELSE",     2, 0,  NONE     | NONE     <<4 | NONE     <<8 | NONE     <<12 },

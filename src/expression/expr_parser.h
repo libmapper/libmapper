@@ -62,9 +62,9 @@ typedef struct _temp_var_cache {
 #define ASSIGN_MASK (TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY \
                      | TOK_OPEN_CURLY | TOK_NEGATE | TOK_LITERAL | TOK_COLON)
 #define OBJECT_TOKENS (TOK_VAR | TOK_LITERAL | TOK_FN | TOK_VFN | TOK_MUTED | TOK_NEGATE \
-                       | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_OP | TOK_TT | TOK_HASH)
-#define JOIN_TOKENS (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY | TOK_COMMA \
-                     | TOK_COLON | TOK_SEMICOLON | TOK_FN_DOT)
+                       | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_OP_UNARY | TOK_TT | TOK_HASH)
+#define JOIN_TOKENS (TOK_OP | TOK_OP_UNARY | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY \
+                     | TOK_COMMA | TOK_COLON | TOK_SEMICOLON | TOK_FN_DOT)
 
 /* some vector functions require additional variable load/write tokens for function memory */
 int push_vfn_token(estack op, estack out, etoken tok, expr_var_t *vars, int *p_num_var, int move)
@@ -135,14 +135,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 {
     estack out = estack_new(STACK_SIZE), op = estack_new(STACK_SIZE);
     expr_var_t vars[N_USER_VARS];
-    int i, lex_idx = 0;
+    int i, lex_idx = 0, allow_toktype = 0x2FFFFF;;
 
     /* TODO: use bitflags instead? */
     uint8_t assigning = 0, is_const = 1, out_assigned = 0, muted = 0, vectorizing = 0;
     uint8_t lambda_allowed = 0, reduce_types = 0;
-    int decorating_var = 0;
-    int allow_toktype = 0x2FFFFF;
-    int vec_len_ctx = 0;
+    uint8_t decorating_var = 0;
+    uint8_t vec_len_ctx = 0;
 
     temp_var_cache temp_vars = NULL;
     /* TODO: optimise these vars */
@@ -156,7 +155,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     {FAIL_IF(!str[lex_idx], "No expression found.");}
 
     assigning = 1;
-    allow_toktype = TOK_VAR | TOK_TT | TOK_OPEN_SQUARE | TOK_MUTED;
+    allow_toktype = TOK_VAR | TOK_TT | TOK_OPEN_SQUARE | TOK_MUTED | TOK_OP_UNARY;
 
     /* Find lowest and highest signal types */
     for (i = 0; i < num_src; i++) {
@@ -187,6 +186,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             case TOK_VAR:
             case TOK_CLOSE_PAREN:
             case TOK_CLOSE_CURLY:
+            case TOK_CLOSE_SQUARE:
                 decorating_var = 1;
                 break;
             default:
@@ -357,8 +357,9 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 #endif
                         tok.var.idx = num_var;
                         tok.var.datatype = type_hi;
-                        /* special case: 'alive' tracks instance lifetime */
-                        // TODO: switch to variable property
+                        /* special case: 'alive' controls instance lifetime */
+                        /* special case: 'muted' controls mute state */
+                        // TODO: switch to variable property e.g. `y.alive`
                         if (   strcmp(vars[num_var].name, "alive") == 0
                             || strcmp(vars[num_var].name, "muted") == 0) {
                             vars[num_var].vec_len = tok.gen.vec_len = 1;
@@ -445,8 +446,36 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 allow_toktype = TOK_OPEN_PAREN;
                 break;
             }
+            case TOK_OP_UNARY:
+                {FAIL_IF(   !op->num_tokens
+                         && tok.op.idx != OP_INCREMENT_PRE
+                         && tok.op.idx != OP_DECREMENT_PRE, "illegal unary operator at expr start");}
+                tok.toktype = TOK_OP;
+                /* do not break */
             case TOK_OP: {
-                if (OP_PRIME != tok.op.idx) {
+                if (OP_PRIME == tok.op.idx) {
+                    tok.toktype = TOK_VFN;
+                    tok.fn.idx = VFN_DIFF2;
+                    /* omit break and continue to case TOK_VFN_DOT */
+                }
+                else if (OP_INCREMENT_PRE == tok.op.idx || OP_DECREMENT_PRE == tok.op.idx) {
+                    if (decorating_var) {
+                        /* increment/decrement postfix operator: i++, i-- */
+                        tok.op.idx += 2;
+                        estack_push(op, &tok);
+                        allow_toktype = JOIN_TOKENS;
+                    }
+                    else {
+                        /* increment/decrement prefix operator: ++i, --i */
+                        etoken t = estack_peek(op, ESTACK_TOP);
+                        {FAIL_IF(t && TOK_OP == t->toktype,
+                                 "bad syntax for prefix increment/decrement operator");}
+                        estack_push(op, &tok);
+                        allow_toktype = TOK_VAR;
+                    }
+                    break;
+                }
+                else {
                     /* check precedence of operators on stack */
                     while (op->num_tokens) {
                         etoken op_top = estack_peek(op, ESTACK_TOP);
@@ -454,18 +483,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             || (op_tbl[op_top->op.idx].precedence < op_tbl[tok.op.idx].precedence))
                             break;
                         estack_push(out, estack_pop(op));
-                        {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (25)");}
+                        {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (2)");}
                     }
                     estack_push(op, &tok);
                     allow_toktype = OBJECT_TOKENS & ~TOK_OP;
                     if (op_tbl[tok.op.idx].arity <= 1)
                         allow_toktype &= ~TOK_NEGATE;
                     break;
-                }
-                else {
-                    tok.toktype = TOK_VFN;
-                    tok.fn.idx = VFN_DIFF2;
-                    /* omit break and continue to case TOK_VFN_DOT */
                 }
             }
             case TOK_VFN_DOT: {
@@ -881,6 +905,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         ++sslen;
                         for (i = 0; i < sslen; i++) {
                             etoken out_top = estack_push(out, estack_pop(op));
+                            {FAIL_IF(!out_top, "Stack size exceeded.");}
                             if (TOK_LOOP_START == out_top->toktype)
                                 var_cache->loop_start_pos = (out->num_tokens - 1);
                         }
@@ -1245,31 +1270,45 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
                         top->gen.flags |= VAR_VEC_IDX;
                         estack_pop(op);
-                        if (TOK_LITERAL == top_m1->toktype) {
-                            if (   TOK_VAR == top->gen.toktype
-                                && (top->var.idx >= VAR_Y || vars[top->var.idx].vec_len)
-                                && MPR_INT32 == top_m1->gen.datatype) {
-                                /* Optimize by storing vector idx in variable token */
-                                int vec_len, vec_idx;
-                                if (VAR_Y == top->var.idx)
-                                    vec_len = dst_lens[0];
-                                else if (VAR_X <= top->var.idx)
-                                    vec_len = src_lens[top->var.idx - VAR_X];
-                                else
-                                    vec_len = vars[top->var.idx].vec_len;
-                                vec_idx = top_m1->lit.val.i % vec_len;
-                                if (vec_idx < 0)
-                                    vec_idx += vec_len;
-                                top->var.vec_idx = vec_idx;
-                                top->gen.flags &= ~VAR_VEC_IDX;
-                                estack_cpy_tok(out, ESTACK_TOP - 1, ESTACK_TOP);
-                                estack_pop(out);
-                                top = top_m1;
+                        if (TOK_LITERAL == top_m1->toktype && TOK_VAR == top->gen.toktype) {
+                            if (top->var.idx == VAR_Y || top->var.idx >= VAR_X
+                                || vars[top->var.idx].vec_len) {
+                                if (MPR_INT32 == top_m1->gen.datatype) {
+                                    /* Optimize by storing vector idx in variable token */
+                                    int vec_len, vec_idx;
+                                    if (VAR_Y == top->var.idx)
+                                        vec_len = dst_lens[0];
+                                    else
+                                        vec_len = src_lens[top->var.idx - VAR_X];
+                                    vec_idx = top_m1->lit.val.i % vec_len;
+                                    if (vec_idx < 0)
+                                        vec_idx += vec_len;
+                                    top->var.vec_idx = vec_idx;
+                                    top->gen.flags &= ~VAR_VEC_IDX;
+                                    estack_cpy_tok(out, ESTACK_TOP - 1, ESTACK_TOP);
+                                    estack_pop(out);
+                                    top = top_m1;
+                                }
+                            }
+                            else if (VAR_X_NEWEST != top->var.idx) {
+                                int vec_len = vars[top->var.idx].vec_len;
+                                int vec_idx = 0;
+                                switch (top_m1->gen.datatype) {
+                                    case MPR_INT32: vec_idx = top_m1->lit.val.i;       break;
+                                    case MPR_FLT:   vec_idx = ceil(top_m1->lit.val.f); break;
+                                    case MPR_DBL:   vec_idx = ceil(top_m1->lit.val.d); break;
+                                }
+                                {FAIL_IF((vec_idx + 1) > MPR_MAX_VECTOR_LEN,
+                                         "vector index exceeds maximum vector length");}
+                                if (vec_idx >= vec_len) {
+                                    vars[top->var.idx].vec_len = vec_idx + 1;
+                                }
                             }
                         }
                         /* also set var vec_len to 1 */
                         /* TODO: consider vector indices */
                         top->var.vec_len = 1;
+                        top->gen.flags |= VEC_LEN_LOCKED;
 
                         /* vector index set */
                         if (!(top->gen.flags & VAR_SIG_IDX) && VAR_X == top->var.idx)
@@ -1414,6 +1453,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
                     /* Push variable back to operator stack */
                     op_top = estack_push(op, estack_pop(out));
+                    {FAIL_IF(!op_top, "Stack size exceeded.");}
 
                     /* Check if left index is an integer */
                     out_top = estack_peek(out, ESTACK_TOP);
@@ -1432,6 +1472,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     out_top->var.vec_len = tok.lit.val.i - out_top->var.vec_idx + 1;
                     if (tok.lit.val.i < out_top->var.vec_idx)
                         out_top->var.vec_len += vec_len_ctx;
+                    out_top->gen.flags |= VEC_LEN_LOCKED;
                     GET_NEXT_TOKEN(tok);
                     {FAIL_IF(tok.toktype != TOK_CLOSE_SQUARE, "Unmatched bracket.");}
                     /* vector index set */
@@ -1446,56 +1487,88 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             }
             case TOK_SEMICOLON: {
                 int var_idx;
-                etoken op_top;
+                etoken op_top, out_top;
+
                 /* finish popping operators to output, check for unbalanced parentheses */
                 while (   op->num_tokens
                        && (op_top = estack_peek(op, ESTACK_TOP)) && op_top->toktype < TOK_ASSIGN) {
                     if (op_top->toktype == TOK_OPEN_PAREN)
-                        {FAIL("Unmatched parentheses or misplaced comma. (2)");}
-                    estack_push(out, estack_pop(op));
+                    {FAIL("Unmatched parentheses or misplaced comma. (2)");}
+                    out_top = estack_push(out, estack_pop(op));
                     {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (21)");}
                 }
-                {FAIL_IF(!(op_top = estack_peek(op, ESTACK_TOP)),
-                         "Unmatched parentheses or misplaced comma. (3)");}
-                var_idx = op_top->var.idx;
-                if (var_idx < N_USER_VARS) {
-                    if (!vars[var_idx].vec_len) {
-                        int temp = out->num_tokens - 1, num_idx = NUM_VAR_IDXS(op_top->gen.flags);
-                        etoken t;
-                        for (i = 0; i < num_idx && temp > 0; i++)
-                            temp -= estack_get_substack_len(out, temp);
-                        t = estack_peek(out, temp);
-                        vars[var_idx].vec_len = t->gen.vec_len;
-                        if (   !(vars[var_idx].flags & TYPE_LOCKED)
-                            && vars[var_idx].datatype > t->gen.datatype) {
-                            vars[var_idx].datatype = t->gen.datatype;
+
+                if ((op_top = estack_peek(op, ESTACK_TOP))) {
+                    var_idx = op_top->var.idx;
+                    if (var_idx < N_USER_VARS) {
+                        if (!vars[var_idx].vec_len) {
+                            int temp = out->num_tokens - 1, num_idx = NUM_VAR_IDXS(op_top->gen.flags);
+                            etoken t;
+                            for (i = 0; i < num_idx && temp > 0; i++)
+                                temp -= estack_get_substack_len(out, temp);
+                            t = estack_peek(out, temp);
+                            vars[var_idx].vec_len = t->gen.vec_len;
+                            if (   !(vars[var_idx].flags & TYPE_LOCKED)
+                                && vars[var_idx].datatype > t->gen.datatype) {
+                                vars[var_idx].datatype = t->gen.datatype;
+                            }
+                        }
+                        /* update and lock vector length of assigned variable */
+                        if (!(op_top->gen.flags & VEC_LEN_LOCKED))
+                            op_top->gen.vec_len = vars[var_idx].vec_len;
+                        op_top->gen.datatype = vars[var_idx].datatype;
+                        op_top->gen.flags |= VEC_LEN_LOCKED;
+                        if (is_const)
+                            vars[var_idx].flags &= ~VAR_INSTANCED;
+                    }
+                    /* pop assignment operators to output */
+                    while (op->num_tokens && (op_top = estack_peek(op, ESTACK_TOP))) {
+                        if (op_top->toktype == TOK_OPEN_PAREN)
+                        {FAIL("Unmatched parentheses or misplaced comma. (4)");}
+                        if ((op->num_tokens == 1) && op_top->toktype < TOK_ASSIGN)
+                        {FAIL("Malformed expression (22)");}
+                        estack_push(out, estack_pop(op));
+                        if (   TOK_ASSIGN_USE == (estack_peek(out, ESTACK_TOP))->toktype
+                            && estack_check_assign_type_and_len(out, vars) == -1)
+                        {FAIL("Malformed expression (23)");}
+                    }
+                    /* mark last assignment token to clear eval stack */
+                    (estack_peek(out, ESTACK_TOP))->gen.flags |= CLEAR_STACK;
+
+                    /* check vector length and type */
+                    if (estack_check_assign_type_and_len(out, vars) == -1)
+                    {FAIL("Malformed expression (24)");}
+                }
+                else {
+                    /* only allow increment/decrement postfix operator here */
+                    if (   TOK_OP == out_top->toktype
+                        && OP_INCREMENT_PRE <= out_top->op.idx
+                        && OP_DECREMENT_POST >= out_top->op.idx) {
+                        /* check if substack is entire stack */
+                        int substack_len = estack_get_substack_len(out, ESTACK_TOP);
+                        if (substack_len == out->num_tokens) {
+                            out_top->gen.flags |= (TYPE_LOCKED | CLEAR_STACK);
+                        }
+                        else {
+                            etoken t = estack_peek(out, ESTACK_TOP - substack_len);
+                            switch (t->toktype) {
+                                case TOK_OP:
+                                    if (t->op.idx < OP_INCREMENT_PRE || t->op.idx > OP_DECREMENT_POST)
+                                        {FAIL("misplaced increment or decrement operator");}
+                                case TOK_ASSIGN:
+                                case TOK_ASSIGN_TT:
+                                case TOK_ASSIGN_CONST:
+                                    out_top->gen.flags |= (TYPE_LOCKED | CLEAR_STACK);
+                                    break;
+                                default:
+                                    {FAIL("Unmatched parentheses or misplaced comma. (3)");}
+                            }
                         }
                     }
-                    /* update and lock vector length of assigned variable */
-                    if (!(op_top->gen.flags & VEC_LEN_LOCKED))
-                        op_top->gen.vec_len = vars[var_idx].vec_len;
-                    op_top->gen.datatype = vars[var_idx].datatype;
-                    op_top->gen.flags |= VEC_LEN_LOCKED;
-                    if (is_const)
-                        vars[var_idx].flags &= ~VAR_INSTANCED;
+                    else {
+                        {FAIL("Unmatched parentheses or misplaced comma. (3)");}
+                    }
                 }
-                /* pop assignment operators to output */
-                while (op->num_tokens && (op_top = estack_peek(op, ESTACK_TOP))) {
-                    if (op_top->toktype == TOK_OPEN_PAREN)
-                        {FAIL("Unmatched parentheses or misplaced comma. (4)");}
-                    if ((op->num_tokens == 1) && op_top->toktype < TOK_ASSIGN)
-                        {FAIL("Malformed expression (22)");}
-                    estack_push(out, estack_pop(op));
-                    if (   TOK_ASSIGN_USE == (estack_peek(out, ESTACK_TOP))->toktype
-                        && estack_check_assign_type_and_len(out, vars) == -1)
-                        {FAIL("Malformed expression (23)");}
-                }
-                /* mark last assignment token to clear eval stack */
-                (estack_peek(out, ESTACK_TOP))->gen.flags |= CLEAR_STACK;
-
-                /* check vector length and type */
-                if (estack_check_assign_type_and_len(out, vars) == -1)
-                    {FAIL("Malformed expression (24)");}
 
                 /* start another sub-expression */
                 assigning = is_const = 1;
@@ -1549,11 +1622,14 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
                     /* move variable from output to operator stack */
                     t = estack_push(op, estack_pop(out));
+                    {FAIL_IF(!t, "Stack size exceeded.");}
 
                     if (t->gen.flags & VAR_SIG_IDX) {
                         /* Move sig_idx substack from output to operator */
-                        for (i = estack_get_substack_len(out, ESTACK_TOP); i > 0; i--)
+                        for (i = estack_get_substack_len(out, ESTACK_TOP); i > 0; i--) {
                             t = estack_push(op, estack_pop(out));
+                            {FAIL_IF(!t, "Stack size exceeded.");}
+                        }
                     }
 
                     if (t->gen.flags & VAR_HIST_IDX) {
@@ -1641,7 +1717,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 if (out_top->toktype == TOK_VAR) {
                     int var = out_top->var.idx;
                     if (var >= VAR_X_NEWEST)
-                        {FAIL("Cannot assign to input variable 'x'.");}
+                        {FAIL("Cannot assign to input variable 'x' (2)");}
                     if (out_top->gen.flags & VAR_HIST_IDX) {
                         /* unlike variable lookup, history assignment index must be an integer */
                         int idx = 1;
@@ -1688,7 +1764,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     {FAIL_IF(out_top->toktype != TOK_VAR, "Bad token left of assignment. (1)");}
                     var = out_top->var.idx;
                     if (var >= VAR_X_NEWEST)
-                        {FAIL("Cannot assign to input variable 'x'.");}
+                        {FAIL("Cannot assign to input variable 'x' (3)");}
                     else if (!(out_top->gen.flags & VAR_HIST_IDX)) {
                         if (var == VAR_Y)
                             ++out_assigned;
@@ -1737,58 +1813,76 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
     {FAIL_IF(allow_toktype & TOK_LITERAL || !out_assigned, "Expression has no output assignment.");}
 
+    if (TOK_SEMICOLON != tok.toktype) {
+#if TRACE_PARSE
+        printf("adding missing semicolon\n");
+#endif
+        tok.toktype = TOK_SEMICOLON;
+        goto again;
+    }
+
+    {FAIL_IF(op->num_tokens, "Unmerged tokens on operator stack");}
+
+    /* upgrade INCREMENT/DECREMENT operators */
+    for (i = 0; i < out->num_tokens - 1; i++) {
+        etoken t = estack_peek(out, i);
+        if (TOK_OP == t->toktype && (t->op.idx >= OP_INCREMENT_PRE && t->op.idx <= OP_DECREMENT_POST)) {
+            int substack_len,
+                inc = t->op.idx == OP_INCREMENT_PRE || t->op.idx == OP_INCREMENT_POST,
+                pre = t->op.idx == OP_INCREMENT_PRE || t->op.idx == OP_DECREMENT_PRE,
+                var_idx = i - 1,
+                flags = t->gen.flags;
+            etoken_t newtok, *vartok = estack_peek(out, var_idx);
+            {FAIL_IF(TOK_VAR != vartok->toktype, "misplaced increment or decrement operator");}
+            {FAIL_IF(vartok->var.idx >= VAR_X_NEWEST, "cannot assign to variable 'x'");}
+            {FAIL_IF(vartok->gen.flags & VAR_HIST_IDX, "cannot assign to historical value");}
+            substack_len = estack_get_substack_len(out, var_idx);
+
+            /* copy datatype from variable */
+            newtok.gen.datatype = t->gen.datatype;
+            newtok.gen.vec_len = t->gen.vec_len;
+
+            /* convert OP to literal 1 */
+            t->toktype = TOK_LITERAL;
+            t->gen.vec_len = 1;
+            t->gen.flags = VEC_LEN_LOCKED;
+            switch(t->gen.datatype) {
+                case MPR_INT32: t->lit.val.i = 1; break;
+                case MPR_FLT:   t->lit.val.f = 1; break;
+                case MPR_DBL:   t->lit.val.d = 1; break;
+            }
+
+            if (!pre) {
+                /* need to insert copy token after variable */
+                newtok.toktype = TOK_COPY_FROM;
+                newtok.con.cache_offset = 0;
+                estack_insert(out, i++, 1, &newtok);
+            }
+
+            /* add operator */
+            newtok.toktype = TOK_OP;
+            newtok.op.idx = inc ? OP_ADD : OP_SUBTRACT;
+            newtok.gen.vec_len = 1;
+            estack_insert(out, ++i, 1, &newtok);
+
+            /* add var substack and convert to assign_use */
+            t = estack_insert(out, ++i, substack_len, estack_peek(out, var_idx - substack_len + 1));
+            {FAIL_IF(t->toktype != TOK_VAR, "error!");}
+            t->toktype = pre ? TOK_ASSIGN_USE : TOK_ASSIGN;
+            t->gen.flags |= flags;
+            if (t->var.idx < VAR_Y) {
+                vars[t->var.idx].flags |= VAR_ASSIGNED;
+            }
+        }
+    }
+
     /* check that all used-defined variables were assigned */
     for (i = 0; i < num_var; i++) {
         {FAIL_IF(!(vars[i].flags & VAR_ASSIGNED), "User-defined variable not assigned.");}
     }
 
-    /* finish popping operators to output, check for unbalanced parentheses */
-    while (op->num_tokens) {
-        etoken op_top = estack_peek(op, ESTACK_TOP);
-        if (op_top->toktype >= TOK_ASSIGN)
-            break;
-        {FAIL_IF(op_top->toktype == TOK_OPEN_PAREN, "Unmatched parentheses or misplaced comma. (4)");}
-        estack_push(out, estack_pop(op));
-        if (!estack_check_type(out, vars, 1))
-            goto error;
-    }
-
-    if (op->num_tokens) {
-        etoken op_top = estack_peek(op, ESTACK_TOP);
-        int var_idx = op_top->var.idx;
-        if (var_idx < N_USER_VARS) {
-            if (!vars[var_idx].vec_len)
-                vars[var_idx].vec_len = (estack_peek(out, ESTACK_TOP))->gen.vec_len;
-            /* update and lock vector length of assigned variable */
-            op_top->gen.vec_len = vars[var_idx].vec_len;
-            op_top->gen.flags |= VEC_LEN_LOCKED;
-        }
-    }
-
-    /* pop assignment operator(s) to output */
-    while (op->num_tokens) {
-        {FAIL_IF(op->num_tokens == 1 && (estack_peek(op, ESTACK_TOP))->toktype < TOK_ASSIGN,
-                 "Malformed expression (26).");}
-        estack_push(out, estack_pop(op));
-        /* check vector length and type */
-        {FAIL_IF(   TOK_ASSIGN_USE == (estack_peek(out, ESTACK_TOP))->toktype
-                 && estack_check_assign_type_and_len(out, vars) == -1,
-                 "Malformed expression (27).");}
-    }
-
-    /* mark last assignment token to clear eval stack */
-    (estack_peek(out, ESTACK_TOP))->gen.flags |= CLEAR_STACK;
-
-    /* promote unlocked variable token vector lengths */
-    for (i = 0; i < out->num_tokens - 1; i++) {
-        etoken t = estack_peek(out, i);
-        if (TOK_VAR == t->toktype && t->var.idx < N_USER_VARS
-            && !(t->gen.flags & VEC_LEN_LOCKED))
-            t->gen.vec_len = vars[t->var.idx].vec_len;
-    }
-
     /* check vector length and type */
-    {FAIL_IF(estack_check_assign_type_and_len(out, vars) == -1, "Malformed expression (28).");}
+    {FAIL_IF(estack_check_assign_type_and_len(out, vars) == -1, "Malformed expression (27).");}
 
     /* replace special constants with their typed values */
     {FAIL_IF(estack_replace_special_constants(out), "Error replacing special constants."); }

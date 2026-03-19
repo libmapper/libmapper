@@ -253,3 +253,8 @@ void mpr_expr_set_var_updated(mpr_expr expr, int var_idx)
     expr->stack->offset = 0;
     return;
 }
+
+int mpr_expr_get_num_tokens(mpr_expr expr)
+{
+    return expr->stack->num_tokens;
+}
