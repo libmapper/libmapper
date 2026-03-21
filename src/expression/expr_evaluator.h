@@ -470,10 +470,16 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 mpr_time t;
                 RETURN_ARG_UNLESS(v_out, status);
                 t = mpr_value_get_time(v_out, inst_idx, hidx);
-                t_d = mpr_time_as_dbl(t);
-                if (hwt) {
-                    t = mpr_value_get_time(v_out, inst_idx, hidx - 1);
-                    t_d = t_d * hwt + mpr_time_as_dbl(t) * (1 - hwt);
+                /* use now timetag if historical timetag is not initialized */
+                if (hidx && 0 == t.sec) {
+                    t_d = mpr_time_as_dbl(*time);
+                }
+                else {
+                    t_d = mpr_time_as_dbl(t);
+                    if (hwt) {
+                        t = mpr_value_get_time(v_out, inst_idx, hidx - 1);
+                        t_d = t_d * hwt + mpr_time_as_dbl(t) * (1 - hwt);
+                    }
                 }
             }
             else if (tok->var.idx >= VAR_X) {
