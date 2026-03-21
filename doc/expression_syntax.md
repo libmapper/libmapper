@@ -46,28 +46,34 @@ generated output.
       <td><code> ^ </code></td><td>bitwise XOR (exclusive OR)</td>
     </tr>
     <tr>
-      <th colspan="2" style="background:#555555;color:white">Comparison operators</th>
+      <td><code> ++ </code></td><td>increment (prefix or postfix)</td>
       <th colspan="2" style="background:#555555;color:white">Logical operators</th>
     </tr>
     <tr>
-      <td><code> > </code></td><td>greater than</td>
+      <td><code> -- </code></td><td>decrement (prefix or postfix)</td>
       <td><code> ! </code></td><td>logical NOT</td>
     </tr>
     <tr>
-      <td><code> >= </code></td><td>greater than or equal</td>
+      <th colspan="2" style="background:#555555;color:white">Comparison operators</th>
       <td><code> && </code></td><td>logical AND</td>
     </tr>
     <tr>
-      <td><code> < </code></td><td>less than</td>
+      <td><code> > </code></td><td>greater than</td>
       <td><code> || </code></td><td>logical OR</td></tr>
     </tr>
     <tr>
-      <td><code> <= </code></td><td>less than or equal</td>
+      <td><code> >= </code></td><td>greater than or equal</td>
       <th colspan="2" style="background:#555555;color:white">Conditional operator</th>
     </tr>
     <tr>
+      <td><code> < </code></td><td>less than</td>
+      <td rowspan=4><code> ?: </code></td><td rowspan=4>if / then / else (ternary operation) used in the form <code>a?b:c</code>. If the second operand is omitted (e.g. <code>a?:c</code>) the first operand will be used in its place.</td>
+    </tr>
+    <tr>
+      <td><code> <= </code></td><td>less than or equal</td>
+    </tr>
+    <tr>
       <td><code> == </code></td><td>equal</td>
-      <td rowspan=3><code> ?: </code></td><td rowspan=3>if / then / else (ternary operation) used in the form <code>a?b:c</code>. If the second operand is omitted (e.g. <code>a?:c</code>) the first operand will be used in its place.</td>
     </tr>
     <tr>
       <td><code> != </code></td><td>not equal</td>
@@ -256,7 +262,7 @@ y = y{-1} + x;
 y{-1} = uniform(1000);
 </pre>
 
-Any past values that are not explicitly initialized are given the value `0`.
+Any past values that are not explicitly initialized are given the value `0`. Uninitialized timestamps are given the value of the time at which the expression is first evaluated.
 
 ### Variable delays
 
@@ -557,12 +563,7 @@ Also we can calculate a moving average of the sample period:
 y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
 </pre>
 
-Of course the first value for `(t_x-t_y{-1})` will be very large since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of our expression:
-
-<pre style="width:50%;margin:auto">
-t_y{-1} = t_x;
-y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
-</pre>
+The first value for `(t_x-t_y{-1})` will be `0` since the first value for `t_y{-1}` is initialized to the first evaluation, which for this expression is caused by an update to `x`.
 
 Here's a more complex example with 4 sub-expressions in which the rate is limited but skipped samples are averaged instead of discarding them:
 
