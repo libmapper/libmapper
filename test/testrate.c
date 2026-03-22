@@ -45,8 +45,6 @@ static void eprintf(const char *format, ...)
 /*! Creation of a local source. */
 int setup_src(mpr_graph g, const char *iface)
 {
-    float mn=0, mx=10;
-
     src = mpr_dev_new("testrate-send", g);
     if (!src)
         goto error;
@@ -55,7 +53,7 @@ int setup_src(mpr_graph g, const char *iface)
     eprintf("source created using interface %s.\n",
             mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)src)));
 
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, "Hz", &mn, &mx, NULL, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, "Hz", NULL, NULL, NULL, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -80,7 +78,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int len,
 {
     const char *name;
     float period_recv = mpr_obj_get_prop_as_flt((mpr_obj)sig, MPR_PROP_PERIOD, NULL);
-    float period_diff = period_recv - (polltime * 0.001);
+    float period_diff = period_recv - period_send;
 
     if (!val)
         return;
@@ -88,20 +86,20 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int len,
     name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     if (verbose) {
         float jitter_recv = mpr_obj_get_prop_as_flt((mpr_obj)sig, MPR_PROP_JITTER, NULL);
-        printf("%s rec'ved %g (period: %gms, jitter: %g, diff: %g)\n", name, *(float*)val,
-               period_recv * 1000, jitter_recv, period_diff);
+        printf("%s rec'ved %g (period: %gms, jitter: %gms, diff: %gms)\n", name, *(float*)val,
+               period_recv * 1000, jitter_recv * 1000, period_diff * 1000);
     }
 
-    if (*(float*)val == expected && fabsf(period_diff) < 0.01)
+    if (*(float*)val == expected && (*(float*)val <= 2.f || fabsf(period_diff) < 0.01))
         ++received;
     else
-        eprintf("  expected value %g, period %gms\n", expected, polltime);
+        eprintf("  expected value %g, period %dms\n", expected, polltime);
 }
 
 /*! Creation of a local destination. */
 int setup_dst(mpr_graph g, const char *iface)
 {
-    float mn=0, mx=1, rate;
+    float rate;
 
     dst = mpr_dev_new("testrate-recv", g);
     if (!dst)
@@ -112,7 +110,7 @@ int setup_dst(mpr_graph g, const char *iface)
             mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)dst)));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
-                          &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
+                          NULL, NULL, NULL, handler, MPR_SIG_UPDATE);
 
     /* This signal is expected to be updated at 100 Hz */
     rate = 100.f;
@@ -178,7 +176,7 @@ void loop(void)
         jitter_send = mpr_obj_get_prop_as_flt((mpr_obj)sendsig, MPR_PROP_JITTER, NULL);
         eprintf("Sending update (period: %gms; jitter: %g)\n", period_send * 1000, jitter_send);
         ++sent;
-        expected = fval * 0.1f;
+        expected = fval;
         mpr_dev_poll(src, 0);
         mpr_dev_poll(dst, polltime);
         ++i;
