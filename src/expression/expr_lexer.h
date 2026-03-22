@@ -143,25 +143,38 @@ static int expr_lex(const char *str, int idx, etoken tok)
         return idx;
     case '+':
         tok->toktype = TOK_OP;
-        if (str[++idx] == '+') {
-            tok->toktype = TOK_OP_UNARY;
-            tok->op.idx = OP_INCREMENT_PRE;
-            ++idx;
+        switch (str[++idx]) {
+            case '+':
+                tok->toktype = TOK_OP_UNARY;
+                tok->op.idx = OP_INCREMENT_PRE;
+                ++idx;
+                break;
+            case '=':
+                tok->toktype = TOK_ASSIGN_OP;
+                tok->op.idx = OP_ADD;
+                ++idx;
+                break;
+            default:
+                etoken_set_op(tok, OP_ADD);
+                break;
         }
-        else
-            etoken_set_op(tok, OP_ADD);
         return idx;
     case '-':
         /* could be either subtraction, negation, or lambda */
-        c = str[++idx];
-        if ('>' == c) {
-            tok->toktype = TOK_LAMBDA;
-            return idx + 1;
-        }
-        else if ('-' == c) {
-            tok->toktype = TOK_OP_UNARY;
-            tok->op.idx = OP_DECREMENT_PRE;
-            return idx + 1;
+        switch (str[++idx]) {
+            case '>':
+                tok->toktype = TOK_LAMBDA;
+                return idx + 1;
+            case '-':
+                tok->toktype = TOK_OP_UNARY;
+                tok->op.idx = OP_DECREMENT_PRE;
+                return idx + 1;
+            case '=':
+                tok->toktype = TOK_ASSIGN_OP;
+                tok->op.idx = OP_SUBTRACT;
+                return idx + 1;
+            default:
+                break;
         }
         i = idx - 2;
         /* back up one character */
@@ -175,32 +188,29 @@ static int expr_lex(const char *str, int idx, etoken tok)
         return idx;
     case '/':
         etoken_set_op(tok, OP_DIVIDE);
-        return ++idx;
+        if (str[++idx] == '=') {
+            tok->toktype = TOK_ASSIGN_OP;
+            ++idx;
+        }
+        return idx;
     case '*':
         etoken_set_op(tok, OP_MULTIPLY);
-        return ++idx;
+        if (str[++idx] == '=') {
+            tok->toktype = TOK_ASSIGN_OP;
+            ++idx;
+        }
+        return idx;
     case '%':
         etoken_set_op(tok, OP_MODULO);
         return ++idx;
     case '=':
         /* could be '=', '==' */
-        c = str[++idx];
-        if (c == '=') {
+        if (str[++idx] == '=') {
             etoken_set_op(tok, OP_IS_EQUAL);
             ++idx;
         }
         else {
-            tok->toktype = TOK_ASSIGN_OP;
-            ++idx;
-            switch(c) {
-                case '+':   tok->op.idx = OP_ADD;       break;
-                case '-':   tok->op.idx = OP_SUBTRACT;  break;
-                case '*':   tok->op.idx = OP_MULTIPLY;  break;
-                case '/':   tok->op.idx = OP_DIVIDE;    break;
-                default:
-                    tok->toktype = TOK_ASSIGN;
-                    --idx;
-            }
+            tok->toktype = TOK_ASSIGN;
         }
         return idx;
     case '<':
