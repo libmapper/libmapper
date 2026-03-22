@@ -1016,8 +1016,9 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             evalue_print(vals + sp, types[dp], lens[dp], dp);
 #endif
 
-            /* Copy time from input */
-            if (time)
+            /* Copy time from input (VAR_Y time already set) */
+            /* TODO: isn't it enough to set some of output mpr_value sample? */
+            if (time && VAR_Y != tok->var.idx)
                 mpr_value_set_time(v, *time, inst_idx, hidx);
 
             switch (mpr_value_get_type(v)) {

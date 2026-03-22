@@ -45,13 +45,13 @@ enum etoken_type {
     TOK_COLON           = 0x00200000,
     TOK_SEMICOLON       = 0x00400000,
     TOK_VECTORIZE       = 0x00800000,
-    TOK_TT              = 0x01000000,    /* NTP Timestamp */
+    TOK_TT              = 0x01000000,   /* NTP Timestamp */
     TOK_ASSIGN          = 0x02000000,
     TOK_ASSIGN_OP,
     TOK_ASSIGN_USE,
     TOK_ASSIGN_CONST,                   /* Const assignment (does not require input) */
     TOK_ASSIGN_TT,                      /* Assign to NTP timestamp */
-    TOK_COPY_FROM       = 0x04000000,    /* Copy from stack */
+    TOK_COPY_FROM       = 0x04000000,   /* Copy from stack */
     TOK_MOVE,                           /* Move stack */
     TOK_LAMBDA,
     TOK_LOOP_START,
