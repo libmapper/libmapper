@@ -975,10 +975,7 @@ int run_tests()
     }
 
     /* 57) Moving average of inter-sample period */
-    /* Tricky - we need to init t_y{-1} to t_x or the first calculated
-     * difference will be enormous! */
-    set_expr_str("t_y{-1}=t_x;"
-                 "period=t_x-t_y{-1};"
+    set_expr_str("period=t_x-t_y{-1};"
                  "y=y{-1}*0.9+period*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
@@ -994,10 +991,7 @@ int run_tests()
     }
 
     /* 58) Moving average of inter-sample jitter */
-    /* Tricky - we need to init t_y{-1} to t_x or the first calculated
-     * difference will be enormous! */
-    set_expr_str("t_y{-1}=t_x;"
-                 "interval=t_x-t_y{-1};"
+    set_expr_str("interval=t_x-t_y{-1};"
                  "sr=sr*0.9+interval*0.1;"
                  "y=y{-1}*0.9+abs(interval-sr)*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
@@ -1013,8 +1007,7 @@ int run_tests()
             eprintf("... OK\n");
     }
 
-    /* 59) Expression for limiting output rate
-     * Leaving the initial t_y{-1} initialized to 0 simply means the first update will cause output */
+    /* 59) Expression for limiting output rate */
     set_expr_str("diff=t_x-t_y{-1};"
                  "alive=diff>0.1;"
                  "y=x;");
@@ -1023,8 +1016,7 @@ int run_tests()
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, -1))
         return 1;
 
-    /* 60) Expression for limiting rate with smoothed output.
-     * Leaving the initial t_y{-1} initialized to 0 simply means the first update will cause output */
+    /* 60) Expression for limiting rate with smoothed output */
     set_expr_str("a=x%100;"
                  "count{-1}=1;"
                  "alive=(t_x-t_y{-1})>0.1;"
