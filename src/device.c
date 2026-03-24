@@ -467,7 +467,7 @@ void mpr_dev_process_incoming_maps(mpr_local_dev dev)
         maps = mpr_list_get_next(maps);
         if (mpr_obj_get_is_local((mpr_obj)map)) {
             /* TODO: do we need to call this for local-only maps? */
-            mpr_map_receive((mpr_local_map)map, t, &dev->next);
+            mpr_map_receive((mpr_local_map)map, t);
             mpr_map_clear_slot_msgs((mpr_local_map)map);
         }
         else {
