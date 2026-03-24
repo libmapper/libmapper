@@ -49,6 +49,31 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
+/*! A helper function to seed the random number generator. */
+static void seed_srand(void)
+{
+    mpr_time now;
+    unsigned int s;
+    double d;
+
+#ifndef WIN32
+    FILE *f = fopen("/dev/urandom", "rb");
+    if (f) {
+        if (1 == fread(&s, 4, 1, f)) {
+            srand(s);
+            fclose(f);
+            return;
+        }
+        fclose(f);
+    }
+#endif
+
+    mpr_time_set(&now, MPR_NOW);
+    d = mpr_time_as_dbl(now);
+    s = (unsigned int)((d-(unsigned long)d)*100000);
+    srand(s);
+}
+
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
@@ -197,22 +222,22 @@ void loop(void)
             }
             status = SYNCED;
             if (!verbose) {
-                printf("\r  Synced  (%3i)... Offsets: [%+4.3f, %+4.3f]   ", received, diff1, diff2);
+                printf("\r  Synced  (%3i)..... Diffs: [%+4.3f, %+4.3f]   ", received, diff1, diff2);
                 fflush(stdout);
             }
         }
         else {
             status = SYNCING;
             if (!verbose) {
-                printf("\r  Syncing (%3i)... Offsets: [%+4.3f, %+4.3f]   ", i, diff1, diff2);
+                printf("\r  Syncing (%3i)...... Diffs: [%+4.3f, %+4.3f]   ", i, diff1, diff2);
                 fflush(stdout);
             }
         }
     }
     if (SYNCED == status)
-        printf("\r  Sync achieved in %2.2f seconds ", sync_time);
+        printf("\n  Sync achieved in %2.2f seconds ", sync_time);
     else
-        printf("\r  Sync not achieved ............");
+        printf("\n  Sync not achieved ............");
 
     mpr_dev_stop_polling(dev1);
     mpr_dev_stop_polling(dev2);
@@ -275,8 +300,11 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
+    seed_srand();
     offset1 = rand() % 1000 * (rand() % 2 ? 1.0 : -1.0);
     offset2 = rand() % 1000 * (rand() % 2 ? 1.0 : -1.0);
+
+    eprintf("  Trying to match offsets:  [%+4.3f, %+4.3f]\n", offset1, offset2);
 
     if (setup_devs(g, iface)) {
         eprintf("Error initializing devices.\n");
@@ -295,9 +323,6 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-
-    eprintf("offset1: %f\n", offset1);
-    eprintf("offset2: %f\n", offset2);
 
     loop();
 

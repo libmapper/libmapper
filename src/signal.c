@@ -631,6 +631,7 @@ again:
             && (si = _get_inst_by_id_map_idx(sig, id_map_idx))
             && (si->status & MPR_STATUS_ACTIVE)) {
             uint16_t status = 0;
+            /* we can't use mpr_value_set() here since some vector elements may be missing */
             if (!(si->status & MPR_STATUS_HAS_VALUE)) {
                 status = MPR_STATUS_NEW_VALUE;
                 mpr_value_incr_idx(sig->value, si->idx, time);
@@ -638,7 +639,6 @@ again:
             else {
                 mpr_value_cpy_next(sig->value, si->idx, time);
             }
-            /* we can't use mpr_value_set() here since some vector elements may be missing */
             for (i = offset; i < offset + sig->len; i++) {
                 if (types[i] == MPR_NULL)
                     continue;

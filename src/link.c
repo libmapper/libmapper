@@ -391,14 +391,15 @@ void mpr_link_update_clock(mpr_link link, mpr_time time_remote, mpr_time time_lo
 {
     mpr_sync_clock clk = &link->clock;
 
+    if (link->is_local_only)
+        return;
+
     /* add local clock offset */
     mpr_time_add_dbl(&time_local, mpr_dev_get_offset(link->devs[LINK_LOCAL_DEV]));
 
-    if (!link->is_local_only) {
-        /* update sync status */
-        mpr_time_set(&clk->rcvd.time, time_local);
-        clk->rcvd.msg_id = msg_id;
-    }
+    /* update sync status */
+    mpr_time_set(&clk->rcvd.time, time_local);
+    clk->rcvd.msg_id = msg_id;
 
     if (sent_id == clk->sent.msg_id && elapsed_remote < 10) {
         double offset, elapsed_local, latency;

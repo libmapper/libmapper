@@ -32,6 +32,11 @@ float expected;
 float period_send;
 float jitter_send;
 
+mpr_time then;
+
+// TODO: set rate property to automatically schedule next call
+// if 'next' variable used in expression should disable?
+
 static void eprintf(const char *format, ...)
 {
     va_list args;
@@ -76,24 +81,26 @@ void cleanup_src(void)
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int len,
              mpr_type type, const void *val, mpr_time t)
 {
-    const char *name;
     float period_recv = mpr_obj_get_prop_as_flt((mpr_obj)sig, MPR_PROP_PERIOD, NULL);
     float period_diff = period_recv - period_send;
 
     if (!val)
         return;
 
-    name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     if (verbose) {
         float jitter_recv = mpr_obj_get_prop_as_flt((mpr_obj)sig, MPR_PROP_JITTER, NULL);
-        printf("%s rec'ved %g (period: %gms, jitter: %gms, diff: %gms)\n", name, *(float*)val,
+        printf("         Rec'ved %g (period: %gms, jitter: %gms, diff: %gms)\n", *(float*)val,
                period_recv * 1000, jitter_recv * 1000, period_diff * 1000);
     }
 
-    if (*(float*)val == expected && (*(float*)val <= 2.f || fabsf(period_diff) < 0.01))
+    if (*(float*)val == expected && *(float*)val >= 25. && fabsf(period_diff) < 0.01)
         ++received;
-    else
-        eprintf("  expected value %g, period %dms\n", expected, polltime);
+    else {
+        if (*(float*)val != expected)
+            eprintf("         Expected value %g\n", expected);
+        if (fabsf(period_diff) >= 0.01)
+            eprintf("         Expected period %dms\n", polltime);
+    }
 }
 
 /*! Creation of a local destination. */
@@ -167,14 +174,18 @@ int setup_maps(void)
 void loop(void)
 {
     int i = 0, thresh = 0;
+    mpr_time now;
     float fval;
 
-    while ((!terminate || i < 50) && !done) {
+    while ((!terminate || i < 75) && !done) {
+        mpr_time_set(&now, MPR_NOW);
         fval = (float)i;
         mpr_sig_set_value(sendsig, 0, 1, MPR_FLT, &fval);
         period_send = mpr_obj_get_prop_as_flt((mpr_obj)sendsig, MPR_PROP_PERIOD, NULL);
         jitter_send = mpr_obj_get_prop_as_flt((mpr_obj)sendsig, MPR_PROP_JITTER, NULL);
-        eprintf("Sending update (period: %gms; jitter: %g)\n", period_send * 1000, jitter_send);
+        eprintf("%+4dms | Sending update (period: %gms; jitter: %g)\n",
+                (int)((mpr_time_as_dbl(now) - mpr_time_as_dbl(then)) * 1000),
+                period_send * 1000, jitter_send);
         ++sent;
         expected = fval;
         mpr_dev_poll(src, 0);
@@ -182,13 +193,15 @@ void loop(void)
         ++i;
 
         if (!verbose) {
-            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            printf("\r  Sent: %4i, Received: %4i   ", sent - 25, received);
             fflush(stdout);
         }
 
         ++thresh;
         if (thresh > 100)
             thresh = -100;
+
+        then = now;
     }
 }
 
@@ -280,12 +293,14 @@ int main(int argc, char **argv)
         goto done;
     }
 
+    mpr_time_set(&then, MPR_NOW);
+
     loop();
 
-    if (received != sent) {
+    if (received != sent - 25) {
         eprintf("Not all sent messages were received.\n");
         eprintf("Updated value %d time%s, but received %d of them.\n",
-                sent, sent == 1 ? "" : "s", received);
+                sent - 25, sent == 1 ? "" : "s", received);
         result = 1;
     }
 

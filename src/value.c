@@ -232,8 +232,8 @@ static void update_timing_stats(mpr_value v, mpr_time t)
         /* jitter is variation in update period */
         v->jitter *= 0.99;
         v->jitter += (0.01 * fabsf(v->period - diff));
-        v->period *= 0.99;
-        v->period += (0.01 * diff / v->num_active_inst);
+        v->period *= 0.9;
+        v->period += (0.1 * diff / v->num_active_inst);
     }
 }
 

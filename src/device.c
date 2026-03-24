@@ -454,8 +454,10 @@ void mpr_dev_process_incoming_maps(mpr_local_dev dev)
 {
     mpr_graph graph;
     mpr_list maps;
+    mpr_time t;
     RETURN_UNLESS(dev->receiving);
     graph = dev->obj.graph;
+    t = mpr_dev_get_time((mpr_dev)dev);
     /* process and send updated maps */
     /* TODO: speed this up! */
     dev->receiving = 0;
@@ -464,7 +466,8 @@ void mpr_dev_process_incoming_maps(mpr_local_dev dev)
         mpr_map map = (mpr_map)*maps;
         maps = mpr_list_get_next(maps);
         if (mpr_obj_get_is_local((mpr_obj)map)) {
-            mpr_map_receive((mpr_local_map)map, dev->time);
+            /* TODO: do we need to call this for local-only maps? */
+            mpr_map_receive((mpr_local_map)map, t, &dev->next);
             mpr_map_clear_slot_msgs((mpr_local_map)map);
         }
         else {
@@ -526,6 +529,7 @@ void mpr_dev_update_maps(mpr_dev dev) {
     if (!((mpr_local_dev)dev)->polling)
         process_outgoing_maps((mpr_local_dev)dev);
     ((mpr_local_dev)dev)->time_is_stale = 1;
+    mpr_dev_get_time(dev);
 }
 
 static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir, int force)
