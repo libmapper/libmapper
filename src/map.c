@@ -65,6 +65,7 @@ typedef struct _mpr_local_map {
 
     mpr_id_map_t id_map;            /*!< Associated mpr_id_map. */
 
+    mpr_time next;
     mpr_expr expr;                  /*!< The mapping expression. */
     mpr_bitflags updated_inst;      /*!< Bitflags to indicate updated instances. */
     mpr_value *vars;                /*!< User variables values. */
@@ -77,6 +78,7 @@ typedef struct _mpr_local_map {
     uint8_t locality;               /* requires 3 bits -----XXX */
     uint8_t one_src;                /* requires 1 bit */
     uint8_t updated;                /* requires 1 bit */
+    uint8_t timed;                  /* requires 1 bit */
 } mpr_local_map_t;
 
 size_t mpr_map_get_struct_size(int is_local)
@@ -785,7 +787,7 @@ static int update_scope(mpr_map m, mpr_msg_atom a)
  */
 
 /* only called for outgoing, source-processed maps */
-void mpr_map_send(mpr_local_map m, mpr_time time)
+void mpr_map_send(mpr_local_map m, mpr_time time, mpr_time *next)
 {
     int i, status;
     mpr_sig_group group;
@@ -799,6 +801,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     assert(m->obj.is_local);
 
     if (MPR_LOC_DST == m->process_loc) {
+        //TODO: check if there is anything to send! i.e. source signal is used...
         /* send immediately */
         int i;
         for (i = 0; i < m->num_src; i++) {
@@ -810,8 +813,16 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         return;
     }
 
-    RETURN_UNLESS(   m->updated && m->expr && !m->muted
-                  && MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)m->src[0]));
+    RETURN_UNLESS(m->expr && !m->muted && MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)m->src[0]));
+    if (!m->updated) {
+        if (!m->timed)
+            return;
+        if (mpr_time_get_diff(m->next, time) > 0.001) {
+            if (mpr_time_cmp(*next, m->next) > 0)
+                mpr_time_set(next, m->next);
+            return;
+        }
+    }
 
     /* temporary solution: use most multitudinous source signal for id_map
      * permanent solution: move id_maps to map? */
@@ -847,15 +858,17 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
 
     for (i = 0; i < m->num_inst; i++) {
         /* Check if this instance has been updated */
-        if (!mpr_bitflags_get(m->updated_inst, i))
+        if (!m->timed && !mpr_bitflags_get(m->updated_inst, i))
             continue;
         /* TODO: Check if this instance has enough history to process the expression */
         status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
-                               src_vals, m->vars, dst_val, &time, i);
+                               src_vals, m->vars, dst_val, &time, &m->next, i);
         if (!m->use_inst) {
             /* remove EXPR_RELEASE* event flags */
             status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
         }
+        if (m->timed && mpr_time_cmp(*next, m->next) > 0)
+            mpr_time_set(next, m->next);
         if (!status)
             continue;
 
@@ -945,7 +958,7 @@ void mpr_map_clear_slot_msgs(mpr_local_map m)
 
 /* only called for incoming, destination-processed maps */
 /* TODO: merge with mpr_map_send()? */
-void mpr_map_receive(mpr_local_map m, mpr_time time)
+void mpr_map_receive(mpr_local_map m, mpr_time time, mpr_time *next)
 {
     int i, status, map_manages_inst = 0;
     mpr_local_slot src_slot;
@@ -955,8 +968,16 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
 
     assert(m->obj.is_local);
 
-    RETURN_UNLESS(m->updated && m->expr && !m->muted
-                  && MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)m->src[0]));
+    RETURN_UNLESS(m->expr && !m->muted && MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)m->src[0]));
+    if (!m->updated) {
+        if (!m->timed)
+            return;
+        if (mpr_time_get_diff(m->next, time) > 0.001) {
+            if (mpr_time_cmp(*next, m->next) > 0)
+                mpr_time_set(next, m->next);
+            return;
+        }
+    }
 
     /* temporary solution: use most multitudinous source signal for id_map
      * permanent solution: move id_maps to map */
@@ -984,10 +1005,11 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
-                               src_vals, m->vars, dst_val, &time, i);
+                               src_vals, m->vars, dst_val, &time, &m->next, i);
         if (!m->use_inst)
             status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
-
+        if (m->timed && mpr_time_cmp(*next, m->next) > 0)
+            mpr_time_set(next, m->next);
         if (!status)
             continue;
 
@@ -1019,6 +1041,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
     mpr_value *vars;
     const char **var_names;
     mpr_sig sig;
+    mpr_time now;
 
     /* If there is no expression or the processing is remote,
      * then no memory needs to be (re)allocated. */
@@ -1026,6 +1049,8 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
                   && (MPR_LOC_BOTH == m->locality
                       || !(  (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)m->dst))
                            ^ (MPR_LOC_SRC == m->process_loc))));
+
+    mpr_time_set(&now, MPR_NOW);
 
     /* HANDLE edge case: if the map is local, then src->dir is OUT and dst->dir is IN */
 
@@ -1072,7 +1097,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
             /* set position to 0 since we are not currently allowing history on user variables */
         }
         for (j = 0; j < var_num_inst; j++)
-            mpr_value_incr_idx(vars[i], j, MPR_NOW);
+            mpr_value_incr_idx(vars[i], j, now);
     }
 
     /* free old variables and replace with new */
@@ -1153,7 +1178,7 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
 
     expr = mpr_expr_new_from_str(expr_str, m->num_src, src_types, src_lens,
                                  1, dst_types, dst_lens);
-    RETURN_ARG_UNLESS(expr, 1);
+    TRACE_RETURN_UNLESS(expr, 1, "Error creating expression\n");
 
     /* reallocate the central evaluation buffer if necessary */
     mpr_expr_realloc_eval_buffer(expr, mpr_graph_get_expr_eval_buffer(m->obj.graph));
@@ -1517,14 +1542,27 @@ static int set_expr(mpr_local_map m, const char *expr_str)
     RETURN_ARG_UNLESS(expr_str, -1);
 
     if (!replace_expr_str(m, expr_str)) {
+        mpr_value dst_val = mpr_slot_get_value(m->dst);
         mpr_time now;
         mpr_map_alloc_values(m, 1);
 
         /* evaluate expression to initialise literals */
+        /* TODO: use appropriate device offset here */
         mpr_time_set(&now, MPR_NOW);
+
+        /* TEMPORARY? initialize value of 'next' user variable if it exists */
+        for (i = 0; i < m->num_vars; i++) {
+            /* TODO: handle multiple instances */
+            if (0 == strcmp(mpr_expr_get_var_name(m->expr, i), "next")) {
+                double nowd = mpr_time_as_dbl(now);
+                assert(MPR_DBL == mpr_value_get_type(m->vars[i]));
+                mpr_value_set_next(m->vars[i], 0, &nowd, now);
+            }
+        }
+
         for (i = 0; i < m->num_inst; i++)
             mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph), 0,
-                          m->vars, mpr_slot_get_value(m->dst), &now, i);
+                          m->vars, dst_val, &now, &m->next, i);
 
         /* reset map id_map */
         m->id_map.LID = m->id_map.GID = 0;
@@ -1550,6 +1588,19 @@ static int set_expr(mpr_local_map m, const char *expr_str)
     /* check whether each source slot causes computation */
     for (i = 0; i < m->num_src; i++)
         mpr_slot_set_causes_update((mpr_slot)m->src[i], !mpr_expr_get_src_is_muted(m->expr, i));
+
+    /* check whether expression manages recalculation scheduling */
+    if ((m->timed = mpr_expr_get_manages_time(m->expr))) {
+        mpr_local_dev dev = 0;
+        for (i = 0; i < m->num_src; i++) {
+            mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->src[i]);
+            if (mpr_obj_get_is_local((mpr_obj)sig) && (dev != (mpr_local_dev)mpr_sig_get_dev(sig)))
+                mpr_local_dev_check_map_timing((dev = (mpr_local_dev)mpr_sig_get_dev(sig)));
+        }
+        if (mpr_obj_get_is_local((mpr_obj)dst_sig))
+            mpr_local_dev_check_map_timing((mpr_local_dev)mpr_sig_get_dev(dst_sig));
+    }
+
 done:
     if (new_expr)
         free((char*)new_expr);
@@ -1968,11 +2019,13 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
         for (j = 0; j < lm->num_vars; j++) {
             /* TODO: handle multiple instances */
             k = 0;
+            snprintf(varname, 32, "@var@%s", mpr_expr_get_var_name(lm->expr, j));
+            /* hide variables for instance and muting control */
+            if (   0 == strncmp(varname + 5, "alive", 5)
+                || 0 == strncmp(varname + 5, "muted", 5)
+                || 0 == strncmp(varname + 5, "next", 4))
+                continue;
             if (mpr_value_get_has_value(lm->vars[j], k)) {
-                snprintf(varname, 32, "@var@%s", mpr_expr_get_var_name(lm->expr, j));
-                /* hide variables for instance and muting control */
-                if (0 == strncmp(varname + 5, "alive", 5) || 0 == strncmp(varname + 5, "muted", 5))
-                    continue;
                 lo_message_add_string(msg, varname);
                 mpr_value_add_to_msg(lm->vars[j], k, msg);
             }
@@ -2341,4 +2394,9 @@ void mpr_map_status_decr(mpr_map map)
 mpr_id_map mpr_local_map_get_id_map(mpr_local_map map)
 {
     return &map->id_map;
+}
+
+int mpr_local_map_get_is_timed(mpr_local_map map)
+{
+    return map->timed;
 }

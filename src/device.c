@@ -79,11 +79,13 @@ struct _mpr_local_dev {
     } id_maps;
 
     mpr_time time;
+    mpr_time next;
     int num_sig_groups;
-    uint8_t time_is_stale;
-    uint8_t polling;
-    uint8_t sending;
-    uint8_t receiving;
+    uint8_t time_is_stale;  // only need 1 bit
+    uint8_t timed;          // only need 1 bit
+    uint8_t polling;        // only need 1 bit
+    uint8_t sending;        // only need 1 bit
+    uint8_t receiving;      // only need 1 bit
     uint8_t own_graph;
 } mpr_local_dev_t;
 
@@ -462,12 +464,13 @@ void mpr_dev_process_incoming_maps(mpr_local_dev dev)
     /* TODO: speed this up! */
     dev->receiving = 0;
     maps = mpr_graph_get_list(graph, MPR_MAP);
+    dev->next.sec = 0xFFFFFFFF;
     while (maps) {
         mpr_map map = (mpr_map)*maps;
         maps = mpr_list_get_next(maps);
         if (mpr_obj_get_is_local((mpr_obj)map)) {
             /* TODO: do we need to call this for local-only maps? */
-            mpr_map_receive((mpr_local_map)map, t);
+            mpr_map_receive((mpr_local_map)map, t, &dev->next);
             mpr_map_clear_slot_msgs((mpr_local_map)map);
         }
         else {
@@ -489,6 +492,7 @@ static int process_outgoing_maps(mpr_local_dev dev)
     graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
+    dev->next.sec = 0xFFFFFFFF;
     list = mpr_graph_get_list(graph, MPR_MAP);
     while (list) {
         mpr_map map = (mpr_map)*list;
@@ -496,7 +500,7 @@ static int process_outgoing_maps(mpr_local_dev dev)
             /* local maps are always located at the start of the list */
             break;
         }
-        mpr_map_send((mpr_local_map)map, dev->time);
+        mpr_map_send((mpr_local_map)map, dev->time, &dev->next);
         list = mpr_list_get_next(list);
     }
     dev->sending = 0;
@@ -522,6 +526,26 @@ static int process_outgoing_maps(mpr_local_dev dev)
     }
     dev->polling = 0;
     return msgs != 0;
+}
+
+void mpr_local_dev_check_map_timing(mpr_local_dev dev)
+{
+    mpr_list list = mpr_graph_get_list(dev->obj.graph, MPR_MAP);
+    while (list) {
+        mpr_map map = (mpr_map)*list;
+        if (!mpr_obj_get_is_local((mpr_obj)map)) {
+            /* local maps are always located at the start of the list */
+            break;
+        }
+        if (mpr_local_map_get_is_timed((mpr_local_map)map)) {
+            printf("DEVICE IS TIMED\n");
+            dev->timed = 1;
+            dev->next.sec = 0;
+            return;
+        }
+    }
+    printf("DEVICE IS NOT TIMED\n");
+    dev->timed = 0;
 }
 
 void mpr_dev_update_maps(mpr_dev dev) {
@@ -601,9 +625,14 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     if (!ldev->polling)
         process_outgoing_maps(ldev);
 
-    if (((mpr_obj)dev)->is_local) {
-        mpr_time_set(&ldev->time, time);
-        ldev->time_is_stale = 0;
+    mpr_time_set(&ldev->time, time);
+    ldev->time_is_stale = 0;
+
+    if (ldev->timed && mpr_time_get_diff(ldev->next, time) <= 0.001) {
+        /* TODO: consider tracking timed maps on inputs and outputs separately */
+        ldev->sending = ldev->receiving = 1;
+        if (!ldev->polling)
+            process_outgoing_maps(ldev);
     }
 }
 

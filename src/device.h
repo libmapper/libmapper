@@ -146,4 +146,6 @@ void mpr_local_dev_print_id_maps(mpr_local_dev dev);
 double mpr_dev_get_offset(mpr_dev dev);
 double mpr_dev_set_offset(mpr_dev dev, double offset, double weight);
 
+void mpr_local_dev_check_map_timing(mpr_local_dev dev);
+
 #endif /* __MPR_DEVICE_H__ */

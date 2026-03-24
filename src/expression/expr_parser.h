@@ -368,6 +368,11 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             if (vars[num_var].name[0] == 'a')
                                 is_const = 0;
                         }
+                        else if (strcmp(vars[num_var].name, "next") == 0) {
+                            vars[num_var].vec_len = 1;
+                            vars[num_var].datatype = MPR_DBL; /* TODO: convert to MPR_TIME? */
+                            tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
+                        }
                         else
                             tok.gen.vec_len = 0;
                         ++num_var;

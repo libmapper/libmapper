@@ -29,6 +29,8 @@ void* mpr_value_get_value(mpr_value v, unsigned int inst_idx, int hist_idx);
 
 int mpr_value_get_has_value(mpr_value v, unsigned int inst_idx);
 
+mpr_time mpr_value_get_lowest_time(mpr_value v);
+
 int mpr_value_set_next(mpr_value v, unsigned int inst_idx, const void *s, mpr_time t);
 
 void mpr_value_cpy_next(mpr_value v, unsigned int inst_idx, mpr_time t);

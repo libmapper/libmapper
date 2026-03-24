@@ -41,6 +41,8 @@ const char *mpr_expr_get_var_name(mpr_expr expr, int idx);
 
 int mpr_expr_get_manages_inst(mpr_expr expr);
 
+int mpr_expr_get_manages_time(mpr_expr expr);
+
 void mpr_expr_set_var_updated(mpr_expr expr, int var_idx);
 
 /*! Evaluate the given inputs using the compiled expression.
@@ -50,6 +52,7 @@ void mpr_expr_set_var_updated(mpr_expr expr, int var_idx);
  *  \param expr_vars    An array of `mpr_value` structures for user variables.
  *  \param result       A `mpr_value` structure for receiving the evaluation result.
  *  \param time         The timestamp to associate with this evaluation.
+ *  \param next         Optional timestamp for scheuling the next evaluation.
  *  \param types        An array of `mpr_type` for storing the output type per vector element
  *  \param inst_idx     Index of the instance being updated.
  *  \result             0 if the expression evaluation caused no change, or a bitflags consisting of
@@ -60,7 +63,7 @@ void mpr_expr_set_var_updated(mpr_expr expr, int var_idx);
  *                      instances because all instances are reduced using e.g.
  *                      `y=x.instance.mean()`). */
 int mpr_expr_eval(mpr_expr expr, mpr_expr_eval_buffer buff, mpr_value *srcs, mpr_value *expr_vars,
-                  mpr_value result, mpr_time *time, int inst_idx);
+                  mpr_value result, mpr_time *time, mpr_time *next, int inst_idx);
 
 int mpr_expr_get_num_src(mpr_expr expr);
 

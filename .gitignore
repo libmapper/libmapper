@@ -79,6 +79,7 @@ test/testmapinput
 test/testmaplocation
 test/testmapprotocol
 test/testmapscope
+test/test_map_timed
 test/testmonitor
 test/testnetwork
 test/testparams

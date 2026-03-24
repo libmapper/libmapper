@@ -29,6 +29,7 @@ if WINDOWS_DLL
         testmaplocation \
         testmapprotocol \
         testmapscope \
+        test_map_timed \
         testmonitor \
         testnetwork \
         testparams \
@@ -84,6 +85,7 @@ if WINDOWS_DLL
         teststealing \
         test_subscriptions \
         test_time_sync \
+        test_map_timed \
         test
 
 else
@@ -111,6 +113,7 @@ else
         testmaplocation \
         testmapprotocol \
         testmapscope \
+        test_map_timed \
         testmonitor \
         testnetwork \
         testparams \
@@ -169,6 +172,7 @@ else
         teststealing \
         test_subscriptions \
         test_time_sync \
+        test_map_timed \
         test
 
 endif
@@ -264,6 +268,10 @@ testmapprotocol_LDADD = $(TEST_LDADD)
 testmapscope_CFLAGS = $(TEST_CFLAGS)
 testmapscope_SOURCES = testmapscope.c
 testmapscope_LDADD = $(TEST_LDADD)
+
+test_map_timed_CFLAGS = $(TEST_CFLAGS)
+test_map_timed_SOURCES = test_map_timed.c
+test_map_timed_LDADD = $(TEST_LDADD)
 
 testmonitor_CXXFLAGS = $(TEST_CXXFLAGS)
 testmonitor_SOURCES = testmonitor.cpp

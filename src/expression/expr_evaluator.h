@@ -100,7 +100,7 @@ MPR_INLINE static int _newest_val_idx(mpr_value *vals, int num_vals, int inst_id
 }
 
 int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_vars,
-                  mpr_value v_out, mpr_time *time, int inst_idx)
+                  mpr_value v_out, mpr_time *time, mpr_time *next, int inst_idx)
 {
 #if TRACE_EVAL
     printf("evaluating expression...\n");
@@ -1007,11 +1007,13 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 muted = vals[sp].i != 0;
                 can_advance = 0;
             }
-            else if (VAR_Y >= tok->var.idx) {
-                if (!hidx) {
-                    /* inform value struct that it has value */
-                    mpr_value_set_elements_known(v, inst_idx, vidx, tok->gen.vec_len);
-                }
+            else if (tok->var.idx == expr->next_ctl) {
+                mpr_time_set_dbl(next, vals[sp].d);
+                can_advance = 0;
+            }
+            else if (VAR_Y >= tok->var.idx && !hidx) {
+                /* inform value struct that it has value */
+                mpr_value_set_elements_known(v, inst_idx, vidx, tok->gen.vec_len);
             }
 
         assign_done:

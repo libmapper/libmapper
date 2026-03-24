@@ -255,6 +255,21 @@ void* mpr_value_get_value(mpr_value v, unsigned int inst_idx, int hist_idx)
     return (char*)b->samps + idx * v->vlen * mpr_type_get_size(v->type);
 }
 
+mpr_time mpr_value_get_lowest_time(mpr_value v)
+{
+    int i;
+    mpr_time lowest = {0xFFFFFFFF, 0xFFFFFFFF};
+    for (i = 0; i < v->num_inst; i++) {
+        mpr_value_buffer b = &v->inst[i];
+        if (b->pos >= 0) {
+            mpr_time t = b->times[b->pos];
+            if ((t.sec < lowest.sec) || ((t.sec == lowest.sec) && (t.frac < lowest.frac)))
+                t = b->times[b->pos];
+        }
+    }
+    return lowest;
+}
+
 static mpr_time* mpr_value_get_time_internal(mpr_value v, unsigned int inst_idx, int hist_idx)
 {
     mpr_value_buffer b = GET_BUFFER();

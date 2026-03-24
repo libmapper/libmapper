@@ -43,7 +43,7 @@ mpr_type expect_type[MAX_DST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
 
-mpr_time time_in = {0, 0}, time_out = {0, 0};
+mpr_time time_in = {0, 0}, time_out = {0, 0}, time_next = {0, 0};
 
 /* evaluation buffer */
 mpr_expr_eval_buffer eval_buff = 0;
@@ -376,7 +376,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     updated_values = mpr_bitflags_new(MAX_DST_ARRAY_LEN);
 
     eprintf("Try evaluation once... ");
-    status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, 0);
+    status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, &time_next, 0);
 
     if (!status) {
         eprintf("FAILED.\n");
@@ -420,7 +420,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
                     assert(0);
             }
         }
-        status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, 0);
+        status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, &time_next, 0);
         if (status & EXPR_UPDATE) {
             ++update_count;
             mpr_bitflags_clear(updated_values);
