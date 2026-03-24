@@ -180,7 +180,7 @@ static int expr_lex(const char *str, int idx, etoken tok)
         /* back up one character */
         while (i && strchr(" \t\r\n", str[i]))
             --i;
-        if (isalpha(str[i]) || isdigit(str[i]) || strchr(")]}", str[i])) {
+        if (isalpha(str[i]) || isdigit(str[i]) || strchr(")]}$", str[i])) {
             etoken_set_op(tok, OP_SUBTRACT);
         }
         else

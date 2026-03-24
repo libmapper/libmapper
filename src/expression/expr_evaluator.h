@@ -203,18 +203,22 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             evalue_print(vals + sp, types[dp], lens[dp], dp);
 #endif
             break;
-        case TOK_VAR: {
+        case TOK_VAR:
+        case TOK_TT: {
             mpr_value v;
             int hidx = -hist_offset, vidx, idxp = dp;
             float hwt = 0.f, vwt = 0.f;
+#if TRACE_EVAL
+            printf("\n\t\t%s", TOK_VAR == tok->toktype ? "var" : "tt");
+#endif
 
             if (tok->var.idx == VAR_Y) {
                 RETURN_ARG_UNLESS(v_out, status);
-#if TRACE_EVAL
-                printf("\n\t\tvar[y]");
-#endif
                 v = v_out;
                 can_advance = 0;
+#if TRACE_EVAL
+                printf("[y]");
+#endif
             }
             else if (tok->var.idx >= VAR_X_NEWEST) {
                 RETURN_ARG_UNLESS(v_in, status);
@@ -223,13 +227,13 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     int newest_idx = _newest_val_idx(v_in, expr->num_src, inst_idx);
                     v = v_in[newest_idx];
 #if TRACE_EVAL
-                    printf("\n\t\tvar[x$%d]", newest_idx);
+                    printf("[x$%d]", newest_idx);
 #endif
                 }
                 else if (!(tok->gen.flags & VAR_SIG_IDX)) {
                     v = v_in[tok->var.idx - VAR_X + sig_offset];
 #if TRACE_EVAL
-                    printf("\n\t\tvar[x$%d]", tok->var.idx - VAR_X + sig_offset);
+                    printf("[x$%d]", tok->var.idx - VAR_X + sig_offset);
 #endif
                 }
                 else {
@@ -238,11 +242,11 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                         int sidx = vals[sp].i % expr->num_src;
                         if (sidx < 0)
                             sidx += expr->num_src;
-#if TRACE_EVAL
-                        printf("\n\t\tvar[x$%d]", sidx);
-#endif
                         v = v_in[sidx];
                         --idxp;
+#if TRACE_EVAL
+                        printf("[x$%d]", sidx);
+#endif
                     }
                     else
                         goto error;
@@ -256,14 +260,14 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     status &= ~EXPR_EVAL_DONE;
             }
             else if (v_vars) {
-#if TRACE_EVAL
-                if (expr->vars && expr->vars[tok->var.idx].name)
-                    printf("\n\t\tvar[%d:%s]", tok->var.idx, expr->vars[tok->var.idx].name);
-                else
-                    printf("\n\t\tvar[%d]", tok->var.idx);
-#endif
                 v = v_vars[tok->var.idx];
                 can_advance = 0;
+#if TRACE_EVAL
+                if (expr->vars && expr->vars[tok->var.idx].name)
+                    printf("[%d:%s]", tok->var.idx, expr->vars[tok->var.idx].name);
+                else
+                    printf("[%d]", tok->var.idx);
+#endif
             }
             else
                 goto error;
@@ -315,10 +319,15 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             else
                 vidx = tok->var.vec_idx + vec_offset;
 #if TRACE_EVAL
-            if (vwt)
-                printf("[%g]\r\t\t\t\t\t", vidx + 1 - vwt);
-            else
-                printf("[%d]\r\t\t\t\t\t", vidx);
+            if (TOK_VAR == tok->toktype) {
+                if (vwt)
+                    printf("[%g]\r\t\t\t\t\t", vidx + 1 - vwt);
+                else
+                    printf("[%d]\r\t\t\t\t\t", vidx);
+            }
+            else {
+                printf("\r\t\t\t\t\t");
+            }
 #endif
 
             /* STUB: instance indexing will go here */
@@ -327,64 +336,79 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             } */
 
             SET_STACK_PTR(idxp + 1);
-            SET_TYPE(mpr_value_get_type(v));
-            SET_LEN(tok->gen.vec_len ? tok->gen.vec_len : mpr_value_get_vlen(v));
 
-            switch (mpr_value_get_type(v)) {
+            if (TOK_VAR == tok->toktype) {
+                SET_TYPE(mpr_value_get_type(v));
+                SET_LEN(tok->gen.vec_len ? tok->gen.vec_len : mpr_value_get_vlen(v));
+                switch (mpr_value_get_type(v)) {
 #define COPY_TYPED(MTYPE, TYPE, T)                                                  \
-                case MTYPE: {                                                       \
-                    int i, j, vlen = mpr_value_get_vlen(v);                         \
-                    TYPE *a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx);        \
-                    if (vwt) {                                                      \
-                        register TYPE temp;                                         \
-                        register float ivwt = 1 - vwt;                              \
-                        for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
-                            int vec_idx = (i + vidx) % vlen;                        \
-                            if (vec_idx < 0) vec_idx += vlen;                       \
-                            temp = a[vec_idx] * vwt;                                \
-                            vec_idx = (vec_idx + 1) % vlen;                         \
-                            temp += a[vec_idx] * ivwt;                              \
-                            vals[j].T = temp;                                       \
-                        }                                                           \
-                    }                                                               \
-                    else {                                                          \
-                        for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
-                            int vec_idx = (i + vidx) % vlen;                        \
-                            if (vec_idx < 0) vec_idx += vlen;                       \
-                            vals[j].T = a[vec_idx];                                 \
-                        }                                                           \
-                    }                                                               \
-                    if (hwt) {                                                      \
-                        register float ihwt = 1 - hwt;                              \
-                        a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx - 1);      \
-                        if (vwt) {                                                  \
-                            register TYPE temp;                                     \
-                            register float ivwt = 1 - vwt;                          \
-                            for (i = 0, j = sp; i < lens[dp]; i++, j++) {           \
-                                int vec_idx = (i + vidx) % vlen;                    \
-                                if (vec_idx < 0) vec_idx += vlen;                   \
-                                temp = a[vec_idx] * vwt;                            \
-                                vec_idx = (vec_idx + 1) % vlen;                     \
-                                temp += a[vec_idx] * ivwt;                          \
-                                vals[j].T = vals[j].T * hwt + temp * ihwt;          \
-                            }                                                       \
-                        }                                                           \
-                        else {                                                      \
-                            for (i = 0, j = sp; i < lens[dp]; i++, j++) {           \
-                                int vec_idx = (i + vidx) % vlen;                    \
-                                if (vec_idx < 0) vec_idx += vlen;                   \
-                                vals[i].T = vals[i].T * hwt + a[vec_idx] * (1 - hwt);\
-                            }                                                       \
-                        }                                                           \
-                    }                                                               \
-                    break;                                                          \
-                }
-                COPY_TYPED(MPR_INT32, int, i)
-                COPY_TYPED(MPR_FLT, float, f)
-                COPY_TYPED(MPR_DBL, double, d)
+                    case MTYPE: {                                                   \
+                        int i, j, vlen = mpr_value_get_vlen(v);                     \
+                        TYPE *a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx);        \
+                        if (vwt) {                                                      \
+                            register TYPE temp;                                         \
+                            register float ivwt = 1 - vwt;                              \
+                            for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
+                                int vec_idx = (i + vidx) % vlen;                        \
+                                if (vec_idx < 0) vec_idx += vlen;                       \
+                                temp = a[vec_idx] * vwt;                                \
+                                vec_idx = (vec_idx + 1) % vlen;                         \
+                                temp += a[vec_idx] * ivwt;                              \
+                                vals[j].T = temp;                                       \
+                            }                                                           \
+                        }                                                               \
+                        else {                                                          \
+                            for (i = 0, j = sp; i < lens[dp]; i++, j++) {               \
+                                int vec_idx = (i + vidx) % vlen;                        \
+                                if (vec_idx < 0) vec_idx += vlen;                       \
+                                vals[j].T = a[vec_idx];                                 \
+                            }                                                           \
+                        }                                                               \
+                        if (hwt) {                                                      \
+                            register float ihwt = 1 - hwt;                              \
+                            a = (TYPE*)mpr_value_get_value(v, inst_idx, hidx - 1);      \
+                            if (vwt) {                                                  \
+                                register TYPE temp;                                     \
+                                register float ivwt = 1 - vwt;                          \
+                                for (i = 0, j = sp; i < lens[dp]; i++, j++) {           \
+                                    int vec_idx = (i + vidx) % vlen;                    \
+                                    if (vec_idx < 0) vec_idx += vlen;                   \
+                                    temp = a[vec_idx] * vwt;                            \
+                                    vec_idx = (vec_idx + 1) % vlen;                     \
+                                    temp += a[vec_idx] * ivwt;                          \
+                                    vals[j].T = vals[j].T * hwt + temp * ihwt;          \
+                                }                                                       \
+                            }                                                           \
+                            else {                                                      \
+                                for (i = 0, j = sp; i < lens[dp]; i++, j++) {           \
+                                    int vec_idx = (i + vidx) % vlen;                    \
+                                    if (vec_idx < 0) vec_idx += vlen;                   \
+                                    vals[i].T = vals[i].T * hwt + a[vec_idx] * (1 - hwt);\
+                                }                                                       \
+                            }                                                           \
+                        }                                                               \
+                        break;                                                          \
+                    }
+                    COPY_TYPED(MPR_INT32, int, i)
+                    COPY_TYPED(MPR_FLT, float, f)
+                    COPY_TYPED(MPR_DBL, double, d)
 #undef COPY_TYPED
-                default:
-                    goto error;
+                    default:
+                        goto error;
+                }
+            }
+            else {
+                mpr_time t = mpr_value_get_time(v, inst_idx, hidx);
+                double t_d = mpr_time_as_dbl(t);
+                int i;
+                if (hwt) {
+                    t = mpr_value_get_time(v, inst_idx, hidx - 1);
+                    t_d = t_d * hwt + mpr_time_as_dbl(t) * (1 - hwt);
+                }
+                for (i = sp; i < sp + tok->gen.vec_len; i++)
+                    vals[i].d = t_d;
+                SET_TYPE(MPR_DBL);
+                SET_LEN(tok->gen.vec_len);
             }
 #if TRACE_EVAL
             evalue_print(vals + sp, types[dp], lens[dp], dp);
@@ -427,84 +451,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             SET_LEN(tok->gen.vec_len);
             for (i = 0; i < tok->gen.vec_len; i++)
                 vals[sp + i].i = inst_idx;
-#if TRACE_EVAL
-            evalue_print(vals + sp, types[dp], lens[dp], dp);
-#endif
-            break;
-        }
-        case TOK_TT: {
-            int i, hidx = 0;
-            double t_d, hwt = 0.0;
-#if TRACE_EVAL
-            if (tok->var.idx == VAR_Y)
-                printf("\n\t\ttt.y");
-            else if (tok->var.idx >= VAR_X)
-                printf("\n\t\ttt.x$%d", tok->var.idx - VAR_X);
-            else if (v_vars)
-                printf("\n\t\ttt.%s", expr->vars[tok->var.idx].name);
-#endif
-            if (tok->gen.flags & VAR_HIST_IDX) {
-#if TRACE_EVAL
-                switch (types[dp]) {
-                    case MPR_INT32: printf("{N=%d}", vals[sp].i);   break;
-                    case MPR_FLT:   printf("{N=%g}", vals[sp].f);   break;
-                    case MPR_DBL:   printf("{N=%g}", vals[sp].d);   break;
-                    default:                                        goto error;
-                }
-#endif
-                switch (types[dp]) {
-                    case MPR_INT32: hidx = vals[sp].i;                                      break;
-                    case MPR_FLT:   hidx = (int)vals[sp].f; hwt = fabsf(vals[sp].f - hidx); break;
-                    case MPR_DBL:   hidx = (int)vals[sp].d; hwt = fabs(vals[sp].d - hidx);  break;
-                    default:        goto error;
-                }
-            }
-            else {
-                INCR_STACK_PTR(1);
-            }
-            SET_LEN(tok->gen.vec_len);
-#if TRACE_EVAL
-            printf("\r\t\t\t\t\t");
-#endif
-            if (tok->var.idx == VAR_Y) {
-                mpr_time t;
-                RETURN_ARG_UNLESS(v_out, status);
-                t = mpr_value_get_time(v_out, inst_idx, hidx);
-                /* use now timetag if historical timetag is not initialized */
-                if (hidx && 0 == t.sec) {
-                    t_d = mpr_time_as_dbl(*time);
-                }
-                else {
-                    t_d = mpr_time_as_dbl(t);
-                    if (hwt) {
-                        t = mpr_value_get_time(v_out, inst_idx, hidx - 1);
-                        t_d = t_d * hwt + mpr_time_as_dbl(t) * (1 - hwt);
-                    }
-                }
-            }
-            else if (tok->var.idx >= VAR_X) {
-                mpr_value v;
-                mpr_time t;
-                RETURN_ARG_UNLESS(v_in, status);
-                v = v_in[tok->var.idx - VAR_X];
-                t = mpr_value_get_time(v, inst_idx, hidx);
-                t_d = mpr_time_as_dbl(t);
-                if (hwt) {
-                    t = mpr_value_get_time(v, inst_idx, hidx);
-                    t_d = t_d * hwt + mpr_time_as_dbl(t) * (1 - hwt);
-                }
-            }
-            else if (v_vars) {
-                mpr_value v = v_vars[tok->var.idx];
-                mpr_time t = mpr_value_get_time(v, inst_idx, 0);
-                t_d = mpr_time_as_dbl(t);
-            }
-            else
-                goto error;
-            for (i = sp; i < sp + tok->gen.vec_len; i++)
-                vals[i].d = t_d;
-            SET_TYPE(tok->gen.datatype);
-            can_advance = 0;
 #if TRACE_EVAL
             evalue_print(vals + sp, types[dp], lens[dp], dp);
 #endif
@@ -1018,7 +964,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 
             /* Copy time from input (VAR_Y time already set) */
             /* TODO: isn't it enough to set some of output mpr_value sample? */
-            if (time && VAR_Y != tok->var.idx)
+            if (time)
                 mpr_value_set_time(v, *time, inst_idx, hidx);
 
             switch (mpr_value_get_type(v)) {
@@ -1094,13 +1040,13 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             if (tok->var.idx != VAR_Y || !(tok->gen.flags & VAR_HIST_IDX))
                 goto error;
 #if TRACE_EVAL
-            printf("\n\t\ttt.y{%d}\n", tok->gen.flags & VAR_HIST_IDX ? vals[sp - vlen].i : 0);
+            printf("\n\t\ttt.y{%d}\n", tok->gen.flags & VAR_HIST_IDX ? vals[sp].i : 0);
 #endif
             if (!v_out)
                 return status;
-            assert(types[dp] == MPR_DBL && types[dp - 1] == MPR_INT32);
-            hidx = vals[sp - vlen].i;
-            mpr_time_set_dbl(&t, vals[sp].d);
+            assert(types[dp] == MPR_INT32 && types[dp - 1] == MPR_DBL);
+            hidx = vals[sp].i;
+            mpr_time_set_dbl(&t, vals[sp - vlen].d);
             mpr_value_set_time(v_out, t, inst_idx, hidx);
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */

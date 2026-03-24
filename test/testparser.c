@@ -975,7 +975,8 @@ int run_tests()
     }
 
     /* 57) Moving average of inter-sample period */
-    set_expr_str("period=t_x-t_y{-1};"
+    set_expr_str("t_y{-1}=t_x;"
+                 "period=t_x-t_y{-1};"
                  "y=y{-1}*0.9+period*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
@@ -991,7 +992,8 @@ int run_tests()
     }
 
     /* 58) Moving average of inter-sample jitter */
-    set_expr_str("interval=t_x-t_y{-1};"
+    set_expr_str("t_y{-1}=t_x;"
+                 "interval=t_x-t_y{-1};"
                  "sr=sr*0.9+interval*0.1;"
                  "y=y{-1}*0.9+abs(interval-sr)*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
@@ -1077,7 +1079,7 @@ int run_tests()
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
     expect_flt[0] = src_int[0] + src_flt[1];
     expect_flt[1] = src_int[1] + src_flt[2];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations - 1))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 66) Variable delays */
@@ -1790,7 +1792,7 @@ int run_tests()
     }
 
     /* 136) Use latest source of a convergent map */
-    set_expr_str("y=x.signal.newest();");
+    set_expr_str("y=x.signal.newest() + (t_x.signal.newest() - t_x);");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
     lens[0] = 1;
@@ -1801,7 +1803,7 @@ int run_tests()
         return 1;
 
     /* 137) Use latest source of a convergent map (shorthand) */
-    set_expr_str("y=x$$;");
+    set_expr_str("y=x$$ + (t_x$$ - t_x);");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
     lens[0] = 1;
@@ -1816,7 +1818,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 0, iterations))
         return 1;
-    if (start_index < 0 || start_index == 136) {
+    if (start_index < 0 || start_index == 138) {
         if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
             eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
             return 1;
@@ -2117,9 +2119,6 @@ int main(int argc, char **argv)
     eprintf("**********************************\n");
     printf("\r..................................................Test %s\x1B[0m.",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
-    if (!result)
-        printf(" (%f seconds, %d tokens).\n", total_elapsed_time, token_count);
-    else
-        printf("\n");
+    printf(" (%f seconds, %d tokens).\n", total_elapsed_time, token_count);
     return result;
 }
