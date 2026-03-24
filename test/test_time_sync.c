@@ -12,6 +12,14 @@
 #include <string.h>
 #include <signal.h>
 
+#if defined(WIN32) || defined(_MSC_VER)
+#define HAVE_WIN32_THREADS 1
+#define SLEEP_MS(x) Sleep(x)
+#else
+#include <pthread.h>
+#define SLEEP_MS(x) usleep((x)*1000)
+#endif
+
 int verbose = 1;
 int terminate = 0;
 int shared_graph = 0;
@@ -178,7 +186,7 @@ void loop(void)
         }
 
         ++sent;
-        usleep(period * 1000);
+        SLEEP_MS(period);
         ++i;
 
         if (received > 1) {
