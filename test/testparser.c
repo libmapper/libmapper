@@ -2010,6 +2010,20 @@ int run_tests()
     if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
         return 1;
 
+    /* 162) test type promotion with timestamp assignment */
+    set_expr_str("t_y{-1}=3;y=x;");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+        return 1;
+    if (start_index < 0 || start_index == 162) {
+        if (dst_int[0] != src_int[0]) {
+            printf("... error: expected %d\n", src_int[0]);
+            return 1;
+        }
+        else
+            eprintf("... OK\n");
+    }
+
 //    /* 159) Signal count() */
 //    set_expr_str("y=x / x.signal.count();");
 //    types[0] = MPR_FLT;
