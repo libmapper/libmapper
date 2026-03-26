@@ -451,7 +451,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
 
     if (arity) {
         /* find operator or function inputs */
-        uint8_t skip = 0;
+        uint8_t tskip = 0, vskip = 0;
         uint8_t depth = arity;
         uint8_t operand = 0;
         uint8_t vec_reduce = 0;
@@ -475,7 +475,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                 can_precompute = 0;
             }
 
-            if (skip == 0) {
+            if (vskip == 0) {
                 int j;
                 if (enable_optimize && tokens[i].toktype == TOK_LITERAL && tokens[sp].toktype == TOK_OP
                     && depth <= op_tbl[tokens[sp].op.idx].arity) {
@@ -538,15 +538,15 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                     break;
             }
             else
-                --skip;
+                --vskip;
 
-            skip += etoken_get_arity(&tokens[i]);
+            vskip += etoken_get_arity(&tokens[i]);
             if (TOK_VFN == tokens[i].toktype && (   VFN_MAXMIN == tokens[i].fn.idx
                                                  || VFN_SUMNUM == tokens[i].fn.idx
                                                  || VFN_CONCAT == tokens[i].fn.idx
                                                  || VFN_EMD == tokens[i].fn.idx)) {
                 /* these functions have 2 outputs */
-                --skip;
+                --vskip;
             }
         }
 
@@ -589,11 +589,24 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
         /* walk down stk distance of arity again, promoting types
          * this time we will also touch sub-arguments */
         i = sp;
+        tskip = vskip = 0;
         switch (tokens[sp].toktype) {
-            case TOK_VECTORIZE:  skip = tokens[sp].fn.arity;                depth = 0;      break;
-            case TOK_ASSIGN_USE: skip = 1;                                  depth = 0;      break;
-            case TOK_VAR:        skip = NUM_VAR_IDXS(tokens[sp].gen.flags); depth = 0;      break;
-            default:             skip = 0;                                  depth = arity;  break;
+            case TOK_VECTORIZE:
+                vskip = tokens[sp].fn.arity;
+                depth = 0;
+                break;
+            case TOK_ASSIGN_USE:
+                vskip = 1;
+                depth = 0;
+                break;
+            case TOK_VAR:
+                tskip = vskip = NUM_VAR_IDXS(tokens[sp].gen.flags);
+                depth = 0;
+                break;
+            default:
+                vskip = 0;
+                depth = arity;
+                break;
         }
         estack_promote_tokens(stk, i, type, 0);
         while (--i >= 0) {
@@ -607,7 +620,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
 
             /* promote types within range of compound arity */
             do {
-                if (skip <= 0) {
+                if (vskip <= 0) {
                     estack_promote_tokens(stk, j, type, vec_reduce ? 0 : vec_len);
                     --depth;
                     if (!vec_reduce && !(tokens[j].gen.flags & VEC_LEN_LOCKED)) {
@@ -616,7 +629,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                             vars[tokens[j].var.idx].vec_len = vec_len;
                     }
                 }
-                else {
+                else if (tskip <= 0) {
                     estack_promote_tokens(stk, j, type, 0);
                 }
 
@@ -638,22 +651,43 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                 }
             } while (TOK_COPY_FROM == tokens[j].toktype);
 
-            if (TOK_ASSIGN_USE == tokens[i].toktype) {
-                skip += etoken_get_arity(&tokens[i]) + 2;
+            if (TOK_VAR == tokens[i].toktype) {
+                /* dont need to promote vector/signal/history/instance indices */
+                int var_idxs = NUM_VAR_IDXS(tokens[i].gen.flags);
+                if (var_idxs) {
+                    tskip += var_idxs + 1;
+                    vskip += var_idxs + 1;
+                }
             }
-            if (TOK_VECTORIZE == tokens[i].toktype || TOK_VFN == tokens[i].toktype) {
-                skip += etoken_get_arity(&tokens[i]) + 1;
+            else if (TOK_ASSIGN_USE == tokens[i].toktype) {
+                int _arity = etoken_get_arity(&tokens[i]) + 2;
+                vskip += _arity;
+                if (tskip > 0)
+                    tskip += _arity;
             }
-            else if (skip > 0) {
-                skip += etoken_get_arity(&tokens[i]);
+            else if (TOK_VECTORIZE == tokens[i].toktype || TOK_VFN == tokens[i].toktype) {
+                int _arity = etoken_get_arity(&tokens[i]) + 1;
+                vskip += _arity;
+                if (tskip > 0)
+                    tskip += _arity;
+            }
+            else if (tskip > 0) {
+                int _arity = etoken_get_arity(&tokens[i]);
+                tskip += _arity;
+                vskip += _arity;
+            }
+            else if (vskip > 0) {
+                vskip += etoken_get_arity(&tokens[i]);
             }
             else {
                 depth += etoken_get_arity(&tokens[i]);
             }
 
-            if (skip > 0)
-                --skip;
-            if (depth <= 0 && skip <= 0)
+            if (tskip > 0)
+                --tskip;
+            if (vskip > 0)
+                --vskip;
+            if (depth <= 0 && vskip <= 0)
                 break;
         }
     }

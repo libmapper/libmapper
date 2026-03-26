@@ -356,7 +356,27 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         printf("Stored new variable '%s' at index %i\n", vars[num_var].name, num_var);
 #endif
                         tok.var.idx = num_var;
-                        tok.var.datatype = (TOK_VAR == tok.toktype) ? type_hi : MPR_DBL;
+
+                        if (TOK_VAR == tok.toktype) {
+                            i = op->num_tokens - 1;
+                            while (i >= 0) {
+                                etoken t = estack_peek(op, i);
+                                if (TOK_FN == t->toktype && FN_VEC_IDX == t->fn.idx) {
+                                    tok.var.datatype = MPR_INT32;
+                                    vars[num_var].datatype = MPR_INT32;
+                                    break;
+                                }
+                                --i;
+                            }
+                            if (i < 0) {
+                                tok.var.datatype = type_hi;
+                            }
+                        }
+                        else {
+                            /* use double type for timestamps */
+                            tok.var.datatype = MPR_DBL;
+                        }
+
                         /* special case: 'alive' controls instance lifetime */
                         /* special case: 'muted' controls mute state */
                         // TODO: switch to variable property e.g. `y.alive`

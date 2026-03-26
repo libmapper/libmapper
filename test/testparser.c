@@ -1977,30 +1977,30 @@ int run_tests()
 
     /* 157) increment vector element */
     set_expr_str("a[1]++; y=a;");
-    setup_test(MPR_INT32, 2, MPR_INT32, 2);
-    expect_int[0] = 0;
-    expect_int[1] = iterations;
+    setup_test(MPR_FLT, 2, MPR_FLT, 2);
+    expect_flt[0] = 0;
+    expect_flt[1] = iterations;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 158) postfix increment vector index */
     set_expr_str("y=x[a++];");
-    setup_test(MPR_INT32, 3, MPR_INT32, 2);
-    expect_int[0] = expect_int[1] = src_int[(iterations - 1) % 3];
+    setup_test(MPR_FLT, 3, MPR_FLT, 2);
+    expect_flt[0] = expect_flt[1] = src_flt[(iterations - 1) % 3];
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 159) prefix increment vector index */
     set_expr_str("y=x[++a];");
-    setup_test(MPR_INT32, 3, MPR_INT32, 2);
-    expect_int[0] = expect_int[1] = src_int[(iterations) % 3];
+    setup_test(MPR_FLT, 3, MPR_FLT, 2);
+    expect_flt[0] = expect_flt[1] = src_flt[(iterations) % 3];
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 160) isolated increment and decrement */
     set_expr_str("++a; b--; y=b-a;");
-    setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    expect_int[0] = iterations * -2;
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    expect_flt[0] = iterations * -2;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -2012,12 +2012,12 @@ int run_tests()
 
     /* 162) test type promotion with timestamp assignment */
     set_expr_str("t_y{-1}=3;y=x;");
-    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
     if (start_index < 0 || start_index == 162) {
-        if (dst_int[0] != src_int[0]) {
-            printf("... error: expected %d\n", src_int[0]);
+        if (dst_flt[0] != (float)src_int[0]) {
+            printf("... error: expected %g\n", (float)src_int[0]);
             return 1;
         }
         else
