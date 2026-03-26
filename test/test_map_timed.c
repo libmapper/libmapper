@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <math.h>
+#include <ctype.h>
 #include <string.h>
 #ifdef WIN32
 #include <io.h>
@@ -22,9 +23,8 @@ mpr_dev src = 0;
 mpr_dev dst = 0;
 mpr_sig sendsig = 0;
 mpr_sig recvsig = 0;
-mpr_map map = 0;
 
-int current_expr_idx = -1;
+int current_config = -1;
 int sent = 0;
 int received = 0;
 int matched = 0;
@@ -35,31 +35,54 @@ double expected = 0;
 // to add:
 // - start time in the future
 
-const char *expr[] =
+
+/* schedule next periodic event from a repeating pattern (implicit start time) */
+#define PATT "period = 1; p=[1,.5,.5] * period; y = 1; next = next + p[++i];"
+//#define PATT "period = 1; p=[1,.5,.5] * period; y = i; next = next + p[i]; i = i + 1;"
+
+/* schedule next periodic event using a sinusoid */
+#define SINE "period = 1; y = 1; next = next + (sin(next) + 1.1) * period;"
+
+/* schedule next periodic event using a ramp */
+#define RAMP "period = 1; y = a; a = (a + 0.1) % 1; next = next + a;"
+
+/* schedule next periodic event (implicit start time) */
+#define NEXT "period = 1; y = 1; next = next + period;"
+
+/* schedule next periodic event (explicit start time) */
+#define START "period = 1; y = 1; next = now + period - ((now - 10000) % period);"
+
+/* schedule next periodic event in the past */
+#define PAST "period = 1; y = 1; next = now - 1;"
+
+/* schedule next periodic event from current time */
+#define NOW "period = 1; y = 1; next = now + period;"
+
+
+typedef struct _test_config
 {
-    /* schedule next periodic event from a repeating pattern (implicit start time) */
-//    "period = 1; p=[1,.5,.5] * period; y = 1; next = next + p[i++];",
-    "period = 1; p=[1,.5,.5] * period; y = i; next = next + p[i]; i = i + 1;",
+    int test_id;
+    const char *expr;
+    mpr_loc process_loc;
+} test_config;
 
-    /* schedule next periodic event using a sinusoid */
-    "period = 1; y = 1; next = next + (sin(next) + 1.1) * period;",
-
-    /* schedule next periodic event using a ramp */
-    "period = 1; y = a; a = (a + 0.1) % 1; next = next + a",
-
-    /* schedule next periodic event (implicit start time) */
-    "period = 1; y = 1; next = next + period;",
-
-    /* schedule next periodic event (explicit start time) */
-    "period = 1; y = 1; next = now + period - ((now - 10000) % period);",
-
-    /* schedule next periodic event in the past */
-    "period = 1; y = 1; next = now - 1;",
-
-    /* schedule next periodic event from current time */
-    "period = 1; y = 1; next = now + period;",
+test_config test_configs[] = {
+    { 1, PATT, MPR_LOC_SRC },
+//    { 2, PATT, MPR_LOC_DST },
+//    { 3, SINE, MPR_LOC_SRC },
+//    { 4, SINE, MPR_LOC_DST },
+//    { 3, RAMP, MPR_LOC_SRC },
+//    { 4, RAMP, MPR_LOC_DST },
+//    { 3, NEXT, MPR_LOC_SRC },
+//    { 4, NEXT, MPR_LOC_DST },
+//    { 3, START, MPR_LOC_SRC },
+//    { 4, START, MPR_LOC_DST },
+//    { 3, PAST, MPR_LOC_SRC },
+//    { 4, PAST, MPR_LOC_DST },
+//    { 3, NOW, MPR_LOC_SRC },
+//    { 4, NOW, MPR_LOC_DST },
 };
-const int num_expr = sizeof(expr)/sizeof(expr[0]);
+const int NUM_TESTS = sizeof(test_configs)/sizeof(test_configs[0]);
 
 static void eprintf(const char *format, ...)
 {
@@ -130,7 +153,7 @@ int setup_dst(mpr_graph g, const char *iface)
     eprintf("destination created using interface %s.\n",
             mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 2, MPR_FLT, NULL,
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
                           NULL, NULL, NULL, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
@@ -162,45 +185,6 @@ int wait_ready(void)
     return done;
 }
 
-mpr_map setup_map(int expr_idx, mpr_loc loc)
-{
-    double period_sec;
-
-//    if a map expression does not reference sources, default process location should be destination
-
-    if (!map) {
-        eprintf("creating map\n");
-        map = mpr_map_new(1, &sendsig, 1, &recvsig);
-    }
-
-//    /* this can't work yet because we don't support sourceless maps */
-//    mpr_map_new_from_string(expr, recvsig);
-
-    if (expr_idx != current_expr_idx) {
-        eprintf("setting map expression to '%s'\n", expr[expr_idx]);
-        mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr[expr_idx], 1);
-        current_expr_idx = expr_idx;
-    }
-
-    eprintf("setting map process location to '%s'\n", MPR_LOC_SRC == loc ? "source" : "destination");
-    mpr_obj_set_prop(map, MPR_PROP_PROCESS_LOC, NULL, 1, MPR_INT32, &loc, 1);
-
-    /* also set period variable according to program flags */
-    period_sec = period * 0.1;
-    eprintf("setting period variable to %g\n", period_sec);
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "@var@period", 1, MPR_DBL, &period_sec, 1);
-
-    mpr_obj_push(map);
-
-    /* wait until mapping has been established */
-    while (!done && !mpr_map_get_is_ready(map)) {
-        mpr_dev_poll(src, 10);
-        mpr_dev_poll(dst, 10);
-    }
-
-    return map;
-}
-
 void loop(void)
 {
     received = 0;
@@ -220,6 +204,45 @@ void loop(void)
     mpr_dev_stop_polling(dst);
 }
 
+int run_test(test_config *config)
+{
+    double period_sec;
+    mpr_map map;
+
+    printf("Configuration %d: ", config->test_id);
+    printf("; processing: %s", config->process_loc == MPR_LOC_SRC ? "SRC" : "DST");
+    printf("; expression: %s\n", config->expr);
+
+    map = mpr_map_new(1, &sendsig, 1, &recvsig);
+
+    /* set process location */
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROCESS_LOC, NULL, 1, MPR_INT32, &config->process_loc, 1);
+
+    /* set expression */
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, config->expr, 1);
+
+    /* also set period variable according to program flags */
+    period_sec = period * 0.1;
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "@var@period", 1, MPR_DBL, &period_sec, 1);
+
+    mpr_obj_push(map);
+
+    /* wait until mapping has been established */
+    while (!done && !mpr_map_get_is_ready(map)) {
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
+    }
+
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "@var@period", 1, MPR_DBL, &period_sec, 1);
+    mpr_obj_push(map);
+
+    loop();
+
+    mpr_map_release(map);
+
+    return 0;
+}
+
 void segv(int sig)
 {
     printf("\x1B[31m(SEGV)\n\x1B[0m");
@@ -233,7 +256,7 @@ void ctrlc(int sig)
 
 int main(int argc, char **argv)
 {
-    int i, j, result = 0;
+    int i, j, result = 0, config_start = 0, config_stop = NUM_TESTS;
     char *iface = 0;
     mpr_graph g;
 
@@ -250,7 +273,8 @@ int main(int argc, char **argv)
                                "-t terminate automatically, "
                                "-s shared (use one mpr_graph only), "
                                "-h help, "
-                               "--iface network interface\n");
+                               "--iface network interface, "
+                               "--config specify a configuration to run (1-%d)\n", NUM_TESTS);
                         return 1;
                         break;
                     case 'f':
@@ -267,10 +291,38 @@ int main(int argc, char **argv)
                         break;
                     case '-':
                         if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
-                            i++;
+                            ++i;
                             iface = argv[i];
                             j = len;
                         }
+                        else if (strcmp(argv[i], "--config")==0 && argc>i+1) {
+                            i++;
+                            config_start = atoi(argv[i]);
+                            if (config_start > 0 && config_start <= NUM_TESTS) {
+                                config_stop = config_start;
+                                --config_start;
+                            }
+                            else {
+                                printf("config start argument must be between 1 and %d\n", NUM_TESTS);
+                                return 1;
+                            }
+                            if (i + 1 < argc) {
+                                if (strcmp(argv[i + 1], "...")==0) {
+                                    config_stop = NUM_TESTS;
+                                    ++i;
+                                }
+                                else if (isdigit(argv[i + 1][0])) {
+                                    config_stop = atoi(argv[i + 1]);
+                                    if (config_stop <= config_start || config_stop > NUM_TESTS) {
+                                        printf("config stop argument must be between config start and %d\n", NUM_TESTS);
+                                        return 1;
+                                    }
+                                    ++i;
+                                }
+                            }
+                        }
+                        j = len;
+                        break;
                         break;
                     default:
                         break;
@@ -302,23 +354,14 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    for (i = 0; i < num_expr; i++) {
-        mpr_loc loc;
-        eprintf("Loading map expression '%s'...\n", expr[i]);
-        for (loc = MPR_LOC_SRC; loc <= MPR_LOC_DST; loc++) {
-            if (done)
-                goto done;
-            eprintf("  Trying %s processing...\n", MPR_LOC_SRC == loc ? "source" : "destination");
-            mpr_map map = setup_map(i, loc);
-            if (!map) {
-                eprintf("    Error setting up map\n");
-                result = 1;
-                goto done;
-            }
-            loop();
-
-            goto done;
+    i = config_start;
+    while (!done && i < config_stop) {
+        test_config *config = &test_configs[i];
+        if (run_test(config)) {
+            result = 1;
+            break;
         }
+        ++i;
     }
 
     if (autoconnect && (!received || received != matched)) {
