@@ -520,6 +520,15 @@ void mpr_map_free(mpr_map map)
             }
         }
 
+        if (lmap->timed) {
+            /* trigger parent device to recheck whether it is timed */
+            lmap->timed = 0;
+            if (MPR_LOC_SRC & lmap->locality)
+                mpr_local_dev_check_map_timing((mpr_local_dev)mpr_sig_get_dev(mpr_slot_get_sig(map->src[0])));
+            else if (MPR_LOC_DST & lmap->locality)
+                mpr_local_dev_check_map_timing((mpr_local_dev)mpr_sig_get_dev(mpr_slot_get_sig(map->dst)));
+        }
+
         /* free buffers associated with user-defined expression variables */
         if (lmap->vars) {
             for (i = 0; i < lmap->num_vars; i++) {
@@ -772,174 +781,6 @@ static int update_scope(mpr_map m, mpr_msg_atom a)
     return updated;
 }
 
-/* 1) update all signals for this timestep, mark signal instances as "updated"
- * 1b) call process_sig (immediately?) to update slots.
- * 1c) need to allow for users modifying sigs, maps, etc after updating sig and before processing
- * 2) iterate through all the maps and process, mark map instances as "updated"
- * 2b) if instance of a map has already been updated don't bother doing it again
- * 3) can bundle map output during iteration
- *
- * Plan of change:
- * 1) move id_maps from signals to maps
- * 2) on release of local instance, can reuse instance resource and mark id_map as "to release"
- * 3) map should iterate through active id_maps instead of instances
- * 4) when it comes to "to release" id_map, send release and decref LID
- */
-
-/* only called for outgoing, source-processed maps */
-void mpr_map_send(mpr_local_map m, mpr_time time, mpr_time *next)
-{
-    int i, status;
-    mpr_sig_group group;
-    mpr_type manage_inst = 0;
-    mpr_local_dev dev;
-    mpr_local_slot src_slot;
-    mpr_local_sig src_sig;
-    mpr_id_map id_map = 0;
-    mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
-
-    assert(m->obj.is_local);
-
-    if (MPR_LOC_DST == m->process_loc) {
-        //TODO: check if there is anything to send! i.e. source signal is used...
-        /* send immediately */
-        int i;
-        for (i = 0; i < m->num_src; i++) {
-            /* We need to send message prepared by source slot through destination link */
-            lo_message msg;
-            if ((msg = mpr_slot_get_msg(m->src[i])))
-                mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
-        }
-        return;
-    }
-
-    RETURN_UNLESS(m->expr && !m->muted && MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)m->src[0]));
-    if (!m->updated) {
-        if (!m->timed)
-            return;
-        if (mpr_time_get_diff(m->next, time) > 0.001) {
-            if (mpr_time_cmp(*next, m->next) > 0)
-                mpr_time_set(next, m->next);
-            return;
-        }
-    }
-
-    /* temporary solution: use most multitudinous source signal for id_map
-     * permanent solution: move id_maps to map? */
-    src_slot = m->src[0];
-    src_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)src_slot);
-    for (i = 0; i < m->num_src; i++) {
-        mpr_local_sig comp = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)m->src[i]);
-        if (  mpr_sig_get_num_inst_internal((mpr_sig)comp)
-            > mpr_sig_get_num_inst_internal((mpr_sig)src_sig)) {
-            src_slot = m->src[i];
-            src_sig = comp;
-        }
-        src_vals[i] = mpr_slot_get_value(m->src[i]);
-    }
-    group = mpr_local_sig_get_group(src_sig);
-    dev = (mpr_local_dev)mpr_sig_get_dev((mpr_sig)src_sig);
-
-    dst_val = mpr_slot_get_value(m->dst);
-
-    if (m->use_inst) {
-        if (mpr_sig_get_use_inst((mpr_sig)src_sig) && !mpr_expr_get_manages_inst(m->expr)) {
-            manage_inst = MPR_SIG;
-        }
-        else {
-            manage_inst = MPR_MAP;
-            id_map = &m->id_map;
-        }
-    }
-
-    /* TODO: once releases are added to bitflags, find an instance with a value first to check
-     * whether EXPR_EVAL_DONE flag is added. If not, go back and handle releases for previous
-     * instances */
-
-    for (i = 0; i < m->num_inst; i++) {
-        /* Check if this instance has been updated */
-        if (!m->timed && !mpr_bitflags_get(m->updated_inst, i))
-            continue;
-        /* TODO: Check if this instance has enough history to process the expression */
-        status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
-                               src_vals, m->vars, dst_val, &time, &m->next, i);
-        if (!m->use_inst) {
-            /* remove EXPR_RELEASE* event flags */
-            status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
-        }
-        if (m->timed && mpr_time_cmp(*next, m->next) > 0)
-            mpr_time_set(next, m->next);
-        if (!status)
-            continue;
-
-        /* if the map doesn't use instances we don't care about id_maps at all */
-        /* TODO: in future updates map-managed reinstancing should use a separate device id_map
-         * group to translate signal id_maps to the reinstanced versions. Or would it be feasible
-         * to add a third ID to the existing id_maps? */
-        if (MPR_SIG == manage_inst) {
-            /* we need to use the source signal's id_map */
-            id_map = mpr_local_sig_get_id_map_by_inst_idx(src_sig, i);
-            if (!id_map) {
-                trace("error: couldn't find id_map for signal instance idx %d\n", i);
-                continue;
-            }
-        }
-
-        /* send instance release if dst is instanced and either src or map is also instanced. */
-        if (status & EXPR_RELEASE_BEFORE_UPDATE) {
-            /* build release message */
-            mpr_slot_build_msg(m->dst, 0, 0, id_map);
-
-            if (MPR_MAP == manage_inst && id_map->LID) {
-                /* need to clear id_maps */
-                mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID);
-                mpr_dev_remove_id_map(dev, group, tmp);
-                id_map->LID = 0;
-            }
-            /* TODO: if signal is managing instances we should retire reinstancing id_map here */
-        }
-
-        if (status & EXPR_UPDATE) {
-            if (MPR_MAP == manage_inst) {
-                if (!id_map->LID) {
-                    /* need to (re)create id_map */
-                    mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID);
-                    if (!tmp) {
-                        /* add a new id_map to the device */
-                        tmp = mpr_dev_add_id_map(dev, group, MPR_DEFAULT_INST_LID, 0, 0);
-                    }
-                    /* copy the new id_map values into the map's id_map */
-                    id_map->LID = MPR_DEFAULT_INST_LID;
-                    id_map->GID = tmp->GID;
-                }
-            }
-            /* build update message */
-            mpr_slot_build_msg(m->dst, dst_val, i, id_map);
-        }
-
-        /* send instance release if dst is instanced and either src or map is also instanced. */
-        if (status & EXPR_RELEASE_AFTER_UPDATE) {
-            /* build release message */
-            mpr_slot_build_msg(m->dst, 0, 0, id_map);
-
-            if (MPR_MAP == manage_inst && id_map->LID) {
-                /* need to clear id_maps */
-                mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID);
-                mpr_dev_remove_id_map(dev, group, tmp);
-                id_map->LID = 0;
-            }
-            /* TODO: if signal is managing instances we should retire reinstancing id_map here */
-        }
-
-        if (status & EXPR_EVAL_DONE)
-            break;
-    }
-
-    mpr_local_slot_send_msg(m->dst, NULL, time, m->protocol);
-    mpr_bitflags_clear(m->updated_inst);
-    m->updated = 0;
-}
-
 /* Which slots need to be cleared?
 locality    src processing  dst processing
 local src   clear dst       clear src
@@ -956,25 +797,64 @@ void mpr_map_clear_slot_msgs(mpr_local_map m)
     mpr_slot_clear_msg(m->dst);
 }
 
-/* only called for incoming, destination-processed maps */
-/* TODO: merge with mpr_map_send()? */
-void mpr_map_receive(mpr_local_map m, mpr_time time, mpr_time *next)
+/* 1) update all signals for this timestep, mark signal instances as "updated"
+ * 1b) call process_sig (immediately?) to update slots.
+ * 1c) need to allow for users modifying sigs, maps, etc after updating sig and before processing
+ * 2) iterate through all the maps and process, mark map instances as "updated"
+ * 2b) if instance of a map has already been updated don't bother doing it again
+ * 3) can bundle map output during iteration
+ *
+ * Plan of change:
+ * 1) move id_maps from signals to maps
+ * 2) on release of local instance, can reuse instance resource and mark id_map as "to release"
+ * 3) map should iterate through active id_maps instead of instances
+ * 4) when it comes to "to release" id_map, send release and decref LID
+ */
+
+/* combines receiving, timed update, and sending */
+// consider returning next timetag instead of passing by ref from device
+void mpr_map_process(mpr_local_map m, mpr_time time, mpr_time *next)
 {
-    int i, status, map_manages_inst = 0;
+    int i, status;
+    mpr_sig_group group;
+    mpr_type manage_inst = 0;
+    mpr_loc process_loc = m->process_loc;
+    mpr_local_dev dev;
     mpr_local_slot src_slot;
     mpr_sig src_sig;
     mpr_local_sig dst_sig;
+    mpr_id_map id_map = 0;
     mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
 
     assert(m->obj.is_local);
 
-    RETURN_UNLESS(m->expr && !m->muted && MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)m->src[0]));
+    /* send immediately if we are the source and processing occurs at the other endpoint*/
+    if (!(m->locality & m->process_loc)) {
+        assert(MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)m->src[0]));
+        //TODO: check if there is anything to send! i.e. source signal is used in the map?
+        // alternately if source is not referenced in expression we could force processing_loc to DST
+        /* send immediately */
+        int i;
+        for (i = 0; i < m->num_src; i++) {
+            /* We need to send message prepared by source slot through destination link */
+            lo_message msg;
+            if ((msg = mpr_slot_get_msg(m->src[i])))
+                mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
+        }
+        return;
+    }
+
+    RETURN_UNLESS(m->expr && !m->muted);
+
     if (!m->updated) {
         if (!m->timed)
             return;
-        if (mpr_time_get_diff(m->next, time) > 0.001) {
-            if (mpr_time_cmp(*next, m->next) > 0)
+        if (mpr_time_get_diff(m->next, time) > 0.0001) {
+            if (mpr_time_cmp(*next, m->next) > 0) {
                 mpr_time_set(next, m->next);
+                // is this ths same?
+                *next = m->next;
+            }
             return;
         }
     }
@@ -992,40 +872,138 @@ void mpr_map_receive(mpr_local_map m, mpr_time time, mpr_time *next)
         }
         src_vals[i] = mpr_slot_get_value(m->src[i]);
     }
-
-    dst_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)m->dst);
+    if (MPR_LOC_SRC & m->locality) {
+        group = mpr_local_sig_get_group((mpr_local_sig)src_sig);
+        dev = (mpr_local_dev)mpr_sig_get_dev((mpr_sig)src_sig);
+    }
+    else {
+        dst_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)m->dst);
+    }
     dst_val = mpr_slot_get_value(m->dst);
 
-    if (mpr_expr_get_manages_inst(m->expr)) {
-        map_manages_inst = 1;
+    if (m->use_inst) {
+        if (mpr_sig_get_use_inst((mpr_sig)src_sig) && !mpr_expr_get_manages_inst(m->expr)) {
+            manage_inst = MPR_SIG;
+        }
+        else {
+            manage_inst = MPR_MAP;
+            id_map = &m->id_map;
+        }
     }
 
+    // TODO: add manages_inst property to map, move logic from signal.c
+
+    //    check if map expression reduces
+    //        if so:
+    //            falling edge on num_active_inst should trigger release if map uses inst
+    //        consider case of reduce expression being used in a conditional? no message
+    //                y=x.instance.mean()<0.5?a:b;    there is no mean
+    //    also check if map manages inst
+    //        do we need to release when source does?
+    //            could free up input and accept another source?
+    //        could release early
+
+        /* TODO: once releases are added to bitflags, find an instance with a value first to check
+         * whether EXPR_EVAL_DONE flag is added. If not, go back and handle releases for previous
+         * instances */
+
     for (i = 0; i < m->num_inst; i++) {
-        void *value;
-        if (!mpr_bitflags_get(m->updated_inst, i))
+        /* Check if this instance has been updated */
+        if (!m->timed && !mpr_bitflags_get(m->updated_inst, i))
             continue;
+        /* TODO: Check if this instance has enough history to process the expression */
         status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
                                src_vals, m->vars, dst_val, &time, &m->next, i);
-        if (!m->use_inst)
+        if (!m->use_inst) {
+            /* remove EXPR_RELEASE* event flags */
             status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
+        }
         if (m->timed && mpr_time_cmp(*next, m->next) > 0)
             mpr_time_set(next, m->next);
         if (!status)
             continue;
 
-        value = mpr_value_get_value(dst_val, i, 0);
+        if (MPR_LOC_SRC & process_loc) {
+            /* this is the source endpoint */
+            /* if the map doesn't use instances we don't care about id_maps at all */
+            /* TODO: in future updates map-managed reinstancing should use a separate device id_map
+             * group to translate signal id_maps to the reinstanced versions. Or would it be feasible
+             * to add a third ID to the existing id_maps? */
+            if (MPR_SIG == manage_inst) {
+                /* we need to use the source signal's id_map */
+                id_map = mpr_local_sig_get_id_map_by_inst_idx((mpr_local_sig)src_sig, i);
+                if (!id_map) {
+                    trace("error: couldn't find id_map for signal instance idx %d (1)\n", i);
+                    continue;
+                }
+            }
 
-        /* TODO: Also apply to all instances if the map is convergent and other slot signals are instanced */
-        if (!m->use_inst) {
-            /* apply update to all active destination instances */
-            mpr_local_sig_set_inst_value(dst_sig, value, -1, &m->id_map, status, map_manages_inst, time);
+            /* send instance release if dst is instanced and either src or map is also instanced. */
+            if (status & EXPR_RELEASE_BEFORE_UPDATE) {
+                /* build release message */
+                mpr_slot_build_msg(m->dst, 0, 0, id_map);
+
+                if (MPR_MAP == manage_inst && id_map->LID) {
+                    /* need to clear id_maps */
+                    mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID);
+                    mpr_dev_remove_id_map(dev, group, tmp);
+                    id_map->LID = 0;
+                }
+                /* TODO: if signal is managing instances we should retire reinstancing id_map here */
+            }
+
+            if (status & EXPR_UPDATE) {
+                if (MPR_MAP == manage_inst) {
+                    if (!id_map->LID) {
+                        /* need to (re)create id_map */
+                        mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID);
+                        if (!tmp) {
+                            /* add a new id_map to the device */
+                            tmp = mpr_dev_add_id_map(dev, group, MPR_DEFAULT_INST_LID, 0, 0);
+                        }
+                        /* copy the new id_map values into the map's id_map */
+                        id_map->LID = MPR_DEFAULT_INST_LID;
+                        id_map->GID = tmp->GID;
+                    }
+                }
+                /* build update message */
+                mpr_slot_build_msg(m->dst, dst_val, i, id_map);
+            }
+
+            /* send instance release if dst is instanced and either src or map is also instanced. */
+            if (status & EXPR_RELEASE_AFTER_UPDATE) {
+                /* build release message */
+                mpr_slot_build_msg(m->dst, 0, 0, id_map);
+
+                if (MPR_MAP == manage_inst && id_map->LID) {
+                    /* need to clear id_maps */
+                    mpr_id_map tmp = mpr_dev_get_id_map_by_LID(dev, group, MPR_DEFAULT_INST_LID);
+                    mpr_dev_remove_id_map(dev, group, tmp);
+                    id_map->LID = 0;
+                }
+                /* TODO: if signal is managing instances we should retire reinstancing id_map here */
+            }
         }
         else {
-            mpr_local_sig_set_inst_value(dst_sig, value, i, &m->id_map, status, map_manages_inst, time);
+            /* this is the destination endpoint */
+
+            /* TODO: for a sourceless map any instance activation has to happen here */
+
+            void *value = mpr_value_get_value(dst_val, i, 0);
+            if (!m->use_inst) {
+                /* apply update to all active destination instances */
+                mpr_local_sig_set_inst_value(dst_sig, value, -1, &m->id_map, status, MPR_MAP == manage_inst, time);
+            }
+            else {
+                mpr_local_sig_set_inst_value(dst_sig, value, i, &m->id_map, status, MPR_MAP == manage_inst, time);
+            }
         }
         if (status & EXPR_EVAL_DONE) {
             break;
         }
+    }
+    if (MPR_LOC_SRC & process_loc) {
+        mpr_local_slot_send_msg(m->dst, NULL, time, m->protocol);
     }
     mpr_bitflags_clear(m->updated_inst);
     m->updated = 0;
@@ -2021,9 +1999,9 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
             k = 0;
             snprintf(varname, 32, "@var@%s", mpr_expr_get_var_name(lm->expr, j));
             /* hide variables for instance and muting control */
-            if (   0 == strncmp(varname + 5, "alive", 5)
-                || 0 == strncmp(varname + 5, "muted", 5)
-                || 0 == strncmp(varname + 5, "next", 4))
+            if (   0 == strcmp(varname + 5, "alive")
+                || 0 == strcmp(varname + 5, "muted")
+                || 0 == strcmp(varname + 5, "next"))
                 continue;
             if (mpr_value_get_has_value(lm->vars[j], k)) {
                 lo_message_add_string(msg, varname);

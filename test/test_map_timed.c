@@ -64,15 +64,16 @@ typedef struct _test_config
     int test_id;
     const char *expr;
     mpr_loc process_loc;
+    double time_mult;
 } test_config;
 
 test_config test_configs[] = {
-    { 1, PATT, MPR_LOC_SRC },
-//    { 2, PATT, MPR_LOC_DST },
-//    { 3, SINE, MPR_LOC_SRC },
-//    { 4, SINE, MPR_LOC_DST },
-//    { 3, RAMP, MPR_LOC_SRC },
-//    { 4, RAMP, MPR_LOC_DST },
+    { 1, PATT, MPR_LOC_SRC, 0.8 },
+    { 2, PATT, MPR_LOC_DST, 0.7 },
+    { 3, SINE, MPR_LOC_SRC, 1.0 },
+    { 4, SINE, MPR_LOC_DST, 1.0 },
+    { 3, RAMP, MPR_LOC_SRC, 1.0 },
+    { 4, RAMP, MPR_LOC_DST, 1.0 },
 //    { 3, NEXT, MPR_LOC_SRC },
 //    { 4, NEXT, MPR_LOC_DST },
 //    { 3, START, MPR_LOC_SRC },
@@ -185,15 +186,25 @@ int wait_ready(void)
     return done;
 }
 
-void loop(void)
+void loop(double expected_duration_sec)
 {
+    mpr_time end;
+    mpr_time_set(&end, MPR_NOW);
+    mpr_time_add_dbl(&end, expected_duration_sec);
+
     received = 0;
     mpr_dev_start_polling(dst, 10);
 
     eprintf("Polling device..\n");
     while ((!terminate || received < 50) && !done) {
+        if (terminate) {
+            mpr_time now;
+            mpr_time_set(&now, MPR_NOW);
+            if (mpr_time_cmp(now, end) > 0)
+                break;
+        }
 
-        mpr_dev_poll(src, 10);
+        mpr_dev_poll(src, period);
 
         if (!verbose) {
             printf("\r  Received: %4i   ", received);
@@ -221,10 +232,6 @@ int run_test(test_config *config)
     /* set expression */
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, config->expr, 1);
 
-    /* also set period variable according to program flags */
-    period_sec = period * 0.1;
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "@var@period", 1, MPR_DBL, &period_sec, 1);
-
     mpr_obj_push(map);
 
     /* wait until mapping has been established */
@@ -233,14 +240,23 @@ int run_test(test_config *config)
         mpr_dev_poll(dst, 10);
     }
 
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "@var@period", 1, MPR_DBL, &period_sec, 1);
-    mpr_obj_push(map);
+    /* also set period variable according to program flags */
+    period_sec = period * 0.001;
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "var@period", 1, MPR_DBL, &period_sec, 1);
+    mpr_obj_push((mpr_obj)map);
 
-    loop();
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
+
+    loop(config->time_mult * period_sec * 50);
 
     mpr_map_release(map);
 
-    return 0;
+    return received <= 50;
 }
 
 void segv(int sig)
@@ -364,9 +380,7 @@ int main(int argc, char **argv)
         ++i;
     }
 
-    if (autoconnect && (!received || received != matched)) {
-        eprintf("Mismatch between sent and received/matched messages.\n");
-        eprintf("Received %d values and matched %d of them.\n", received, matched);
+    if (autoconnect && result) {
         result = 1;
     }
 

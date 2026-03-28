@@ -81,16 +81,15 @@ struct _mpr_local_dev {
     mpr_time time;
     mpr_time next;
     int num_sig_groups;
+    mpr_dir updated;
     uint8_t time_is_stale;  // only need 1 bit
     uint8_t timed;          // only need 1 bit
-    uint8_t polling;        // only need 1 bit
-    uint8_t sending;        // only need 1 bit
+    uint8_t locked;         // only need 1 bit
     uint8_t receiving;      // only need 1 bit
     uint8_t own_graph;
 } mpr_local_dev_t;
 
 /* prototypes */
-static int process_outgoing_maps(mpr_local_dev dev);
 static int check_registration(mpr_local_dev dev);
 
 mpr_time ts = {0,1};
@@ -247,7 +246,7 @@ void mpr_dev_free(mpr_dev dev)
         free(sub);
     }
 
-    process_outgoing_maps(ldev);
+    mpr_dev_process_maps(ldev);
 
     /* free signals owned by this device */
     list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
@@ -451,44 +450,12 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
     return 0;
 }
 
-/* TODO: handle interrupt-driven updates that omit call to this function */
-void mpr_dev_process_incoming_maps(mpr_local_dev dev)
+void mpr_dev_process_maps(mpr_local_dev dev)
 {
-    mpr_graph graph;
-    mpr_list maps;
-    mpr_time t;
-    RETURN_UNLESS(dev->receiving);
-    graph = dev->obj.graph;
-    t = mpr_dev_get_time((mpr_dev)dev);
-    /* process and send updated maps */
-    /* TODO: speed this up! */
-    dev->receiving = 0;
-    maps = mpr_graph_get_list(graph, MPR_MAP);
-    dev->next.sec = 0xFFFFFFFF;
-    while (maps) {
-        mpr_map map = (mpr_map)*maps;
-        maps = mpr_list_get_next(maps);
-        if (mpr_obj_get_is_local((mpr_obj)map)) {
-            /* TODO: do we need to call this for local-only maps? */
-            mpr_map_receive((mpr_local_map)map, t, &dev->next);
-            mpr_map_clear_slot_msgs((mpr_local_map)map);
-        }
-        else {
-            /* local maps are always located at the start of the list */
-            break;
-        }
-    }
-}
-
-/* TODO: handle interrupt-driven updates that omit call to this function */
-static int process_outgoing_maps(mpr_local_dev dev)
-{
-    int msgs = 0;
     mpr_list list;
     mpr_graph graph;
-    RETURN_ARG_UNLESS(dev->sending && !dev->polling, 0);
+    RETURN_UNLESS(dev->updated && !(dev->locked++));
 
-    dev->polling = 1;
     graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
@@ -500,19 +467,22 @@ static int process_outgoing_maps(mpr_local_dev dev)
             /* local maps are always located at the start of the list */
             break;
         }
-        mpr_map_send((mpr_local_map)map, dev->time, &dev->next);
+        // should return number of messages generated
+        mpr_map_process((mpr_local_map)map, dev->time, &dev->next);
         list = mpr_list_get_next(list);
     }
-    dev->sending = 0;
-    list = mpr_graph_get_list(graph, MPR_LINK);
-    while (list) {
-        mpr_link link = (mpr_link)*list;
-        if (!mpr_obj_get_is_local((mpr_obj)link)) {
-            /* local links are always located at the start of the list */
-            break;
+    if (MPR_DIR_OUT & dev->updated) {
+        /* need to process outgoing messages */
+        list = mpr_graph_get_list(graph, MPR_LINK);
+        while (list) {
+            mpr_link link = (mpr_link)*list;
+            if (!mpr_obj_get_is_local((mpr_obj)link)) {
+                /* local links are always located at the start of the list */
+                break;
+            }
+            mpr_link_process_bundles(link, dev->time);
+            list = mpr_list_get_next(list);
         }
-        msgs += mpr_link_process_bundles(link, dev->time);
-        list = mpr_list_get_next(list);
     }
     list = mpr_graph_get_list(graph, MPR_MAP);
     while (list) {
@@ -524,8 +494,8 @@ static int process_outgoing_maps(mpr_local_dev dev)
         mpr_map_clear_slot_msgs((mpr_local_map)map);
         list = mpr_list_get_next(list);
     }
-    dev->polling = 0;
-    return msgs != 0;
+    dev->updated = 0;
+    dev->locked = 0;
 }
 
 void mpr_local_dev_check_map_timing(mpr_local_dev dev)
@@ -538,20 +508,19 @@ void mpr_local_dev_check_map_timing(mpr_local_dev dev)
             break;
         }
         if (mpr_local_map_get_is_timed((mpr_local_map)map)) {
-            printf("DEVICE IS TIMED\n");
             dev->timed = 1;
             dev->next.sec = 0;
             return;
         }
     }
-    printf("DEVICE IS NOT TIMED\n");
     dev->timed = 0;
 }
 
 void mpr_dev_update_maps(mpr_dev dev) {
     RETURN_UNLESS(dev && dev->obj.is_local);
-    if (!((mpr_local_dev)dev)->polling)
-        process_outgoing_maps((mpr_local_dev)dev);
+    if (!((mpr_local_dev)dev)->locked) {
+        mpr_dev_process_maps((mpr_local_dev)dev);
+    }
     ((mpr_local_dev)dev)->time_is_stale = 1;
     mpr_dev_get_time(dev);
 }
@@ -622,17 +591,21 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     mpr_time_set(&now, MPR_NOW);
     mpr_dev_set_offset(dev, mpr_time_get_diff(time, now), dev->clk_offset ? 0.1 : 1.0);
 
-    if (!ldev->polling)
-        process_outgoing_maps(ldev);
+    if (!ldev->locked) {
+        /* process any updates made under the old timestamp */
+        mpr_dev_process_maps(ldev);
+    }
 
     mpr_time_set(&ldev->time, time);
     ldev->time_is_stale = 0;
 
-    if (ldev->timed && mpr_time_get_diff(ldev->next, time) <= 0.001) {
-        /* TODO: consider tracking timed maps on inputs and outputs separately */
-        ldev->sending = ldev->receiving = 1;
-        if (!ldev->polling)
-            process_outgoing_maps(ldev);
+    if (ldev->timed && mpr_time_get_diff(ldev->next, time) <= 0.0001) {
+        printf("it's time\n");
+        ldev->updated = (MPR_DIR_IN | MPR_DIR_OUT);
+        if (!ldev->locked) {
+            /* process timed maps due under the new timestamp */
+            mpr_dev_process_maps(ldev);
+        }
     }
 }
 
@@ -1243,12 +1216,12 @@ int mpr_dev_has_local_link(mpr_dev dev)
 
 void mpr_local_dev_set_sending(mpr_local_dev dev)
 {
-    dev->sending = 1;
+    dev->updated |= MPR_DIR_OUT;
 }
 
 void mpr_local_dev_set_receiving(mpr_local_dev dev)
 {
-    dev->receiving = 1;
+    dev->updated |= MPR_DIR_IN;
 }
 
 int mpr_local_dev_has_subscribers(mpr_local_dev dev)

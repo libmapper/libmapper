@@ -1040,9 +1040,10 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
     left_ms = block_ms >= 0 ? block_ms : 0;
     do {
         register int recvd = 0;
-        /* set timeout to a maximum of 100ms */
-        if (left_ms > 100)
-            left_ms = 100;
+        /* set timeout to a maximum of 5ms */
+        /* TODO: adjust this based on device self-timing, with a max of 100ms */
+        if (left_ms > 5)
+            left_ms = 5;
 
         if (lo_servers_recv_noblock(net->servers, net->server_status, net->num_servers, left_ms)) {
             int idx = NUM_NET_SERVERS;
@@ -1052,7 +1053,6 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
                 int j;
                 for (j = 0; j < NUM_DEV_SERVERS; j++) {
                     if (net->server_status[j + idx] > 0) {
-                        mpr_dev_process_incoming_maps(net->devs[i]);
                         ++count;
                         break;
                     }

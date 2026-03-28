@@ -1982,78 +1982,87 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, const void *value, int inst
     int id_map_idx = 0, all = 0;
 
     if (inst_idx < 0) {
+        int i;
         all = 1;
         inst_idx = 0;
+        /* use the first available instance */
+        for (i = 0; i < sig->num_inst; i++) {
+            if (sig->inst[i]->status & MPR_STATUS_ACTIVE)
+                break;
+        }
+        if (i >= sig->num_inst) {
+            i = 0;
+        }
+        id_map_idx = mpr_sig_get_id_map_with_LID(sig, sig->inst[i]->id, RELEASED_REMOTELY, time, 1, 1);
     }
+    else {
+        id_map_idx = _get_id_map_idx_by_inst_idx(sig, inst_idx);
+    }
+
     if (!sig->use_inst)
         inst_idx = 0;
 
-    for (; inst_idx < sig->num_inst; inst_idx++) {
-        id_map_idx = _get_id_map_idx_by_inst_idx(sig, inst_idx);
-        if (id_map_idx == -1) {
-            if (eval_status & EXPR_UPDATE)
-                trace("error: couldn't find id_map for signal instance idx %d\n", inst_idx);
-            continue;
-        }
-        si = sig->id_maps[id_map_idx].inst;
-        if (all && !(si->status & MPR_STATUS_ACTIVE))
-            continue;
+    for (; id_map_idx < sig->num_id_maps; id_map_idx++) {
+        if (   (id_map = sig->id_maps[id_map_idx].id_map)
+            && (si = _get_inst_by_id_map_idx(sig, id_map_idx))) {
 
-        id_map = sig->id_maps[id_map_idx].id_map;
+            if (all && !(si->status & MPR_STATUS_ACTIVE))
+                continue;
 
-        /* TODO: would it be better to release all instance first, then update, etc? */
+            /* TODO: would it be better to release all instance first, then update, etc? */
 
-        if (eval_status & EXPR_RELEASE_BEFORE_UPDATE) {
-            /* Try to release instance, but do not call process_maps() here, since we don't
-             * know if the local signal instance will actually be released. */
-            si->status |= MPR_STATUS_REL_UPSTRM;
-            sig->obj.status |= MPR_STATUS_REL_UPSTRM;
-            mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx);
-        }
-        if (eval_status & EXPR_UPDATE) {
-            /* copy to signal value and call handler */
-            if (si->status == MPR_STATUS_STAGED) {
-                /* instance was released in previous handler call */
-                assert(map_manages_inst);
-                /* try to re-activate with a new GID */
-                id_map->GID = mpr_dev_generate_unique_id((mpr_dev)sig->dev);
-                id_map_idx = mpr_sig_get_id_map_with_GID(sig, id_map->GID, RELEASED_LOCALLY, time, 1);
-                if (id_map_idx < 0) {
-                    trace("error: couldn't find id_map for signal instance idx %d\n", id_map_idx);
+            if (eval_status & EXPR_RELEASE_BEFORE_UPDATE) {
+                /* Try to release instance, but do not call process_maps() here, since we don't
+                 * know if the local signal instance will actually be released. */
+                si->status |= MPR_STATUS_REL_UPSTRM;
+                sig->obj.status |= MPR_STATUS_REL_UPSTRM;
+                mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx);
+            }
+            if (eval_status & EXPR_UPDATE) {
+                /* copy to signal value and call handler */
+                if (si->status == MPR_STATUS_STAGED) {
+                    /* instance was released in previous handler call */
+                    assert(map_manages_inst);
+                    /* try to re-activate with a new GID */
+                    id_map->GID = mpr_dev_generate_unique_id((mpr_dev)sig->dev);
+                    id_map_idx = mpr_sig_get_id_map_with_GID(sig, id_map->GID, RELEASED_LOCALLY, time, 1);
+                    if (id_map_idx < 0) {
+                        trace("error: couldn't find id_map for signal instance idx %d (3)\n", id_map_idx);
+                        continue;
+                    }
+                    si = sig->id_maps[id_map_idx].inst;
+                    id_map = sig->id_maps[id_map_idx].id_map;
+                }
+                si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM);
+                if (mpr_value_cmp(sig->value, si->idx, 0, value))
+                    si->status |= MPR_STATUS_NEW_VALUE;
+                mpr_value_set_next(sig->value, si->idx, value, time);
+                sig->obj.status |= si->status;
+                mpr_bitflags_unset(sig->updated_inst, si->idx);
+                mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, si->id, si->idx);
+
+                /* Pass this update downstream if signal is an input and was not updated in handler. */
+                if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
+                    /* mark instance as updated */
+//                    mpr_local_sig_set_updated(sig, si->idx);
+                    process_maps(sig, id_map_idx);
+                }
+            }
+
+            if (eval_status & EXPR_RELEASE_AFTER_UPDATE) {
+                /* Try to release instance, but do not call process_maps() here, since we don't
+                 * know if the local signal instance will actually be released. */
+                if (si->status == MPR_STATUS_STAGED) {
+                    /* instance was released in previous handler call */
                     continue;
                 }
-                si = sig->id_maps[id_map_idx].inst;
-                id_map = sig->id_maps[id_map_idx].id_map;
+                si->status |= MPR_STATUS_REL_UPSTRM;
+                sig->obj.status |= si->status;
+                mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx);
             }
-            si->status |= (MPR_STATUS_HAS_VALUE | MPR_STATUS_UPDATE_REM);
-            if (mpr_value_cmp(sig->value, si->idx, 0, value))
-                si->status |= MPR_STATUS_NEW_VALUE;
-            mpr_value_set_next(sig->value, si->idx, value, time);
-            sig->obj.status |= si->status;
-
-            mpr_sig_call_handler(sig, MPR_STATUS_UPDATE_REM, si->id, si->idx);
-
-            /* Pass this update downstream if signal is an input and was not updated in handler. */
-            if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
-                /* mark instance as updated */
-                mpr_local_sig_set_updated(sig, si->idx);
-                process_maps(sig, id_map_idx);
-            }
+            if (!all)
+                break;
         }
-
-        if (eval_status & EXPR_RELEASE_AFTER_UPDATE) {
-            /* Try to release instance, but do not call process_maps() here, since we don't
-             * know if the local signal instance will actually be released. */
-            if (si->status == MPR_STATUS_STAGED) {
-                /* instance was released in previous handler call */
-                continue;
-            }
-            si->status |= MPR_STATUS_REL_UPSTRM;
-            sig->obj.status |= si->status;
-            mpr_sig_call_handler(sig, MPR_STATUS_REL_UPSTRM, id_map ? id_map->LID : 0, si->idx);
-        }
-        if (!all)
-            break;
     }
 }
 

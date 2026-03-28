@@ -23,18 +23,11 @@ size_t mpr_map_get_struct_size(int is_local);
 
 void mpr_map_alloc_values(mpr_local_map map, int quiet);
 
-/*! Process updated signal instance values according to mapping properties.
- *  The result of this operation should be sent to the destination.
+/*! Process updated instance values according to mapping properties.
  *  \param map          The mapping process to perform.
  *  \param time         Timestamp for this update.
  *  \param next         Location to receive next scheduled execution if applicable. */
-void mpr_map_send(mpr_local_map map, mpr_time time, mpr_time *next);
-
-/*! Process the signal instance value according to mapping properties.
- *  \param map          The mapping process to perform.
- *  \param time         Timestamp for this update.
- *  \param next         Location to receive next scheduled execution if applicable. */
-void mpr_map_receive(mpr_local_map map, mpr_time time, mpr_time *next);
+void mpr_map_process(mpr_local_map map, mpr_time time, mpr_time *next);
 
 void mpr_map_clear_slot_msgs(mpr_local_map map);
 
