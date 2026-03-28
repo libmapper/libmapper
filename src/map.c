@@ -1958,6 +1958,18 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
         return i-1;
     }
 
+    if (MSG_MAP_MOD == cmd) {
+        /* only include modified properties */
+        if (mpr_tbl_get_is_dirty(m->obj.props.staged)) {
+            mpr_tbl_add_to_msg(m->obj.props.staged, NULL, msg);
+            mpr_net_add_msg(mpr_graph_get_net(m->obj.graph), 0, cmd, msg);
+        }
+        else {
+            lo_message_free(msg);
+        }
+        return i-1;
+    }
+
     /* add other properties */
     staged = (MSG_MAP == cmd) || (MSG_MAP_MOD == cmd);
     mpr_obj_add_props_to_msg((mpr_obj)m, msg);
