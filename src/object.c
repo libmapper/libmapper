@@ -256,7 +256,11 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
     mpr_tbl tbl;
     RETURN_ARG_UNLESS(o, 0);
     if (MPR_PROP_UNKNOWN == p || MPR_PROP_EXTRA == p || !MASK_PROP_BITFLAGS(p)) {
-        if (!s || '@' == s[0])
+        if (!s)
+            return MPR_PROP_UNKNOWN;
+        if ('@' == s[0])
+            ++s;
+        if ('\n' == s[0])
             return MPR_PROP_UNKNOWN;
         p = mpr_prop_from_str(s);
     }
