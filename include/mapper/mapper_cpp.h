@@ -1902,7 +1902,7 @@ namespace mapper {
         std::string iface() const
         {
             const char *iface = mpr_graph_get_interface(_obj);
-            return iface ? std::string(iface) : 0;
+            return iface ? std::string(iface) : std::string();
         }
 
         /*! Specify the multicast group and port to use.
@@ -2097,7 +2097,7 @@ namespace mapper {
         operator std::string() const
         {
             if (!val.ptr || !len || type != MPR_STR)
-                return NULL;
+                return std::string();
             return std::string(len > 1 ? *(const char**)val.ptr : val.str);
         }
         operator void*() const
