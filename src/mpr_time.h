@@ -7,6 +7,8 @@
 /*! A 64-bit data structure containing an NTP-compatible time tag, as used by OSC. */
 typedef lo_timetag mpr_time;
 #define MPR_NOW LO_TT_IMMEDIATE
+#define MPR_TIME_0 ((mpr_time){0U,0U})
+#define MPR_TIME_MAX ((mpr_time){0xFFFFFFFF,0xFFFFFFFF})
 
 /*! Get the current time. */
 double mpr_get_current_time(void);

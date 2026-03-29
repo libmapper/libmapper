@@ -813,7 +813,7 @@ void mpr_map_clear_slot_msgs(mpr_local_map m)
 
 /* combines receiving, timed update, and sending */
 // consider returning next timetag instead of passing by ref from device
-void mpr_map_process(mpr_local_map m, mpr_time time, mpr_time *next)
+mpr_time mpr_map_process(mpr_local_map m, mpr_time time)
 {
     int i, status;
     mpr_sig_group group;
@@ -832,7 +832,7 @@ void mpr_map_process(mpr_local_map m, mpr_time time, mpr_time *next)
     if (!(m->locality & m->process_loc)) {
         assert(MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)m->src[0]));
         //TODO: check if there is anything to send! i.e. source signal is used in the map?
-        // alternately if source is not referenced in expression we could force processing_loc to DST
+        // alternately if source is not referenced in expression we could force process_loc to DST
         /* send immediately */
         int i;
         for (i = 0; i < m->num_src; i++) {
@@ -841,22 +841,13 @@ void mpr_map_process(mpr_local_map m, mpr_time time, mpr_time *next)
             if ((msg = mpr_slot_get_msg(m->src[i])))
                 mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
         }
-        return;
+        return MPR_TIME_MAX;
     }
 
-    RETURN_UNLESS(m->expr && !m->muted);
+    RETURN_ARG_UNLESS(m->expr && !m->muted, m->next);
 
-    if (!m->updated) {
-        if (!m->timed)
-            return;
-        if (mpr_time_get_diff(m->next, time) > 0.0001) {
-            if (mpr_time_cmp(*next, m->next) > 0) {
-                mpr_time_set(next, m->next);
-                // is this ths same?
-                *next = m->next;
-            }
-            return;
-        }
+    if (!m->updated && (!m->timed || mpr_time_get_diff(m->next, time) > 0.0001)) {
+        return m->next;
     }
 
     /* temporary solution: use most multitudinous source signal for id_map
@@ -918,8 +909,6 @@ void mpr_map_process(mpr_local_map m, mpr_time time, mpr_time *next)
             /* remove EXPR_RELEASE* event flags */
             status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
         }
-        if (m->timed && mpr_time_cmp(*next, m->next) > 0)
-            mpr_time_set(next, m->next);
         if (!status)
             continue;
 
@@ -1007,6 +996,7 @@ void mpr_map_process(mpr_local_map m, mpr_time time, mpr_time *next)
     }
     mpr_bitflags_clear(m->updated_inst);
     m->updated = 0;
+    return m->next;
 }
 
 void mpr_map_alloc_values(mpr_local_map m, int quiet)

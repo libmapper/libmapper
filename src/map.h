@@ -26,8 +26,8 @@ void mpr_map_alloc_values(mpr_local_map map, int quiet);
 /*! Process updated instance values according to mapping properties.
  *  \param map          The mapping process to perform.
  *  \param time         Timestamp for this update.
- *  \param next         Location to receive next scheduled execution if applicable. */
-void mpr_map_process(mpr_local_map map, mpr_time time, mpr_time *next);
+ *  \return             Timestamp for the next scheduled execution if applicable. */
+mpr_time mpr_map_process(mpr_local_map map, mpr_time time);
 
 void mpr_map_clear_slot_msgs(mpr_local_map map);
 

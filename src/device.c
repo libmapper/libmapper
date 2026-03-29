@@ -459,16 +459,18 @@ void mpr_dev_process_maps(mpr_local_dev dev)
     graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
-    dev->next.sec = 0xFFFFFFFF;
+    dev->next = MPR_TIME_MAX;
     list = mpr_graph_get_list(graph, MPR_MAP);
     while (list) {
         mpr_map map = (mpr_map)*list;
+        mpr_time t;
         if (!mpr_obj_get_is_local((mpr_obj)map)) {
             /* local maps are always located at the start of the list */
             break;
         }
-        // should return number of messages generated
-        mpr_map_process((mpr_local_map)map, dev->time, &dev->next);
+        t = mpr_map_process((mpr_local_map)map, dev->time);
+        if (mpr_time_get_diff(dev->next, t) > 0)
+            dev->next = t;
         list = mpr_list_get_next(list);
     }
     if (MPR_DIR_OUT & dev->updated) {
