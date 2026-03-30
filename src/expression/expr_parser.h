@@ -1894,9 +1894,16 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
             if (!pre) {
                 /* need to insert copy token after variable */
-                newtok.toktype = TOK_COPY_FROM;
-                newtok.con.cache_offset = 0;
-                estack_insert(out, i++, 1, &newtok);
+                /* newtok.toktype = TOK_COPY_FROM;
+                 * newtok.con.cache_offset = 0;
+                 * estack_insert(out, i++, 1, &newtok);
+                 */
+
+                /* above code does not guarantee that variable token will not be cast to another
+                 * datatype before copy */
+                /* for now we will copy variable substack instead of using copy */
+                estack_insert(out, i, substack_len, estack_peek(out, var_idx - substack_len + 1));
+                i += substack_len;
             }
 
             /* add operator */

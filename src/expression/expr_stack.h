@@ -659,6 +659,12 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                     vskip += var_idxs + 1;
                 }
             }
+            else if (TOK_ASSIGN == tokens[i].toktype) {
+                int _arity = etoken_get_arity(&tokens[i]) + 1;
+                vskip += _arity;
+                if (tskip > 0)
+                    tskip += _arity;
+            }
             else if (TOK_ASSIGN_USE == tokens[i].toktype) {
                 int _arity = etoken_get_arity(&tokens[i]) + 2;
                 vskip += _arity;

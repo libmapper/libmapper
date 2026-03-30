@@ -39,7 +39,7 @@ double expected = 0;
 
 
 /* schedule next periodic event from a repeating pattern (implicit start time) */
-#define PATT "period = 1; p=[1,.5,.5] * period; y = 1; next = next + p[++i];"
+#define PATT "period = 1; p=[1,.5,.5] * period; y = 1; next = next + p[i++];"
 //#define PATT "period = 1; p=[1,.5,.5] * period; y = i; next = next + p[i]; i = i + 1;"
 
 /* schedule next periodic event using a sinusoid */
@@ -221,6 +221,7 @@ void loop(double expected_duration_sec)
 int run_test(test_config *config)
 {
     double period_sec;
+    int zero = 0;
     mpr_map map;
 
     printf("Configuration %d: ", config->test_id);
@@ -245,7 +246,9 @@ int run_test(test_config *config)
 
     /* also set period variable according to program flags */
     period_sec = period * 0.001;
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "var@period", 1, MPR_DBL, &period_sec, 1);
+//    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "var@period", 1, MPR_DBL, &period_sec, 1);
+
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_USE_INST, NULL, 1, MPR_INT32, &zero, 1);
     mpr_obj_push((mpr_obj)map);
 
     mpr_dev_poll(src, 10);
@@ -254,6 +257,9 @@ int run_test(test_config *config)
     mpr_dev_poll(dst, 10);
     mpr_dev_poll(src, 10);
     mpr_dev_poll(dst, 10);
+
+    /* activate a destination instance */
+    mpr_sig_activate_inst(recvsig, 0);
 
     loop(config->time_mult * period_sec * 50);
 

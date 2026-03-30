@@ -602,7 +602,6 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     ldev->time_is_stale = 0;
 
     if (ldev->timed && mpr_time_get_diff(ldev->next, time) <= 0.0001) {
-        printf("it's time\n");
         ldev->updated = (MPR_DIR_IN | MPR_DIR_OUT);
         if (!ldev->locked) {
             /* process timed maps due under the new timestamp */
