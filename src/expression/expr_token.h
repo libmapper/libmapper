@@ -470,6 +470,8 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
 
             if (tok->var.idx == VAR_Y)
                 d += snprintf(s + d, l - d, "[y]");
+            else if (tok->var.idx == VAR_NEXT)
+                d += snprintf(s + d, l - d, "[next]");
             else if (tok->var.idx == VAR_X_NEWEST)
                 d += snprintf(s + d, l - d, "[x$$]");
             else if (tok->var.idx >= VAR_X) {
@@ -499,7 +501,7 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
                 d += snprintf(s + d, l - d, "[N");
             else
                 d += snprintf(s + d, l - d, "[%u", tok->var.vec_idx);
-            if (tok->var.idx >= VAR_Y)
+            if (tok->var.idx >= N_USER_VARS)
                 d += snprintf(s + d, l - d, "]");
             else
                 d += snprintf(s + d, l - d, "/%u]", vars ? vars[tok->var.idx].vec_len : 0);

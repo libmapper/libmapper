@@ -100,7 +100,7 @@ MPR_INLINE static int _newest_val_idx(mpr_value *vals, int num_vals, int inst_id
 }
 
 int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_vars,
-                  mpr_value v_out, mpr_time *time, mpr_time *next, int inst_idx)
+                  mpr_value v_out, mpr_time *time, mpr_value v_next, int inst_idx)
 {
 #if TRACE_EVAL
     printf("evaluating expression...\n");
@@ -212,7 +212,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             printf("\n\t\t%s", TOK_VAR == tok->toktype ? "var" : "tt");
 #endif
 
-            if (tok->var.idx == VAR_Y) {
+            if (VAR_Y == tok->var.idx) {
                 RETURN_ARG_UNLESS(v_out, status);
                 v = v_out;
                 can_advance = 0;
@@ -220,9 +220,17 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 printf("[y]");
 #endif
             }
+            else if (VAR_NEXT == tok->var.idx) {
+                RETURN_ARG_UNLESS(v_next, status);
+                v = v_next;
+                can_advance = 0;
+#if TRACE_EVAL
+                printf("[next]");
+#endif
+            }
             else if (tok->var.idx >= VAR_X_NEWEST) {
                 RETURN_ARG_UNLESS(v_in, status);
-                if (tok->var.idx == VAR_X_NEWEST) {
+                if (VAR_X_NEWEST == tok->var.idx) {
                     /* Find most recently-updated source signal */
                     int newest_idx = _newest_val_idx(v_in, expr->num_src, inst_idx);
                     v = v_in[newest_idx];
@@ -398,11 +406,16 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 }
             }
             else {
-                mpr_time t = mpr_value_get_time(v, inst_idx, hidx);
-                double t_d = mpr_time_as_dbl(t);
                 int i;
+                double t_d;
+                mpr_time t = mpr_value_get_time(v, inst_idx, hidx);
+                if (0 == mpr_time_cmp(t, MPR_TIME_0))
+                    t = *time;
+                t_d = mpr_time_as_dbl(t);
                 if (hwt) {
                     t = mpr_value_get_time(v, inst_idx, hidx - 1);
+                    if (0 == mpr_time_cmp(t, MPR_TIME_0))
+                        t = *time;
                     t_d = t_d * hwt + mpr_time_as_dbl(t) * (1 - hwt);
                 }
                 for (i = sp; i < sp + tok->gen.vec_len; i++)
@@ -420,11 +433,11 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             INCR_STACK_PTR(1);
             SET_TYPE(MPR_INT32);
             SET_LEN(tok->gen.vec_len);
-            if (tok->var.idx == VAR_Y) {
+            if (VAR_Y == tok->var.idx) {
                 RETURN_ARG_UNLESS(v_out, status);
                 vals[sp].i = mpr_value_get_num_active_inst(v_out);
             }
-            else if (tok->var.idx == VAR_X_NEWEST) {
+            else if (VAR_X_NEWEST == tok->var.idx) {
                 int newest_idx = _newest_val_idx(v_in, expr->num_src, inst_idx);
                 vals[sp].i = mpr_value_get_num_active_inst(v_in[newest_idx]);
             }
@@ -951,7 +964,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             }
 #if TRACE_EVAL
             if (VAR_Y == tok->var.idx)
-                printf("\n\t\tvar.y");
+                printf("\n\t\tvar[y]");
             else if (expr->vars && expr->vars[tok->var.idx].name)
                 printf("\n\t\tvar[%d:%s]", tok->var.idx, expr->vars[tok->var.idx].name);
             else
@@ -1007,10 +1020,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 muted = vals[sp].i != 0;
                 can_advance = 0;
             }
-            else if (tok->var.idx == expr->next_ctl) {
-                mpr_time_set_dbl(next, vals[sp].d);
-                can_advance = 0;
-            }
             else if (VAR_Y >= tok->var.idx && !hidx) {
                 /* inform value struct that it has value */
                 mpr_value_set_elements_known(v, inst_idx, vidx, tok->gen.vec_len);
@@ -1037,22 +1046,57 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             break;
         }
         case TOK_ASSIGN_TT: {
-            int hidx;
+            mpr_value v = 0;
+            int hidx = tok->gen.flags & VAR_HIST_IDX;
             mpr_time t;
-            if (tok->var.idx != VAR_Y || !(tok->gen.flags & VAR_HIST_IDX))
-                goto error;
+
+            if (VAR_Y == tok->var.idx) {
 #if TRACE_EVAL
-            printf("\n\t\ttt.y{%d}\n", tok->gen.flags & VAR_HIST_IDX ? vals[sp].i : 0);
+                printf("\n\t\ttt[y]");
 #endif
-            if (!v_out)
+                if (!(tok->gen.flags & VAR_HIST_IDX))
+                    goto error;
+                v = v_out;
+            }
+            else if (VAR_NEXT == tok->var.idx) {
+#if TRACE_EVAL
+                printf("\n\t\ttt[next]");
+#endif
+                v = v_next;
+            }
+            else if (tok->var.idx < N_USER_VARS) {
+#if TRACE_EVAL
+                if (expr->vars && expr->vars[tok->var.idx].name)
+                    printf("\n\t\ttt[%d:%s]", tok->var.idx, expr->vars[tok->var.idx].name);
+                else
+                    printf("\n\t\ttt[%d]", tok->var.idx);
+#endif
+                if (!v_vars)
+                    goto error;
+                /* passed the address of an array of mpr_value structs */
+                v = v_vars[tok->var.idx];
+            }
+            else
+                goto error;
+
+            if (hidx) {
+                assert(types[dp] == MPR_INT32 && types[dp - 1] == MPR_DBL);
+                hidx = vals[sp].i;
+#if TRACE_EVAL
+                printf("{N=%d}", hidx);
+#endif
+            }
+#if TRACE_EVAL
+            printf("\n");
+#endif
+            if (!v)
                 return status;
-            assert(types[dp] == MPR_INT32 && types[dp - 1] == MPR_DBL);
-            hidx = vals[sp].i;
-            mpr_time_set_dbl(&t, vals[sp - vlen].d);
-            mpr_value_set_time(v_out, t, inst_idx, hidx);
+            mpr_time_set_dbl(&t, vals[sp].d);
+            mpr_value_set_time(v, t, inst_idx, hidx);
+
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */
-            if (1) {
+            if (can_advance || tok->gen.flags & VAR_HIST_IDX) {
 #if TRACE_EVAL
                 printf("     move start\t%ld\n", tok - stk->tokens + 1);
 #endif

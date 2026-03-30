@@ -263,8 +263,9 @@ mpr_time mpr_value_get_lowest_time(mpr_value v)
         mpr_value_buffer b = &v->inst[i];
         if (b->pos >= 0) {
             mpr_time t = b->times[b->pos];
-            if ((t.sec < lowest.sec) || ((t.sec == lowest.sec) && (t.frac < lowest.frac)))
-                t = b->times[b->pos];
+            if ((t.sec < lowest.sec) || ((t.sec == lowest.sec) && (t.frac < lowest.frac))) {
+                memcpy(&lowest, &t, sizeof(mpr_time));
+            }
         }
     }
     return lowest;

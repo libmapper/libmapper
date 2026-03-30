@@ -43,13 +43,13 @@ mpr_type expect_type[MAX_DST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
 
-mpr_time time_in = {0, 0}, time_out = {0, 0}, time_next = {0, 0};
+mpr_time time_in = {0, 0}, time_out = {0, 0};
 
 /* evaluation buffer */
 mpr_expr_eval_buffer eval_buff = 0;
 
 /* signal_history structures */
-mpr_value inh[MAX_SRC_ARRAY_LEN], outh, user_vars[MAX_VARS];
+mpr_value inh[MAX_SRC_ARRAY_LEN], outh, user_vars[MAX_VARS], time_next;
 mpr_type src_types[MAX_NUM_SRC], dst_type;
 unsigned int src_lens[MAX_NUM_SRC], n_sources, dst_len;
 
@@ -335,6 +335,9 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     mpr_value_realloc(outh, dst_len, dst_type, mlen, 1, 1);
     mpr_value_reset_inst(outh, 0, time_in);
 
+    mpr_value_realloc(time_next, dst_len, dst_type, mlen, 1, 1);
+    mpr_value_reset_inst(time_next, 0, time_in);
+
     if (mpr_expr_get_num_vars(e) > MAX_VARS) {
         eprintf("Maximum variables exceeded.\n");
         if (!(PARSE_FAILURE & expectation))
@@ -376,7 +379,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     updated_values = mpr_bitflags_new(MAX_DST_ARRAY_LEN);
 
     eprintf("Try evaluation once... ");
-    status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, &time_next, 0);
+    status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, time_next, 0);
 
     if (!status) {
         eprintf("FAILED.\n");
@@ -420,7 +423,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
                     assert(0);
             }
         }
-        status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, &time_next, 0);
+        status = mpr_expr_eval(e, eval_buff, inh, user_vars, outh, &time_in, time_next, 0);
         if (status & EXPR_UPDATE) {
             ++update_count;
             mpr_bitflags_clear(updated_values);
@@ -992,10 +995,11 @@ int run_tests()
     }
 
     /* 58) Moving average of inter-sample jitter */
-    set_expr_str("t_y{-1}=t_x;"
-                 "interval=t_x-t_y{-1};"
-                 "sr=sr*0.9+interval*0.1;"
-                 "y=y{-1}*0.9+abs(interval-sr)*0.1;");
+    /* Old version:
+     * set_expr_str("interval=t_x-t_y{-1};"
+     *              "sr=sr*0.9+interval*0.1;"
+     *              "y=y{-1}*0.9+abs(interval-sr)*0.1;"); */
+    set_expr_str("y=emd(t_x - t_y{-1}, 0.1)");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
@@ -1079,7 +1083,7 @@ int run_tests()
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
     expect_flt[0] = src_int[0] + src_flt[1];
     expect_flt[1] = src_int[1] + src_flt[2];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations - 1))
         return 1;
 
     /* 66) Variable delays */
@@ -2093,6 +2097,7 @@ int main(int argc, char **argv)
     for (i = 0; i < MAX_SRC_ARRAY_LEN; i++)
         inh[i] = mpr_value_new(1, MPR_INT32, 1, 0);
     outh = mpr_value_new(1, MPR_INT32, 1, 0);
+    time_next = mpr_value_new(1, MPR_DBL, 1, 0);
     for (i = 0; i < MAX_VARS; i++)
         user_vars[i] = mpr_value_new(1, MPR_INT32, 1, 0);
 

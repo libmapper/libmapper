@@ -335,6 +335,11 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     tok.gen.vec_len = dst_lens[0];
                     tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
                 }
+                else if (tok.var.idx == VAR_NEXT) {
+                    tok.gen.datatype = MPR_DBL;
+                    tok.gen.vec_len = 1;
+                    tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
+                }
                 else {
                     if (TOK_TT == tok.toktype) {
                         varname += 2;
@@ -388,11 +393,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             if (vars[num_var].name[0] == 'a')
                                 is_const = 0;
                         }
-                        else if (strcmp(vars[num_var].name, "next") == 0) {
-                            vars[num_var].vec_len = 1;
-                            vars[num_var].datatype = MPR_DBL; /* TODO: convert to MPR_TIME? */
-                            tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
-                        }
                         else
                             tok.gen.vec_len = 0;
                         ++num_var;
@@ -408,8 +408,8 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 /* timetag tokens have type double */
                 if (tok.toktype == TOK_TT) {
                     tok.gen.datatype = MPR_DBL;
-                    tok.gen.flags |= VEC_LEN_LOCKED;
                     tok.gen.vec_len = 1;
+                    tok.gen.flags |= VEC_LEN_LOCKED;
                 }
                 estack_push(out, &tok);
 
@@ -1783,9 +1783,9 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     /* assignment to timetag */
                     /* for now we will only allow assigning to output t_y */
                     /* TODO: enable writing timetags on user-defined variables */
-                    {FAIL_IF(out_top->var.idx != VAR_Y, "Only output timetag is writable.");}
+                    {FAIL_IF(out_top->var.idx > VAR_Y, "cannot assign timetag on input variable");}
                     /* disable writing to current timetag for now */
-                    {FAIL_IF(!(out_top->gen.flags & VAR_HIST_IDX),
+                    {FAIL_IF(out_top->var.idx == VAR_Y && !(out_top->gen.flags & VAR_HIST_IDX),
                              "Only past samples of output timetag are writable.");}
                     i = estack_get_substack_len(out, ESTACK_TOP);
                     out_top->toktype = TOK_ASSIGN_TT;

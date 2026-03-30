@@ -68,6 +68,7 @@ typedef struct _mpr_local_map {
     mpr_time next;
     mpr_expr expr;                  /*!< The mapping expression. */
     mpr_bitflags updated_inst;      /*!< Bitflags to indicate updated instances. */
+    mpr_value next_inst;
     mpr_value *vars;                /*!< User variables values. */
     const char **var_names;         /*!< User variables names. */
     const char **old_var_names;     /*!< User variables names. */
@@ -538,6 +539,8 @@ void mpr_map_free(mpr_map map)
             free(lmap->vars);
             free(lmap->var_names);
         }
+        if (lmap->next_inst)
+            mpr_value_free(lmap->next_inst);
         for (i = 0; i < lmap->num_old_vars; i++) {
             FUNC_IF(free, (void*)lmap->old_var_names[i]);
         }
@@ -898,13 +901,34 @@ mpr_time mpr_map_process(mpr_local_map m, mpr_time time)
          * whether EXPR_EVAL_DONE flag is added. If not, go back and handle releases for previous
          * instances */
 
+    m->next = MPR_TIME_MAX;
+
     for (i = 0; i < m->num_inst; i++) {
         /* Check if this instance has been updated */
-        if (!m->timed && !mpr_bitflags_get(m->updated_inst, i))
-            continue;
+        if (!mpr_bitflags_get(m->updated_inst, i)) {
+            if (m->timed) {
+                mpr_time next_inst = mpr_value_get_time(m->next_inst, i, 0);
+                if (mpr_time_cmp(next_inst, time) >= 0.001) {
+                    /* not yet time for this instance */
+                    if (mpr_time_cmp(next_inst, m->next) < 0)
+                        m->next = next_inst;
+                    continue;
+                }
+                /* instance is ready for next scheduled evaluation */
+            }
+            else {
+                continue;
+            }
+        }
+
         /* TODO: Check if this instance has enough history to process the expression */
         status = mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph),
-                               src_vals, m->vars, dst_val, &time, &m->next, i);
+                               src_vals, m->vars, dst_val, &time, m->next_inst, i);
+        if (m->timed) {
+            mpr_time next_inst = mpr_value_get_time(m->next_inst, i, 0);
+            if (mpr_time_cmp(next_inst, m->next) < 0)
+                m->next = next_inst;
+        }
         if (!m->use_inst) {
             /* remove EXPR_RELEASE* event flags */
             status &= (EXPR_UPDATE | EXPR_EVAL_DONE);
@@ -988,6 +1012,7 @@ mpr_time mpr_map_process(mpr_local_map m, mpr_time time)
             }
         }
         if (status & EXPR_EVAL_DONE) {
+            /* TODO: update should apply to all active instances */
             break;
         }
     }
@@ -1013,10 +1038,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
 
     /* If there is no expression or the processing is remote,
      * then no memory needs to be (re)allocated. */
-    RETURN_UNLESS(m->expr
-                  && (MPR_LOC_BOTH == m->locality
-                      || !(  (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)m->dst))
-                           ^ (MPR_LOC_SRC == m->process_loc))));
+    RETURN_UNLESS(m->expr && (m->locality & m->process_loc));
 
     mpr_time_set(&now, MPR_NOW);
 
@@ -1065,7 +1087,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
             /* set position to 0 since we are not currently allowing history on user variables */
         }
         for (j = 0; j < var_num_inst; j++)
-            mpr_value_incr_idx(vars[i], j, now);
+            mpr_value_incr_idx(vars[i], j, MPR_TIME_0);
     }
 
     /* free old variables and replace with new */
@@ -1097,6 +1119,11 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
     m->vars = vars;
     m->var_names = var_names;
     m->num_vars = num_vars;
+
+    if (m->next_inst)
+        mpr_value_realloc(m->next_inst, 1, MPR_DBL, 1, num_inst, 0);
+    else
+        m->next_inst = mpr_value_new(1, MPR_DBL, 1, num_inst);
 
     /* allocate update bitflags */
     if (m->updated_inst)
@@ -1480,6 +1507,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
 {
     int i, ret = 0;
     const char *new_expr = 0;
+    mpr_time now;
     mpr_sig dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
     RETURN_ARG_UNLESS(m->num_src > 0, 0);
 
@@ -1511,26 +1539,18 @@ static int set_expr(mpr_local_map m, const char *expr_str)
 
     if (!replace_expr_str(m, expr_str)) {
         mpr_value dst_val = mpr_slot_get_value(m->dst);
-        mpr_time now;
         mpr_map_alloc_values(m, 1);
 
         /* evaluate expression to initialise literals */
         /* TODO: use appropriate device offset here */
         mpr_time_set(&now, MPR_NOW);
 
-        /* TEMPORARY? initialize value of 'next' user variable if it exists */
-        for (i = 0; i < m->num_vars; i++) {
-            /* TODO: handle multiple instances */
-            if (0 == strcmp(mpr_expr_get_var_name(m->expr, i), "next")) {
-                double nowd = mpr_time_as_dbl(now);
-                assert(MPR_DBL == mpr_value_get_type(m->vars[i]));
-                mpr_value_set_next(m->vars[i], 0, &nowd, now);
-            }
-        }
+        for (i = 0; i < m->num_inst; i++)
+            mpr_value_incr_idx(m->next_inst, i, now);
 
         for (i = 0; i < m->num_inst; i++)
             mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph), 0,
-                          m->vars, dst_val, &now, &m->next, i);
+                          m->vars, dst_val, &now, m->next_inst, i);
 
         /* reset map id_map */
         m->id_map.LID = m->id_map.GID = 0;
@@ -1567,6 +1587,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
         }
         if (mpr_obj_get_is_local((mpr_obj)dst_sig))
             mpr_local_dev_check_map_timing((mpr_local_dev)mpr_sig_get_dev(dst_sig));
+        m->next = MPR_NOW;
     }
 
 done:

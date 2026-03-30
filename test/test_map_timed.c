@@ -1,7 +1,7 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
-#include <stdarg.h>
-#include <math.h>
+//#include <stdarg.h>
+//#include <math.h>
 #include <ctype.h>
 #include <string.h>
 #ifdef WIN32
@@ -18,6 +18,8 @@ int autoconnect = 1;
 int shared_graph = 0;
 int done = 0;
 int period = 100;
+
+int num_inst = 5;
 
 mpr_dev src = 0;
 mpr_dev dst = 0;
@@ -68,14 +70,14 @@ typedef struct _test_config
 } test_config;
 
 test_config test_configs[] = {
-    { 1, PATT, MPR_LOC_SRC, 0.8 },
-    { 2, PATT, MPR_LOC_DST, 0.7 },
-    { 3, SINE, MPR_LOC_SRC, 1.0 },
-    { 4, SINE, MPR_LOC_DST, 1.0 },
-    { 3, RAMP, MPR_LOC_SRC, 1.0 },
-    { 4, RAMP, MPR_LOC_DST, 1.0 },
-//    { 3, NEXT, MPR_LOC_SRC },
-//    { 4, NEXT, MPR_LOC_DST },
+    { 1, NEXT, MPR_LOC_SRC, 0.8 },
+    { 2, NEXT, MPR_LOC_DST, 0.7 },
+    { 3, PATT, MPR_LOC_SRC, 1.0 },
+    { 4, PATT, MPR_LOC_DST, 1.0 },
+    { 5, RAMP, MPR_LOC_SRC, 1.0 },
+    { 6, RAMP, MPR_LOC_DST, 1.0 },
+    { 7, SINE, MPR_LOC_SRC, 1.0 },
+    { 8, SINE, MPR_LOC_DST, 1.0 },
 //    { 3, START, MPR_LOC_SRC },
 //    { 4, START, MPR_LOC_DST },
 //    { 3, PAST, MPR_LOC_SRC },
@@ -107,7 +109,8 @@ int setup_src(mpr_graph g, const char *iface)
     eprintf("source created using interface %s.\n",
             mpr_graph_get_interface(mpr_obj_get_graph(src)));
 
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, NULL, NULL, NULL, NULL, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT,
+                          NULL, NULL, NULL, &num_inst, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
     l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
@@ -132,7 +135,7 @@ void cleanup_src(void)
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
-    eprintf("handler\n");
+    eprintf("handler inst %d\n", instance);
     /* check elapsed time */
     mpr_time_sub(&t, t_last);
 //    double elapsed = mpr_time_as_dbl(t);
@@ -155,7 +158,7 @@ int setup_dst(mpr_graph g, const char *iface)
             mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
-                          NULL, NULL, NULL, handler, MPR_SIG_UPDATE);
+                          NULL, NULL, &num_inst, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
     l = mpr_dev_get_sigs(dst, MPR_DIR_IN);

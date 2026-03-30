@@ -61,7 +61,6 @@ mpr_expr mpr_expr_new(unsigned int num_src, unsigned int num_dst, void *stack)
 
     expr->inst_ctl = -1;
     expr->mute_ctl = -1;
-    expr->next_ctl = -1;
 
     if (stack) {
         expr->stack = (estack)stack;
@@ -97,8 +96,6 @@ void mpr_expr_cpy_stack_and_vars(mpr_expr expr, void *stack, void *vars, int num
                 expr->inst_ctl = i;
             else if (strcmp(expr->vars[i].name, "muted") == 0)
                 expr->mute_ctl = i;
-            else if (strcmp(expr->vars[i].name, "next") == 0)
-                expr->next_ctl = i;
         }
 #if TRACE_PARSE
         printf("Copied %d vars to expression\n", num_var);
@@ -135,9 +132,6 @@ mpr_expr mpr_expr_new_from_str(const char *str, unsigned int num_src, const mpr_
 
     if (expr->inst_ctl >= 0)
         expr->flags |= MANAGES_INST;
-
-    if (expr->next_ctl >= 0)
-        expr->flags |= MANAGES_TIME;
 
 #if TRACE_PARSE
     printf("expression allocated and initialized with %d tokens\n", expr->stack->num_tokens);
@@ -253,15 +247,20 @@ int mpr_expr_get_manages_inst(mpr_expr expr)
 
 int mpr_expr_get_manages_time(mpr_expr expr)
 {
-    return (expr->flags & MANAGES_TIME) != 0;
+    int i;
+    etoken_t *tok = expr->stack->tokens;
+    for (i = 0; i < expr->stack->num_tokens; i++) {
+        if (tok[i].toktype == TOK_ASSIGN_TT && VAR_NEXT == tok[i].var.idx)
+            return 1;
+    }
+    return 0;
 }
 
 void mpr_expr_set_var_updated(mpr_expr expr, int var_idx)
 {
     RETURN_UNLESS(expr && var_idx >= 0 && var_idx < expr->num_vars);
     RETURN_UNLESS(   var_idx != expr->inst_ctl
-                  && var_idx != expr->mute_ctl
-                  && var_idx != expr->next_ctl);
+                  && var_idx != expr->mute_ctl);
     expr->vars[var_idx].flags |= VAR_SET_EXTERN;
     /* Reset expression offset to 0 in case other variables are initialised from this one. */
     expr->stack->offset = 0;

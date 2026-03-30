@@ -156,7 +156,7 @@ static int estack_promote_tokens(estack stk, int idx, mpr_type type, int vec_len
         goto done;
 
     if (tok->toktype >= TOK_ASSIGN) {
-        if (tok->var.idx < VAR_Y) {
+        if (tok->var.idx < N_USER_VARS) {
             /* user-defined variable, can typecast */
             tok->var.casttype = type;
             modified = 1;

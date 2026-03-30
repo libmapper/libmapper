@@ -15,7 +15,6 @@ struct _mpr_expr
     uint8_t num_vars;
     int8_t inst_ctl;
     int8_t mute_ctl;
-    int8_t next_ctl;
     int8_t num_src;
     int8_t flags;
 };
