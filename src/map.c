@@ -1689,7 +1689,10 @@ int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
     }
 
     if ((expr_str || m->process_loc != orig_loc) && m->obj.status & MPR_MAP_STATUS_READY) {
-        int e = set_expr(m, expr_str);
+        int e;
+        if (!expr_str)
+            expr_str = m->expr_str;
+        e = set_expr(m, expr_str);
         if (-1 == e) {
             /* restore original process location */
             m->process_loc = orig_loc;
