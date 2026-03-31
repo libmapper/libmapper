@@ -34,10 +34,9 @@ int mpr_expr_get_var_vlen(mpr_expr expr, int idx);
 int mpr_expr_get_var_type(mpr_expr expr, int idx);
 
 int mpr_expr_get_var_is_instanced(mpr_expr expr, int idx);
-
-int mpr_expr_get_src_is_muted(mpr_expr expr, int idx);
-
 const char *mpr_expr_get_var_name(mpr_expr expr, int idx);
+
+int mpr_expr_get_src_causes_update(mpr_expr expr, int idx);
 
 int mpr_expr_get_manages_inst(mpr_expr expr);
 

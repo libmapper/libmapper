@@ -222,17 +222,16 @@ int mpr_expr_get_var_type(mpr_expr expr, int idx)
     return (idx >= 0 && idx < expr->num_vars) ? expr->vars[idx].datatype : 0;
 }
 
-int mpr_expr_get_src_is_muted(mpr_expr expr, int idx)
+int mpr_expr_get_src_causes_update(mpr_expr expr, int idx)
 {
-    int i, found = 0, muted = VAR_MUTED;
+    int i, muted = VAR_MUTED;
     etoken_t *tok = expr->stack->tokens;
     for (i = 0; i < expr->stack->num_tokens; i++) {
         if (tok[i].toktype == TOK_VAR && tok[i].var.idx == idx + VAR_X) {
-            found = 1;
             muted &= tok[i].gen.flags;
         }
     }
-    return found && muted;
+    return muted == 0;
 }
 
 int mpr_expr_get_num_src(mpr_expr expr)

@@ -831,18 +831,21 @@ mpr_time mpr_map_process(mpr_local_map m, mpr_time time)
 
     assert(m->obj.is_local);
 
-    /* send immediately if we are the source and processing occurs at the other endpoint*/
     if (!(m->locality & m->process_loc)) {
-        assert(MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)m->src[0]));
-        //TODO: check if there is anything to send! i.e. source signal is used in the map?
-        // alternately if source is not referenced in expression we could force process_loc to DST
-        /* send immediately */
-        int i;
-        for (i = 0; i < m->num_src; i++) {
-            /* We need to send message prepared by source slot through destination link */
-            lo_message msg;
-            if ((msg = mpr_slot_get_msg(m->src[i])))
-                mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
+        /* expression evaluation occurs at other endpoint */
+        if (MPR_LOC_DST == m->process_loc) {
+            /* forward updates to destination */
+            assert(MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)m->src[0]));
+            //TODO: check if there is anything to send! i.e. source signal is used in the map?
+            // alternately if source is not referenced in expression we could force process_loc to DST
+            /* send immediately */
+            int i;
+            for (i = 0; i < m->num_src; i++) {
+                /* We need to send message prepared by source slot through destination link */
+                lo_message msg;
+                if ((msg = mpr_slot_get_msg(m->src[i])))
+                    mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
+            }
         }
         return MPR_TIME_MAX;
     }
@@ -1575,7 +1578,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
 
     /* check whether each source slot causes computation */
     for (i = 0; i < m->num_src; i++)
-        mpr_slot_set_causes_update((mpr_slot)m->src[i], !mpr_expr_get_src_is_muted(m->expr, i));
+        mpr_slot_set_causes_update((mpr_slot)m->src[i], mpr_expr_get_src_causes_update(m->expr, i));
 
     /* check whether expression manages recalculation scheduling */
     if ((m->timed = mpr_expr_get_manages_time(m->expr))) {
