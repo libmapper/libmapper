@@ -1181,7 +1181,7 @@ int run_tests()
         return 1;
 
     /* 79) Integer divide-by-zero */
-    set_expr_str("foo=1; y=x/foo; foo=!foo;");
+    set_expr_str("foo{-1}=1; y=x/foo; foo=!foo;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     /* we expect only half of the evaluation attempts to succeed (i.e. when 'foo' == 1) */
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, (iterations + 1) / 2))
@@ -2011,7 +2011,7 @@ int run_tests()
     /* 161) increment operator inside reduce expression */
     set_expr_str("y=x.vector.reduce(a,b -> ++a);");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 0, 0, 0))
         return 1;
 
     /* 162) test type promotion with timestamp assignment */

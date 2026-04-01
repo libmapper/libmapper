@@ -109,7 +109,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     etoken_t *tok = stk->tokens, *end = tok + stk->num_tokens;
     int dp = -1, sp = -stk->vec_len, status = 1 | EXPR_EVAL_DONE;
     /* Note: signal, history, and vector reduce are currently limited to 255 items here */
-    uint8_t alive = 1, muted = 0, can_advance = 1, cache = 0, vlen = stk->vec_len;
+    uint8_t alive = 1, muted = 0, cache = 0, vlen = stk->vec_len;
     uint8_t hist_offset = 0, sig_offset = 0, vec_offset = 0;
     mpr_value x = NULL;
 
@@ -118,7 +118,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     mpr_type *types = buff->types;
 
     if (v_out && mpr_value_get_num_samps(v_out, inst_idx) > 0) {
-        tok += stk->offset;
+        tok += stk->init_offset;
     }
 
     if (v_vars) {
@@ -215,15 +215,31 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             if (VAR_Y == tok->var.idx) {
                 RETURN_ARG_UNLESS(v_out, status);
                 v = v_out;
-                can_advance = 0;
 #if TRACE_EVAL
                 printf("[y]");
 #endif
             }
+            else if (VAR_NOW == tok->var.idx) {
+                int i;
+                double t_d;
+                RETURN_ARG_UNLESS(time, status);
+#if TRACE_EVAL
+                printf("[now]");
+#endif
+                SET_STACK_PTR(idxp + 1);
+                t_d = mpr_time_as_dbl(*time);
+                for (i = sp; i < sp + tok->gen.vec_len; i++)
+                    vals[i].d = t_d;
+                SET_TYPE(MPR_DBL);
+                SET_LEN(tok->gen.vec_len);
+#if TRACE_EVAL
+                evalue_print(vals + sp, types[dp], lens[dp], dp);
+#endif
+                break;
+            }
             else if (VAR_NEXT == tok->var.idx) {
                 RETURN_ARG_UNLESS(v_next, status);
                 v = v_next;
-                can_advance = 0;
 #if TRACE_EVAL
                 printf("[next]");
 #endif
@@ -259,7 +275,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     else
                         goto error;
                 }
-                can_advance = 0;
 
                 /* If no instance idx is cached this means that this expression contains a
                  * non-reducing reference to the variable x, and that mpr_expr_eval() should be
@@ -269,7 +284,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             }
             else if (v_vars) {
                 v = v_vars[tok->var.idx];
-                can_advance = 0;
 #if TRACE_EVAL
                 if (expr->vars && expr->vars[tok->var.idx].name)
                     printf("[%d:%s]", tok->var.idx, expr->vars[tok->var.idx].name);
@@ -451,7 +465,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 goto error;
             for (i = 1; i < tok->gen.vec_len; i++)
                 vals[sp + i].i = vals[sp].i;
-            can_advance = 0;
 #if TRACE_EVAL
             evalue_print(vals + sp, types[dp], lens[dp], dp);
 #endif
@@ -615,8 +628,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             default:
                 goto error;
             }
-            if (tok->fn.idx > FN_DEL_IDX)
-                can_advance = 0;
 #if TRACE_EVAL
             evalue_print(vals + sp, types[dp], lens[dp], dp);
 #endif
@@ -894,8 +905,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         }
         case TOK_ASSIGN:
         case TOK_ASSIGN_USE:
-            if (VAR_Y == tok->var.idx)
-                can_advance = 0;
         case TOK_ASSIGN_CONST: {
             mpr_value v;
             /* currently only history and vector indices are supported for assignment */
@@ -914,7 +923,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     goto assign_done;
                 }
                 status |= muted ? EXPR_MUTED_UPDATE : EXPR_UPDATE;
-                can_advance = 0;
                 if (!v_out)
                     return status;
                 v = v_out;
@@ -1014,11 +1022,9 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                         status |= EXPR_RELEASE_BEFORE_UPDATE;
                 }
                 alive = vals[sp].i != 0;
-                can_advance = 0;
             }
             else if (tok->var.idx == expr->mute_ctl) {
                 muted = vals[sp].i != 0;
-                can_advance = 0;
             }
             else if (VAR_Y >= tok->var.idx && !hidx) {
                 /* inform value struct that it has value */
@@ -1026,18 +1032,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             }
 
         assign_done:
-            /* If assignment was constant or history initialization, move expr
-             * start token pointer so we don't evaluate this section again. */
-
-            if (can_advance || tok->gen.flags & VAR_HIST_IDX) {
-#if TRACE_EVAL
-                printf("\n     move start\t%ld\n", tok - stk->tokens + 1);
-#endif
-                stk->offset = tok - stk->tokens + 1;
-            }
-            else
-                can_advance = 0;
-
             if (tok->gen.flags & CLEAR_STACK)
                 dp = -1;
             else if (dp && TOK_ASSIGN_USE != tok->toktype)
@@ -1094,16 +1088,6 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             mpr_time_set_dbl(&t, vals[sp].d);
             mpr_value_set_time(v, t, inst_idx, hidx);
 
-            /* If assignment was constant or history initialization, move expr
-             * start token pointer so we don't evaluate this section again. */
-            if (can_advance || tok->gen.flags & VAR_HIST_IDX) {
-#if TRACE_EVAL
-                printf("     move start\t%ld\n", tok - stk->tokens + 1);
-#endif
-                stk->offset = tok - stk->tokens + 1;
-            }
-            else
-                can_advance = 0;
             if (tok->gen.flags & CLEAR_STACK)
                 dp = -1;
             else {

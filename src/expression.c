@@ -262,7 +262,7 @@ void mpr_expr_set_var_updated(mpr_expr expr, int var_idx)
                   && var_idx != expr->mute_ctl);
     expr->vars[var_idx].flags |= VAR_SET_EXTERN;
     /* Reset expression offset to 0 in case other variables are initialised from this one. */
-    expr->stack->offset = 0;
+    expr->stack->init_offset = 0;
     return;
 }
 

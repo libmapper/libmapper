@@ -17,6 +17,11 @@ static int var_lookup(etoken tok, const char *s, int len)
         s += 2;
         len -= 2;
     }
+    if (3 == len && 0 == strncmp(s, "now", 3)) {
+        tok->var.idx = VAR_NOW;
+        tok->toktype = TOK_TT;
+        return 0;
+    }
     if (4 == len && 0 == strncmp(s, "next", 4)) {
         tok->var.idx = VAR_NEXT;
         tok->toktype = TOK_TT;

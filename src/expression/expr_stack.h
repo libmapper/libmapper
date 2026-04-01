@@ -9,7 +9,7 @@
 typedef struct _estack
 {
     etoken_t *tokens;
-    uint8_t offset;
+    uint8_t init_offset;
     uint8_t num_tokens;
     uint8_t size;
     uint8_t vec_len;
@@ -33,7 +33,7 @@ void estack_cpy(estack to, estack from)
 {
     to->num_tokens = from->num_tokens;
     to->vec_len = from->vec_len;
-    to->offset = from->offset;
+    to->init_offset = from->init_offset;
     to->tokens = malloc(sizeof(etoken_t) * (size_t)from->num_tokens);
     memcpy(to->tokens, from->tokens, sizeof(etoken_t) * (size_t)from->num_tokens);
 
@@ -258,7 +258,7 @@ static int precompute(estack stk, uint8_t num_tokens_to_compute)
         return 0;
 
     /* temporarily set the stk 'offset' variable */
-    stk->offset = stk->num_tokens - num_tokens_to_compute;
+    stk->init_offset = stk->num_tokens - num_tokens_to_compute;
     stk->vec_len = vec_len;
     expr = mpr_expr_new(0, 0, stk);
     buff = mpr_expr_new_eval_buffer(expr);
@@ -279,7 +279,7 @@ static int precompute(estack stk, uint8_t num_tokens_to_compute)
         if (TOK_VLITERAL == tok->toktype)
             free(tok->lit.val.ip);
     }
-    /* tok is now at stk->offset */
+    /* tok is now at stk->init_offset */
 
     switch (type) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                  \
@@ -309,14 +309,14 @@ static int precompute(estack stk, uint8_t num_tokens_to_compute)
     tok->gen.flags &= ~CONST_SPECIAL;
     tok->gen.datatype = type;
     tok->gen.vec_len = vec_len;
-    stk->num_tokens = stk->offset + 1;
-    stk->offset = 0;
+    stk->num_tokens = stk->init_offset + 1;
+    stk->init_offset = 0;
 
 done:
     mpr_value_free(val);
     mpr_expr_free(expr);
     mpr_expr_free_eval_buffer(buff);
-    stk->offset = 0;
+    stk->init_offset = 0;
     return ret;
 }
 
@@ -331,7 +331,7 @@ static int estack_get_substack_len(estack stk, int start_idx)
     idx = start_idx;
 
     do {
-        if (tokens[idx].toktype < TOK_LOOP_END)
+        if (tokens[idx].toktype < TOK_LOOP_START)
             --arity;
         arity += etoken_get_arity(&tokens[idx]);
         if (TOK_ASSIGN & tokens[idx].toktype)
@@ -756,7 +756,23 @@ static int estack_check_assign_type_and_len(estack stk, expr_var_t *vars)
     for (--j; j > sp - expr_len; j--) {
         if (TOK_FN == tokens[j].toktype && FN_UNIFORM == tokens[j].fn.idx) {
             vec_len = tokens[sp].gen.vec_len;
-            break;
+        }
+        if (TOK_ASSIGN_CONST == tokens[sp].toktype && TOK_VAR == tokens[j].toktype) {
+            if (tokens[j].var.idx == tokens[sp].var.idx) {
+                tokens[sp].toktype = TOK_ASSIGN;
+            }
+            else {
+                /* need to check if this variable has had a non-constant assignment earlier */
+                int k;
+                for (k = j-1; k >= 0; k--) {
+                    if (   (tokens[k].toktype & TOK_ASSIGN)
+                        && (TOK_ASSIGN_CONST != tokens[k].toktype)
+                        && (tokens[k].var.idx == tokens[sp].var.idx)) {
+                        tokens[sp].toktype = TOK_ASSIGN;
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -806,7 +822,7 @@ static int estack_check_assign_type_and_len(estack stk, expr_var_t *vars)
         return 0;
     }
 
-    /* Need to move assignment statements to beginning of stack. */
+    /* Need to move initialization assignment statements to beginning of stack. */
 
     for (i = sp - expr_len; i > 0; i--) {
         if (tokens[i].toktype & TOK_ASSIGN && !(tokens[i].gen.flags & VAR_HIST_IDX))
@@ -933,57 +949,115 @@ static int estack_get_reduces_inst(estack stk)
     return 1;
 }
 
-#if TRACE_PARSE
-static void estack_print(const char *s, estack stk, expr_var_t *vars, int show_init_line)
+int estack_find_init_offset(estack stk)
 {
-    int i, j, indent = 0, can_advance = 1;
-    etoken_t *tokens = stk->tokens;
-    if (s)
-        printf("%s:\n", s);
-    if (!stk->num_tokens) {
-        printf("  --- <EMPTY> ---\n");
-        return;
+    /* count subexpressions until we reach the bottom of the stack */
+    int i, top = stk->num_tokens - 1, num_expr = 0, offset = 0;
+    uint8_t *tops, *lens;
+    while (top > 0) {
+        assert(estack_peek(stk, top)->toktype & TOK_ASSIGN);
+
+        /* top is one or more assignment tokens */
+        top -= estack_get_substack_len(stk, top);
+        ++num_expr;
     }
-    for (i = 0; i < stk->num_tokens; i++) {
-        if (show_init_line && can_advance) {
-            switch (tokens[i].toktype) {
-                case TOK_ASSIGN_CONST:
-                case TOK_ASSIGN:
-                case TOK_ASSIGN_USE:
-                case TOK_ASSIGN_TT:
-                    /* look ahead for future assignments */
-                    for (j = i + 1; j < stk->num_tokens; j++) {
-                        if (tokens[j].toktype < TOK_ASSIGN)
-                            continue;
-                        if (TOK_ASSIGN_CONST == tokens[j].toktype && tokens[j].var.idx != VAR_Y)
-                            break;
-                        if (tokens[j].gen.flags & VAR_HIST_IDX)
-                            break;
-                        for (j = 0; j < indent; j++)
-                            printf(" ");
-                        can_advance = 0;
-                        break;
+
+    if (num_expr <= 1) {
+        stk->init_offset = 0;
+        return 0;
+    }
+
+    tops = malloc(sizeof(uint8_t) * num_expr);
+    lens = malloc(sizeof(uint8_t) * num_expr);
+
+    top = stk->num_tokens - 1;
+    i = num_expr - 1;
+    while (top > 0) {
+        tops[i] = top;
+        lens[i] = estack_get_substack_len(stk, top);
+        top -= lens[i];
+        --i;
+    }
+
+    for (i = 0; i < num_expr - 1; i++) {
+        etoken t = estack_peek(stk, tops[i]);
+        assert(t->toktype & TOK_ASSIGN);
+        if (t->gen.flags & VAR_HIST_IDX) {
+            offset += lens[i];
+            continue;
+        }
+        /* check for TOK_VAR within substack */
+        int j;
+        for (j = 1; j < lens[i]; j++) {
+            etoken t2 = estack_peek(stk, tops[i] - j);
+            switch (t2->toktype) {
+                case TOK_FN:
+                    if (t2->fn.idx >= FN_NORMAL) {
+                        goto done;
                     }
                     break;
-                case TOK_RFN:
                 case TOK_VAR:
-                    if (tokens[i].var.idx >= VAR_X_NEWEST)
-                        can_advance = 0;
+                case TOK_TT:
+                    if (t2->var.idx >= N_USER_VARS) {
+                        goto done;
+                    }
+                    else {
+                        int k;
+                        /* check this subexpressions */
+                        if (t2->var.idx == t->var.idx) {
+                            goto done;
+                        }
+                        /* check earlier subexpressions */
+                        for (k = i - 1; k >= 0; k--) {
+                            etoken t3 = estack_peek(stk, tops[k]);
+                            if (    t2->var.idx == t3->var.idx
+                                && !(t3->gen.flags & VAR_HIST_IDX)
+                                && !(TOK_ASSIGN_CONST == t3->toktype)) {
+                                goto done;
+                            }
+                        }
+                        /* check later subexpressions */
+                        for (k = i + 1; k < num_expr; k++) {
+                            etoken t3 = estack_peek(stk, tops[k]);
+                            if (    t2->var.idx == t3->var.idx
+                                && !(t3->gen.flags & VAR_HIST_IDX)
+                                && !(TOK_ASSIGN_CONST == t3->toktype)) {
+                                goto done;
+                            }
+                        }
+                    }
                     break;
                 default:
                     break;
             }
-            printf(" %2d: ", i);
-            etoken_print(&tokens[i], vars, 1);
-            printf("\n");
-            if (i && !can_advance)
+        }
+        offset += lens[i];
+    }
+done:
+    stk->init_offset = offset;
+    free(tops);
+    free(lens);
+    return offset;
+}
+
+#if TRACE_PARSE
+static void estack_print(const char *s, estack stk, expr_var_t *vars, int show_init_line)
+{
+    int i;
+    etoken_t *tokens = stk->tokens;
+    if (s)
+        printf("%s:\n", s);
+    if (stk->num_tokens) {
+        for (i = 0; i < stk->num_tokens; i++) {
+            if (i && show_init_line && i == stk->init_offset)
                 printf("  --- <INITIALISATION DONE> ---\n");
-        }
-        else {
             printf(" %2d: ", i);
             etoken_print(&tokens[i], vars, 1);
             printf("\n");
         }
+    }
+    else {
+        printf("  --- <EMPTY> ---\n");
     }
 }
 #endif /* TRACE_PARSE */

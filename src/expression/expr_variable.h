@@ -30,7 +30,8 @@ uint8_t var_idx_nums[] = {0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4};
 
 typedef enum {
     VAR_UNKNOWN = -1,
-    VAR_NEXT = N_USER_VARS,
+    VAR_NOW = N_USER_VARS,
+    VAR_NEXT,
     VAR_Y,
     VAR_X_NEWEST,
     VAR_X,

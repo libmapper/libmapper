@@ -315,7 +315,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     break;
                 }
 
-                if (tok.var.idx == VAR_X_NEWEST) {
+                if (VAR_X_NEWEST == tok.var.idx) {
                     tok.gen.datatype = type_lo;
                     tok.gen.casttype = type_hi;
                     tok.gen.vec_len = out->vec_len;
@@ -330,12 +330,12 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
                     is_const = 0;
                 }
-                else if (tok.var.idx == VAR_Y) {
+                else if (VAR_Y == tok.var.idx) {
                     tok.gen.datatype = dst_types[0];
                     tok.gen.vec_len = dst_lens[0];
                     tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
                 }
-                else if (tok.var.idx == VAR_NEXT) {
+                else if (VAR_NOW == tok.var.idx || VAR_NEXT == tok.var.idx) {
                     tok.gen.datatype = MPR_DBL;
                     tok.gen.vec_len = 1;
                     tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
@@ -476,6 +476,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             }
             case TOK_OP_UNARY:
                 {FAIL_IF(   !op->num_tokens
+                         && tok.op.idx != OP_LOGICAL_NOT
                          && tok.op.idx != OP_INCREMENT_PRE
                          && tok.op.idx != OP_DECREMENT_PRE, "illegal unary operator at expr start");}
                 tok.toktype = TOK_OP;
@@ -1872,6 +1873,9 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 pre = t->op.idx == OP_INCREMENT_PRE || t->op.idx == OP_DECREMENT_PRE,
                 var_idx = i - 1,
                 flags = t->gen.flags;
+#if TRACE_PARSE
+            printf("expanding %sfix %screment operator\n", pre ? "pre" : "post", inc ? "in" : "de");
+#endif
             etoken_t newtok, *vartok = estack_peek(out, var_idx);
             {FAIL_IF(TOK_VAR != vartok->toktype, "misplaced increment or decrement operator");}
             {FAIL_IF(vartok->var.idx >= VAR_X_NEWEST, "cannot assign to variable 'x'");}
@@ -1892,18 +1896,35 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 case MPR_DBL:   t->lit.val.d = 1; break;
             }
 
+            /* The postfix increment/decrement operators require copying the unaltered variable
+             * value to the evaluation stack before incrementing/decrementing so it can be used
+             * in further calculations. An exception is made if the variable being incremented
+             * is not otherwise assigned, e.g. "a++;" */
             if (!pre) {
-                /* need to insert copy token after variable */
-                /* newtok.toktype = TOK_COPY_FROM;
-                 * newtok.con.cache_offset = 0;
-                 * estack_insert(out, i++, 1, &newtok);
-                 */
+                /* check if the variable is assigned */
+                int top = out->num_tokens - 1, copy_tokens = 1;
+                while (top > 0) {
+                    top -= estack_get_substack_len(out, top);
+                    if (top == i) {
+                        copy_tokens = 0;
+                        break;
+                    }
+                    if (top < i)
+                        break;
+                }
+                if (copy_tokens) {
+                    /* need to insert copy token after variable */
+                    /* newtok.toktype = TOK_COPY_FROM;
+                     * newtok.con.cache_offset = 0;
+                     * estack_insert(out, i++, 1, &newtok);
+                     */
 
-                /* above code does not guarantee that variable token will not be cast to another
-                 * datatype before copy */
-                /* for now we will copy variable substack instead of using copy */
-                estack_insert(out, i, substack_len, estack_peek(out, var_idx - substack_len + 1));
-                i += substack_len;
+                    /* above code does not guarantee that variable token will not be cast to another
+                     * datatype before copy */
+                    /* for now we will copy variable substack instead of using copy */
+                    estack_insert(out, i, substack_len, estack_peek(out, var_idx - substack_len + 1));
+                    i += substack_len;
+                }
             }
 
             /* add operator */
@@ -1923,6 +1944,18 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
         }
     }
 
+    /* run checks on VAR_NOW and VAR_NEXT */
+    for (i = 0; i < out->num_tokens; i++) {
+        etoken t = estack_peek(out, i);
+        {FAIL_IF(   (TOK_VAR == t->toktype || TOK_ASSIGN == t->toktype)
+                 && (VAR_NOW == t->var.idx || VAR_NEXT == t->var.idx),
+                 "Illegal variable index.");}
+        {FAIL_IF(TOK_TT == t->toktype && VAR_NOW == t->var.idx && NUM_VAR_IDXS(t->gen.flags),
+                 "'now' timestamp does not accept indices.");}
+        {FAIL_IF(TOK_ASSIGN_TT == t->toktype && VAR_NOW == t->var.idx,
+                 "Cannot assign to 'now' timestamp.");}
+    }
+
     /* check that all used-defined variables were assigned */
     for (i = 0; i < num_var; i++) {
         {FAIL_IF(!(vars[i].flags & VAR_ASSIGNED), "User-defined variable not assigned.");}
@@ -1933,6 +1966,8 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
     /* replace special constants with their typed values */
     {FAIL_IF(estack_replace_special_constants(out), "Error replacing special constants."); }
+
+    estack_find_init_offset(out);
 
 #if TRACE_PARSE
     estack_print("OUTPUT STACK", out, vars, 0);

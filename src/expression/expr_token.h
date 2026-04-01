@@ -206,10 +206,10 @@ static int etoken_get_arity(etoken tok)
         case TOK_VFN:           return vfn_tbl[tok->fn.idx].arity;
         case TOK_VECTORIZE:     return tok->fn.arity;
         case TOK_MOVE:          return tok->con.cache_offset + 1;
-        case TOK_SP_ADD:        return tok->lit.val.i;
         case TOK_LOOP_START:
-        case TOK_LOOP_END:
                                 return tok->con.flags & RT_INSTANCE ? 1 : 0;
+        case TOK_LOOP_END:
+                                return 1;
         default:                return 0;
     }
     return 0;
@@ -457,7 +457,9 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_USE:
         case TOK_ASSIGN_TT:
-            d = snprintf(s, l, "ASSIGN%s\t", TOK_ASSIGN_USE == tok->toktype ? "_USE" : "");
+            d = snprintf(s, l, "ASSIGN%s\t", (  TOK_ASSIGN_USE == tok->toktype
+                                              ? "_USE" : TOK_ASSIGN_CONST == tok->toktype
+                                              ? "_CST" : ""));
         case TOK_VAR:
         case TOK_TT: {
             if (TOK_VAR == tok->toktype || TOK_TT == tok->toktype)
@@ -470,6 +472,8 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
 
             if (tok->var.idx == VAR_Y)
                 d += snprintf(s + d, l - d, "[y]");
+            else if (tok->var.idx == VAR_NOW)
+                d += snprintf(s + d, l - d, "[now]");
             else if (tok->var.idx == VAR_NEXT)
                 d += snprintf(s + d, l - d, "[next]");
             else if (tok->var.idx == VAR_X_NEWEST)
