@@ -13,6 +13,7 @@ typedef struct _estack
     uint8_t num_tokens;
     uint8_t size;
     uint8_t vec_len;
+    uint8_t initialized;
 } estack_t, *estack;
 
 #if TRACE_PARSE
@@ -34,6 +35,7 @@ void estack_cpy(estack to, estack from)
     to->num_tokens = from->num_tokens;
     to->vec_len = from->vec_len;
     to->init_offset = from->init_offset;
+    to->initialized = from->initialized;
     to->tokens = malloc(sizeof(etoken_t) * (size_t)from->num_tokens);
     memcpy(to->tokens, from->tokens, sizeof(etoken_t) * (size_t)from->num_tokens);
 
@@ -259,6 +261,7 @@ static int precompute(estack stk, uint8_t num_tokens_to_compute)
 
     /* temporarily set the stk 'offset' variable */
     stk->init_offset = stk->num_tokens - num_tokens_to_compute;
+    stk->initialized = 1;
     stk->vec_len = vec_len;
     expr = mpr_expr_new(0, 0, stk);
     buff = mpr_expr_new_eval_buffer(expr);
@@ -310,13 +313,13 @@ static int precompute(estack stk, uint8_t num_tokens_to_compute)
     tok->gen.datatype = type;
     tok->gen.vec_len = vec_len;
     stk->num_tokens = stk->init_offset + 1;
-    stk->init_offset = 0;
 
 done:
     mpr_value_free(val);
     mpr_expr_free(expr);
     mpr_expr_free_eval_buffer(buff);
     stk->init_offset = 0;
+    stk->initialized = 0;
     return ret;
 }
 

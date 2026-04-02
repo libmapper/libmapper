@@ -117,8 +117,19 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     uint8_t *lens = buff->lens;
     mpr_type *types = buff->types;
 
-    if (v_out && mpr_value_get_num_samps(v_out, inst_idx) > 0) {
-        tok += stk->init_offset;
+    if (v_out) {
+        if (stk->initialized) {
+#if TRACE_EVAL
+            printf("advancing start token to %d\n", stk->init_offset);
+#endif
+            tok += stk->init_offset;
+        }
+        else {
+#if TRACE_EVAL
+            printf("initializing from token 0\n");
+#endif
+            stk->initialized = 1;
+        }
     }
 
     if (v_vars) {
