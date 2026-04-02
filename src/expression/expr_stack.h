@@ -378,16 +378,21 @@ static etoken estack_insert(estack stk, int idx, int num_tokens, etoken_t *src)
         idx += stk->num_tokens;
     assert(idx >= 0 && idx < stk->num_tokens);
 
+    /* cache src tokens */
+    etoken_t *cache = malloc(num_tokens * sizeof(etoken_t));
+    memcpy(cache, src, num_tokens * sizeof(etoken_t));
+
     /* move tokens starting at idx num_tokens to the right */
     for (i = stk->num_tokens - 1; i >= idx; i--) {
         etoken_cpy(&stk->tokens[i + num_tokens], &stk->tokens[i]);
     }
 
-    /* copy tokens from src to stk */
+    /* copy tokens from src cache to stk */
     for (i = 0; i < num_tokens; i++) {
-        etoken_cpy(&stk->tokens[idx + i], &src[i]);
+        etoken_cpy(&stk->tokens[idx + i], &cache[i]);
     }
     stk->num_tokens += num_tokens;
+    free(cache);
     return &stk->tokens[idx + num_tokens - 1];
 }
 
