@@ -1568,6 +1568,8 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         if (   TOK_ASSIGN_USE == (estack_peek(out, ESTACK_TOP))->toktype
                             && estack_check_assign_type_and_len(out, vars) == -1)
                             {FAIL("Malformed expression (23)");}
+                        if (!is_const && TOK_ASSIGN_CONST == estack_peek(out, ESTACK_TOP)->toktype)
+                            estack_peek(out, ESTACK_TOP)->toktype = TOK_ASSIGN;
                     }
                     /* mark last assignment token to clear eval stack */
                     (estack_peek(out, ESTACK_TOP))->gen.flags |= CLEAR_STACK;
@@ -1744,7 +1746,8 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
                 allow_toktype = OBJECT_TOKENS & ~TOK_NEGATE;
                 break;
-            case TOK_ASSIGN: {
+            case TOK_ASSIGN:
+            case TOK_ASSIGN_OP: {
                 etoken out_top = estack_peek(out, ESTACK_TOP);
                 /* assignment to variable */
                 {FAIL_IF(!assigning, "Misplaced assignment operator.");}
@@ -1773,7 +1776,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         vars[var].flags |= VAR_ASSIGNED;
                     i = estack_get_substack_len(out, ESTACK_TOP);
                     /* nothing extraordinary, continue as normal */
-                    out_top->toktype = is_const ? TOK_ASSIGN_CONST : TOK_ASSIGN;
+                    if (TOK_ASSIGN_OP == tok.toktype) {
+                        out_top->toktype = TOK_ASSIGN_OP;
+                        out_top->var.op_idx = tok.var.op_idx;
+                    }
+                    else {
+                        out_top->toktype = is_const ? TOK_ASSIGN_CONST : TOK_ASSIGN;
+                    }
                     out_top->var.offset = 0;
                     while (i > 0) {
                         estack_push(op, estack_pop(out));
@@ -1789,7 +1798,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     {FAIL_IF(out_top->var.idx == VAR_Y && !(out_top->gen.flags & VAR_HIST_IDX),
                              "Only past samples of output timetag are writable.");}
                     i = estack_get_substack_len(out, ESTACK_TOP);
-                    out_top->toktype = TOK_ASSIGN_TT;
+                    if (TOK_ASSIGN_OP == tok.toktype) {
+                        out_top->toktype = TOK_ASSIGN_TT_OP;
+                        out_top->var.op_idx = tok.var.op_idx;
+                    }
+                    else {
+                        out_top->toktype = TOK_ASSIGN_TT;
+                    }
                     out_top->gen.datatype = MPR_DBL;
                     while (i > 0) {
                         estack_push(op, estack_pop(out));
@@ -1820,7 +1835,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         else if (out_top->var.idx != var)
                             {FAIL("Cannot mix variables in vector assignment.");}
                         j = estack_get_substack_len(out, ESTACK_TOP);
-                        out_top->toktype = is_const ? TOK_ASSIGN_CONST : TOK_ASSIGN;
+                        if (TOK_ASSIGN_OP == tok.toktype) {
+                            out_top->toktype = TOK_ASSIGN_OP;
+                            out_top->var.op_idx = tok.var.op_idx;
+                        }
+                        else {
+                            out_top->toktype = is_const ? TOK_ASSIGN_CONST : TOK_ASSIGN;
+                        }
                         while (j-- > 0)
                             estack_push(op, estack_pop(out));
                     }
@@ -1864,9 +1885,85 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
     {FAIL_IF(op->num_tokens, "Unmerged tokens on operator stack");}
 
-    /* upgrade INCREMENT/DECREMENT operators */
-    for (i = 0; i < out->num_tokens - 1; i++) {
+#if TRACE_PARSE
+    printf("expanding assign-op and increment/decrement macro tokens\n");
+#endif
+    for (i = 0; i < out->num_tokens; i++) {
         etoken t = estack_peek(out, i);
+        if (TOK_ASSIGN_OP == t->toktype || TOK_ASSIGN_TT_OP == t->toktype) {
+            /* include variable indexes/indexing subexpressions but not the value to be assigned */
+            int j, assign_len = 1, arg_substack_len, var_substack_len = estack_get_substack_len(out, i) - 1;
+            etoken_t newtok;
+
+            /* check if there are additional assignment tokens (cf. assignment swizzling) */
+            while ((i + 1) < out->num_tokens && estack_peek(out, i + 1)->toktype & TOK_ASSIGN) {
+                ++assign_len;
+                ++var_substack_len;
+                ++i;
+            }
+
+            arg_substack_len = estack_get_substack_len(out, i - var_substack_len);
+
+            /* current order of tokens on the expression stack:
+             *   [i]        top of operator assignment subexpression of length N
+             *   [i-N]      top of argument subexpression of length M
+             *   [i-N-M]    top of preceding subexpression (if any)
+             *
+             * need to be expanded to:
+             *   [i]        top of assignment subexpression of length N
+             *   [i-N]      operator token
+             *   [i-N-1]    top of argument subexpression of length M
+             *   [i-N-M-1]  top of variable subexpression of length N
+             *   [i-2N-M-1] top of preceding subexpression (if any)
+             */
+
+            /* 1) prepare operator token: copy op and datatype from assignment token */
+            newtok.toktype = TOK_OP;
+            newtok.op.idx = t->var.op_idx;
+            newtok.gen.datatype = t->gen.datatype;
+            newtok.gen.vec_len = t->gen.vec_len;
+
+            /* 2) convert assign*_op tokens to assign* */
+            j = i;
+            while (j >= 0) {
+                etoken a = estack_peek(out, j);
+                if (!(TOK_ASSIGN & a->toktype))
+                    break;
+                if (TOK_ASSIGN_OP == a->toktype)
+                    a->toktype = TOK_ASSIGN;
+                else if (TOK_ASSIGN_TT_OP == a->toktype)
+                    a->toktype = TOK_ASSIGN_TT;
+                --j;
+            }
+
+            /* 3) insert op token between arg and var sub-expressions */
+            estack_insert(out, i - var_substack_len + 1, 1, &newtok);
+
+            /* 4) insert assignment substack before arg substack */
+            /* we have inserted a token but i still points to the old assignment token position */
+            estack_insert(out, i - var_substack_len - arg_substack_len + 1, var_substack_len,
+                          estack_peek(out, i - var_substack_len + 2));
+
+            /* 5) convert to var/tt tokens */
+            /* we have inserted a token but i still points to the old assignment token position */
+            for (j = 0; j < var_substack_len; j++) {
+                etoken a = estack_peek(out, i - arg_substack_len - j);
+                if (TOK_ASSIGN == a->toktype)
+                    a->toktype = TOK_VAR;
+                else if (TOK_ASSIGN_TT == a->toktype)
+                    a->toktype = TOK_TT;
+            }
+
+            /* 6) if there are more than 1 assignment tokens we also need a TOK_VECTORIZE */
+            if (assign_len > 1) {
+                newtok.toktype = TOK_VECTORIZE;
+                newtok.fn.arity = assign_len;
+                estack_insert(out, i - arg_substack_len + 1, 1, &newtok);
+            }
+
+            /* start scan again */
+            i = 0;
+        }
         if (TOK_OP == t->toktype && (t->op.idx >= OP_INCREMENT_PRE && t->op.idx <= OP_DECREMENT_POST)) {
             int substack_len,
                 inc = t->op.idx == OP_INCREMENT_PRE || t->op.idx == OP_INCREMENT_POST,
@@ -1941,8 +2038,15 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             if (t->var.idx < VAR_Y) {
                 vars[t->var.idx].flags |= VAR_ASSIGNED;
             }
+            /* start scan again */
+            i = 0;
         }
     }
+
+#if TRACE_PARSE
+        estack_print("OUTPUT STACK", out, vars, 0);
+        estack_print("OPERATOR STACK", op, vars, 0);
+#endif
 
     /* run checks on VAR_NOW and VAR_NEXT */
     for (i = 0; i < out->num_tokens; i++) {

@@ -51,6 +51,7 @@ enum etoken_type {
     TOK_ASSIGN_USE,
     TOK_ASSIGN_CONST,                   /* Const assignment (does not require input) */
     TOK_ASSIGN_TT,                      /* Assign to NTP timestamp */
+    TOK_ASSIGN_TT_OP,                   /* Assign to NTP timestamp */
     TOK_COPY_FROM       = 0x04000000,   /* Copy from stack */
     TOK_MOVE,                           /* Move stack */
     TOK_LAMBDA,
@@ -122,6 +123,7 @@ struct variable_type {
     int8_t idx;
     uint8_t offset;         /* only used by TOK_ASSIGN* and TOK_COPY_FROM */
     uint8_t vec_idx;        /* only used by TOK_VAR and TOK_ASSIGN */
+    expr_op_t op_idx;
 };
 
 /* Used by:
@@ -455,11 +457,20 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
 
         case TOK_ASSIGN:
         case TOK_ASSIGN_CONST:
+        case TOK_ASSIGN_OP:
         case TOK_ASSIGN_USE:
         case TOK_ASSIGN_TT:
-            d = snprintf(s, l, "ASSIGN%s\t", (  TOK_ASSIGN_USE == tok->toktype
-                                              ? "_USE" : TOK_ASSIGN_CONST == tok->toktype
-                                              ? "_CST" : ""));
+        case TOK_ASSIGN_TT_OP:
+            d = snprintf(s, l, "ASSIGN");
+            switch (tok->toktype) {
+                case TOK_ASSIGN_USE:    d += snprintf(s + d, l - d, "_USE\t");          break;
+                case TOK_ASSIGN_CONST:  d += snprintf(s + d, l - d, "_CST\t");          break;
+                case TOK_ASSIGN_OP:
+                case TOK_ASSIGN_TT_OP:
+                    d += snprintf(s + d, l - d, "_OP%s\t", op_tbl[tok->var.op_idx].name);
+                    break;
+                default:                d += snprintf(s + d, l - d, "\t");              break;
+            }
         case TOK_VAR:
         case TOK_TT: {
             if (TOK_VAR == tok->toktype || TOK_TT == tok->toktype)

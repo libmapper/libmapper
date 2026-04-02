@@ -152,7 +152,6 @@ static int expr_lex(const char *str, int idx, etoken tok)
         etoken_set_dbl(tok, atof(str+i));
         return idx;
     case '+':
-        tok->toktype = TOK_OP;
         switch (str[++idx]) {
             case '+':
                 tok->toktype = TOK_OP_UNARY;
@@ -161,7 +160,7 @@ static int expr_lex(const char *str, int idx, etoken tok)
                 break;
             case '=':
                 tok->toktype = TOK_ASSIGN_OP;
-                tok->op.idx = OP_ADD;
+                tok->var.op_idx = OP_ADD;
                 ++idx;
                 break;
             default:
@@ -181,7 +180,7 @@ static int expr_lex(const char *str, int idx, etoken tok)
                 return idx + 1;
             case '=':
                 tok->toktype = TOK_ASSIGN_OP;
-                tok->op.idx = OP_SUBTRACT;
+                tok->var.op_idx = OP_SUBTRACT;
                 return idx + 1;
             default:
                 break;
@@ -197,18 +196,22 @@ static int expr_lex(const char *str, int idx, etoken tok)
             tok->toktype = TOK_NEGATE;
         return idx;
     case '/':
-        etoken_set_op(tok, OP_DIVIDE);
         if (str[++idx] == '=') {
             tok->toktype = TOK_ASSIGN_OP;
+            tok->var.op_idx = OP_DIVIDE;
             ++idx;
         }
+        else
+            etoken_set_op(tok, OP_DIVIDE);
         return idx;
     case '*':
-        etoken_set_op(tok, OP_MULTIPLY);
         if (str[++idx] == '=') {
             tok->toktype = TOK_ASSIGN_OP;
+            tok->var.op_idx = OP_MULTIPLY;
             ++idx;
         }
+        else
+            etoken_set_op(tok, OP_MULTIPLY);
         return idx;
     case '%':
         etoken_set_op(tok, OP_MODULO);
