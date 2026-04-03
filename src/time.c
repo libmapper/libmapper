@@ -114,8 +114,13 @@ void mpr_time_sub(mpr_time *t, mpr_time subtrahend)
             --t->sec;
         t->frac -= subtrahend.frac;
     }
-    else
-        t->sec = t->frac = 0;
+    else {
+        t->sec = 0;
+        if (t->frac > subtrahend.frac)
+            t->frac -= subtrahend.frac;
+        else
+            t->frac = 0;
+    }
 }
 
 double mpr_time_as_dbl(mpr_time t)
