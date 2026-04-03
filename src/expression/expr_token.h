@@ -447,7 +447,14 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
             --d;
             snprintf(s + d, l - d, "]");
             break;
-        case TOK_OP:            snprintf(s, l, "OP\t\t%s", op_tbl[tok->op.idx].name);   break;
+        case TOK_OP:
+            if (OP_INCREMENT_PRE == tok->op.idx || OP_DECREMENT_PRE == tok->op.idx)
+                snprintf(s, l, "OP\t\t%s.", op_tbl[tok->op.idx].name);
+            else if (OP_INCREMENT_POST == tok->op.idx || OP_DECREMENT_POST == tok->op.idx)
+                snprintf(s, l, "OP\t\t.%s", op_tbl[tok->op.idx].name);
+            else
+                snprintf(s, l, "OP\t\t%s", op_tbl[tok->op.idx].name);
+            break;
         case TOK_OPEN_CURLY:    snprintf(s, l, "{\t");                                  break;
         case TOK_OPEN_PAREN:    snprintf(s, l, "(\t\tarity %d", tok->fn.arity);         break;
         case TOK_OPEN_SQUARE:   snprintf(s, l, "[");                                    break;

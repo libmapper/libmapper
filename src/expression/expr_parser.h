@@ -1905,12 +1905,12 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             arg_substack_len = estack_get_substack_len(out, i - var_substack_len);
 
             /* current order of tokens on the expression stack:
-             *   [i]        top of operator assignment subexpression of length N
+             *   [i]        top of augmented assignment operator subexpression of length N
              *   [i-N]      top of argument subexpression of length M
              *   [i-N-M]    top of preceding subexpression (if any)
              *
              * need to be expanded to:
-             *   [i]        top of assignment subexpression of length N
+             *   [i]        top of augmented assignment operator subexpression of length N
              *   [i-N]      operator token
              *   [i-N-1]    top of argument subexpression of length M
              *   [i-N-M-1]  top of variable subexpression of length N
@@ -1921,7 +1921,9 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             newtok.toktype = TOK_OP;
             newtok.op.idx = t->var.op_idx;
             newtok.gen.datatype = t->gen.datatype;
+            newtok.gen.casttype = 0;
             newtok.gen.vec_len = t->gen.vec_len;
+            newtok.gen.flags = 0;
 
             /* 2) convert assign*_op tokens to assign* */
             j = i;
@@ -1981,7 +1983,9 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
             /* copy datatype from variable */
             newtok.gen.datatype = t->gen.datatype;
+            newtok.gen.casttype = 0;
             newtok.gen.vec_len = t->gen.vec_len;
+            newtok.gen.flags = 0;
 
             /* convert OP to literal 1 */
             t->toktype = TOK_LITERAL;

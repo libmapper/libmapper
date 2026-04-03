@@ -7,6 +7,29 @@
 /* TODO: provide feedback to user */
 #define lex_error trace
 
+static expr_op_t op_lookup(etoken t, const char *s)
+{
+    int i;
+    for (i = 0; i < OP_IF_THEN_ELSE; i++) {
+        const char *name = op_tbl[i].name;
+        int len = strlen(name);
+        if (strncmp(s, name, len) == 0) {
+            /* check for augmented assignment operator */
+            if (op_tbl[i].assignment && ('=' == s[len])) {
+                t->toktype = TOK_ASSIGN_OP;
+                t->var.op_idx = i;
+                return len + 1;
+            }
+            else {
+                t->toktype = op_tbl[i].arity > 1 ? TOK_OP : TOK_OP_UNARY;
+                t->op.idx = i;
+                return len;
+            }
+        }
+    }
+    return 0;
+}
+
 /* TODO: move to expr_variable.h */
 static int var_lookup(etoken tok, const char *s, int len)
 {
@@ -151,24 +174,8 @@ static int expr_lex(const char *str, int idx, etoken tok)
             c = str[++idx];
         etoken_set_dbl(tok, atof(str+i));
         return idx;
-    case '+':
-        switch (str[++idx]) {
-            case '+':
-                tok->toktype = TOK_OP_UNARY;
-                tok->op.idx = OP_INCREMENT_PRE;
-                ++idx;
-                break;
-            case '=':
-                tok->toktype = TOK_ASSIGN_OP;
-                tok->var.op_idx = OP_ADD;
-                ++idx;
-                break;
-            default:
-                etoken_set_op(tok, OP_ADD);
-                break;
-        }
-        return idx;
     case '-':
+        /* handle '-' separately (for now) since it could be part of an arrow */
         /* could be either subtraction, negation, or lambda */
         switch (str[++idx]) {
             case '>':
@@ -195,125 +202,6 @@ static int expr_lex(const char *str, int idx, etoken tok)
         else
             tok->toktype = TOK_NEGATE;
         return idx;
-    case '/':
-        if (str[++idx] == '=') {
-            tok->toktype = TOK_ASSIGN_OP;
-            tok->var.op_idx = OP_DIVIDE;
-            ++idx;
-        }
-        else
-            etoken_set_op(tok, OP_DIVIDE);
-        return idx;
-    case '*':
-        if (str[++idx] == '=') {
-            tok->toktype = TOK_ASSIGN_OP;
-            tok->var.op_idx = OP_MULTIPLY;
-            ++idx;
-        }
-        else
-            etoken_set_op(tok, OP_MULTIPLY);
-        return idx;
-    case '%':
-        if (str[++idx] == '=') {
-            tok->toktype = TOK_ASSIGN_OP;
-            tok->var.op_idx = OP_MODULO;
-            ++idx;
-        }
-        else {
-            etoken_set_op(tok, OP_MODULO);
-        }
-        return idx;
-    case '=':
-        /* could be '=', '==' */
-        if (str[++idx] == '=') {
-            etoken_set_op(tok, OP_IS_EQUAL);
-            ++idx;
-        }
-        else {
-            tok->toktype = TOK_ASSIGN;
-        }
-        return idx;
-    case '<':
-        /* could be '<', '<=', '<<' */
-        etoken_set_op(tok, OP_IS_LESS_THAN);
-        c = str[++idx];
-        if (c == '=') {
-            tok->op.idx = OP_IS_LESS_THAN_OR_EQUAL;
-            ++idx;
-        }
-        else if (c == '<') {
-            tok->op.idx = OP_LEFT_BIT_SHIFT;
-            ++idx;
-        }
-        return idx;
-    case '>':
-        /* could be '>', '>=', '>>' */
-        etoken_set_op(tok, OP_IS_GREATER_THAN);
-        c = str[++idx];
-        if (c == '=') {
-            tok->op.idx = OP_IS_GREATER_THAN_OR_EQUAL;
-            ++idx;
-        }
-        else if (c == '>') {
-            tok->op.idx = OP_RIGHT_BIT_SHIFT;
-            ++idx;
-        }
-        return idx;
-    case '!':
-        /* could be '!', '!=' */
-        /* TODO: handle factorial case */
-        c = str[++idx];
-        if (c == '=') {
-            etoken_set_op(tok, OP_IS_NOT_EQUAL);
-            ++idx;
-        }
-        else {
-            tok->toktype = TOK_OP_UNARY;
-            tok->op.idx = OP_LOGICAL_NOT;
-        }
-        return idx;
-    case '&':
-        /* could be '&', '&&' */
-        etoken_set_op(tok, OP_BITWISE_AND);
-        c = str[++idx];
-        if (c == '&') {
-            tok->op.idx = OP_LOGICAL_AND;
-            ++idx;
-        }
-        else if (c == '=') {
-            tok->toktype = TOK_ASSIGN_OP;
-            tok->var.op_idx = OP_BITWISE_AND;
-            ++idx;
-        }
-        return idx;
-    case '|':
-        /* could be '|', '||' */
-        etoken_set_op(tok, OP_BITWISE_OR);
-        c = str[++idx];
-        if (c == '|') {
-            tok->op.idx = OP_LOGICAL_OR;
-            ++idx;
-        }
-        else if (c == '=') {
-            tok->toktype = TOK_ASSIGN_OP;
-            tok->var.op_idx = OP_BITWISE_OR;
-            ++idx;
-        }
-        return idx;
-    case '^':
-        /* bitwise XOR */
-        etoken_set_op(tok, OP_BITWISE_XOR);
-        if (str[++idx] == '=') {
-            tok->toktype = TOK_ASSIGN_OP;
-            tok->var.op_idx = OP_BITWISE_XOR;
-            ++idx;
-        }
-        return idx;
-    case '\'':
-        /* prime */
-        tok->toktype = TOK_OP;
-        tok->op.idx = OP_PRIME;
-        return ++idx;
     case '(':
         tok->toktype = TOK_OPEN_PAREN;
         return ++idx;
@@ -347,15 +235,6 @@ static int expr_lex(const char *str, int idx, etoken tok)
     case ',':
         tok->toktype = TOK_COMMA;
         return ++idx;
-    case '?':
-        /* conditional */
-        etoken_set_op(tok, OP_IF);
-        c = str[++idx];
-        if (c == ':') {
-            tok->op.idx = OP_IF_ELSE;
-            ++idx;
-        }
-        return idx;
     case ':':
         tok->toktype = TOK_COLON;
         return ++idx;
@@ -367,8 +246,18 @@ static int expr_lex(const char *str, int idx, etoken tok)
         return ++idx;
     default:
         if (!isalpha(c)) {
-            lex_error("unknown character '%c' in lexer\n", c);
-            break;
+            int len = op_lookup(tok, str+i);
+            if (len) {
+                return idx + len;
+            }
+            else if ('=' == c) {
+                tok->toktype = TOK_ASSIGN;
+                return idx + 1;
+            }
+            else {
+                lex_error("unknown character '%c' in lexer\n", c);
+                break;
+            }
         }
         while (c && (isalpha(c) || isdigit(c) || c == '_'))
             c = str[++idx];
