@@ -214,8 +214,15 @@ static int expr_lex(const char *str, int idx, etoken tok)
             etoken_set_op(tok, OP_MULTIPLY);
         return idx;
     case '%':
-        etoken_set_op(tok, OP_MODULO);
-        return ++idx;
+        if (str[++idx] == '=') {
+            tok->toktype = TOK_ASSIGN_OP;
+            tok->var.op_idx = OP_MODULO;
+            ++idx;
+        }
+        else {
+            etoken_set_op(tok, OP_MODULO);
+        }
+        return idx;
     case '=':
         /* could be '=', '==' */
         if (str[++idx] == '=') {
@@ -273,6 +280,11 @@ static int expr_lex(const char *str, int idx, etoken tok)
             tok->op.idx = OP_LOGICAL_AND;
             ++idx;
         }
+        else if (c == '=') {
+            tok->toktype = TOK_ASSIGN_OP;
+            tok->var.op_idx = OP_BITWISE_AND;
+            ++idx;
+        }
         return idx;
     case '|':
         /* could be '|', '||' */
@@ -282,11 +294,21 @@ static int expr_lex(const char *str, int idx, etoken tok)
             tok->op.idx = OP_LOGICAL_OR;
             ++idx;
         }
+        else if (c == '=') {
+            tok->toktype = TOK_ASSIGN_OP;
+            tok->var.op_idx = OP_BITWISE_OR;
+            ++idx;
+        }
         return idx;
     case '^':
         /* bitwise XOR */
         etoken_set_op(tok, OP_BITWISE_XOR);
-        return ++idx;
+        if (str[++idx] == '=') {
+            tok->toktype = TOK_ASSIGN_OP;
+            tok->var.op_idx = OP_BITWISE_XOR;
+            ++idx;
+        }
+        return idx;
     case '\'':
         /* prime */
         tok->toktype = TOK_OP;
