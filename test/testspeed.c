@@ -1,22 +1,12 @@
 #include <mapper/mapper.h>
-#include "../src/mpr_time.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
-#include <math.h>
-#include <time.h>
-
-#include <lo/lo.h>
-#ifdef WIN32
-#include <io.h>
-#else
-#include <sys/time.h>
-#include <unistd.h>
-#endif
 #include <signal.h>
 #include <string.h>
 
 #define NUM_INST 10
+#define NUM_MODES 2
+#define NUM_TRIALS 10
 
 int count = 0;
 
@@ -28,9 +18,7 @@ mpr_dev dst = 0;
 mpr_sig sendsig = 0;
 mpr_sig recvsig = 0;
 
-int numTrials = 10;
 int trial = 0;
-int numModes = 2;
 int mode = 0;
 int use_inst = 1;
 int iterations = 10000;
@@ -39,7 +27,7 @@ int received = 0;
 int matched = 0;
 int done = 0;
 
-double times[100];
+mpr_time times[NUM_MODES * NUM_TRIALS];
 float expected[NUM_INST];
 
 void switch_modes(void);
@@ -216,15 +204,20 @@ void ctrlc(int sig)
 void switch_modes(void)
 {
     int i;
+    mpr_time elapsed;
+    mpr_time_set(&elapsed, MPR_NOW);
+
     eprintf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
-    times[mode * numTrials + trial] = mpr_get_current_time() - times[mode * numTrials + trial];
-    if (++trial >= numTrials) {
+    mpr_time_sub(&elapsed, times[mode * NUM_TRIALS + trial]);
+    times[mode * NUM_TRIALS + trial] = elapsed;
+
+    if (++trial >= NUM_TRIALS) {
         eprintf("SWITCHING MODES...\n");
         trial = 0;
         ++mode;
     }
-    if (mode >= numModes) {
+    if (mode >= NUM_MODES) {
         done = 1;
         return;
     }
@@ -242,19 +235,19 @@ void switch_modes(void)
             break;
     }
 
-    times[mode * numTrials + trial] = mpr_get_current_time();
+    mpr_time_set(&times[mode * NUM_TRIALS + trial], MPR_NOW);
 }
 
 void print_results(void)
 {
-    int i, j, sent = iterations * numModes * numTrials;
-    double total_elapsed_time = 0;
+    int i, j, sent = iterations * NUM_MODES * NUM_TRIALS;
+    mpr_time total_elapsed_time = {0, 0};
 
-    for (i = 0; i < numModes; i++) {
-        for (j = 0; j < numTrials; j++)
-            total_elapsed_time += times[i * numTrials + j];
+    for (i = 0; i < NUM_MODES; i++) {
+        for (j = 0; j < NUM_TRIALS; j++)
+            mpr_time_add(&total_elapsed_time, times[i * NUM_TRIALS + j]);
     }
-    printf(" (%i messages in %f seconds).\n", sent, total_elapsed_time);
+    printf(" (%i messages in %f seconds).\n", sent, mpr_time_as_dbl(total_elapsed_time));
     if (!verbose)
         return;
 
@@ -266,16 +259,16 @@ void print_results(void)
 
     eprintf("\n*****************************************************\n");
     eprintf("\nRESULTS OF SPEED TEST:\n");
-    for (i = 0; i < numModes; i++) {
-        float bestTime = times[i * numTrials];
+    for (i = 0; i < NUM_MODES; i++) {
+        mpr_time bestTime = times[i * NUM_TRIALS];
         eprintf("MODE %i\n", i);
-        for (j = 0; j < numTrials; j++) {
+        for (j = 0; j < NUM_TRIALS; j++) {
             eprintf("trial %i: %i messages processed in %f seconds\n", j,
-                    iterations, times[i * numTrials + j]);
-            if (times[i * numTrials + j] < bestTime)
-                bestTime = times[i * numTrials + j];
+                    iterations, mpr_time_as_dbl(times[i * NUM_TRIALS + j]));
+            if (mpr_time_cmp(times[i * NUM_TRIALS + j], bestTime) < 0)
+                bestTime = times[i * NUM_TRIALS + j];
         }
-        eprintf("\nbest trial: %i messages in %f seconds\n", iterations, bestTime);
+        eprintf("\nbest trial: %i messages in %f seconds\n", iterations, mpr_time_as_dbl(bestTime));
     }
     eprintf("\n*****************************************************\n");
 }
@@ -351,7 +344,7 @@ int main(int argc, char **argv)
 
     /* start things off */
     eprintf("STARTING TEST...\n");
-    times[0] = mpr_get_current_time();
+    mpr_time_set(&times[0], MPR_NOW);
     mpr_sig_set_value(sendsig, counter, 1, MPR_FLT, &(expected[counter]));
 
     while (!done) {
@@ -360,7 +353,7 @@ int main(int argc, char **argv)
         mpr_dev_poll(dst, -1);
     }
 
-    if (matched != iterations * numModes * numTrials) {
+    if (matched != iterations * NUM_MODES * NUM_TRIALS) {
         result = 1;
     }
 
