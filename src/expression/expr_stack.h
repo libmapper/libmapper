@@ -994,6 +994,9 @@ int estack_find_init_offset(estack stk)
             offset += lens[i];
             continue;
         }
+        if (VAR_Y == t->var.idx) {
+            goto done;
+        }
         /* check for TOK_VAR within substack */
         int j;
         for (j = 1; j < lens[i]; j++) {
