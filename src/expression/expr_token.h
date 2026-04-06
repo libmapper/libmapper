@@ -28,38 +28,37 @@ enum etoken_type {
     TOK_VFN_DOT         = 0x00000040,    /* Dot vector function */
     TOK_RFN             = 0x00000080,    /* Reduce function */
     TOK_OPEN_PAREN      = 0x00000100,
-    TOK_MUTED           = 0x00000200,
-    TOK_OPEN_SQUARE     = 0x00000400,
-    TOK_OPEN_CURLY      = 0x00000800,
-    TOK_CLOSE_PAREN     = 0x00001000,
-    TOK_CLOSE_SQUARE    = 0x00002000,
-    TOK_CLOSE_CURLY     = 0x00004000,
-    TOK_VAR             = 0x00008000,
-    TOK_VAR_NUM_INST    = 0x00008001,
-    TOK_VAR_INST_IDX    = 0x00008002,
-    TOK_DOLLAR          = 0x00010000,
-    TOK_HASH            = 0x00020000,
-    TOK_OP              = 0x00040000,
-    TOK_OP_UNARY        = 0x00080000,
-    TOK_COMMA           = 0x00100000,
-    TOK_COLON           = 0x00200000,
-    TOK_SEMICOLON       = 0x00400000,
-    TOK_VECTORIZE       = 0x00800000,
-    TOK_TT              = 0x01000000,   /* NTP Timestamp */
-    TOK_ASSIGN          = 0x02000000,
+    TOK_OPEN_SQUARE     = 0x00000200,
+    TOK_OPEN_CURLY      = 0x00000400,
+    TOK_CLOSE_PAREN     = 0x00000800,
+    TOK_CLOSE_SQUARE    = 0x00001000,
+    TOK_CLOSE_CURLY     = 0x00002000,
+    TOK_VAR             = 0x00004000,
+    TOK_VAR_NUM_INST    = 0x00004001,
+    TOK_VAR_INST_IDX    = 0x00004002,
+    TOK_DOLLAR          = 0x00008000,
+    TOK_HASH            = 0x00010000,
+    TOK_OP              = 0x00020000,
+    TOK_OP_UNARY        = 0x00040000,
+    TOK_COMMA           = 0x00080000,
+    TOK_COLON           = 0x00100000,
+    TOK_SEMICOLON       = 0x00200000,
+    TOK_VECTORIZE       = 0x00400000,
+    TOK_TT              = 0x00800000,   /* NTP Timestamp */
+    TOK_ASSIGN          = 0x01000000,
     TOK_ASSIGN_OP,
     TOK_ASSIGN_USE,
     TOK_ASSIGN_CONST,                   /* Const assignment (does not require input) */
     TOK_ASSIGN_TT,                      /* Assign to NTP timestamp */
     TOK_ASSIGN_TT_OP,                   /* Assign to NTP timestamp */
-    TOK_COPY_FROM       = 0x04000000,   /* Copy from stack */
+    TOK_COPY_FROM       = 0x02000000,   /* Copy from stack */
     TOK_MOVE,                           /* Move stack */
     TOK_LAMBDA,
     TOK_LOOP_START,
     TOK_LOOP_END,
     TOK_SP_ADD,                         /* Stack pointer offset */
     TOK_REDUCING,
-    TOK_END             = 0x10000000
+    TOK_END             = 0x04000000
 };
 
 struct generic_type {
@@ -625,6 +624,8 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
             printf(" tlock");
         if (TOK_ASSIGN & tok->toktype && tok->gen.flags & CLEAR_STACK)
             printf(" clear");
+        if (tok->gen.flags & VAR_MUTED)
+            printf(" muted");
     }
 }
 #endif /* TRACE_PARSE || TRACE_EVAL */

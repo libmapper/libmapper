@@ -33,6 +33,11 @@ static expr_op_t op_lookup(etoken t, const char *s)
 /* TODO: move to expr_variable.h */
 static int var_lookup(etoken tok, const char *s, int len)
 {
+    if ('_' == *s) {
+        tok->gen.flags |= VAR_MUTED;
+        ++s;
+        --len;
+    }
     if ('t' != *s || '_' != *(s+1))
         tok->toktype = TOK_VAR;
     else if (len > 2) {
@@ -241,11 +246,9 @@ static int expr_lex(const char *str, int idx, etoken tok)
     case ';':
         tok->toktype = TOK_SEMICOLON;
         return ++idx;
-    case '_':
-        tok->toktype = TOK_MUTED;
-        return ++idx;
     default:
-        if (!isalpha(c)) {
+        /* '_' could be the start of a muted variable */
+        if ('_' != c && !isalpha(c)) {
             int len = op_lookup(tok, str+i);
             if (len) {
                 return idx + len;

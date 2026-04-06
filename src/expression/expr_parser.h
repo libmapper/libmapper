@@ -61,8 +61,8 @@ typedef struct _temp_var_cache {
 
 #define ASSIGN_MASK (TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY \
                      | TOK_OPEN_CURLY | TOK_NEGATE | TOK_LITERAL | TOK_COLON)
-#define OBJECT_TOKENS (TOK_VAR | TOK_LITERAL | TOK_FN | TOK_VFN | TOK_MUTED | TOK_NEGATE \
-                       | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_OP_UNARY | TOK_TT | TOK_HASH)
+#define OBJECT_TOKENS (TOK_VAR | TOK_LITERAL | TOK_FN | TOK_VFN | TOK_NEGATE | TOK_OPEN_PAREN \
+                       | TOK_OPEN_SQUARE | TOK_OP_UNARY | TOK_TT | TOK_HASH)
 #define JOIN_TOKENS (TOK_OP | TOK_OP_UNARY | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY \
                      | TOK_COMMA | TOK_COLON | TOK_SEMICOLON | TOK_FN_DOT)
 
@@ -138,7 +138,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     int i, lex_idx = 0, allow_toktype = 0x2FFFFF;;
 
     /* TODO: use bitflags instead? */
-    uint8_t assigning = 0, is_const = 1, out_assigned = 0, muted = 0, vectorizing = 0;
+    uint8_t assigning = 0, is_const = 1, out_assigned = 0, vectorizing = 0;
     uint8_t lambda_allowed = 0, reduce_types = 0;
     uint8_t decorating_var = 0;
     uint8_t vec_len_ctx = 0;
@@ -155,7 +155,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     {FAIL_IF(!str[lex_idx], "No expression found.");}
 
     assigning = 1;
-    allow_toktype = TOK_VAR | TOK_TT | TOK_OPEN_SQUARE | TOK_MUTED | TOK_OP_UNARY;
+    allow_toktype = TOK_VAR | TOK_TT | TOK_OPEN_SQUARE | TOK_OP_UNARY;
 
     /* Find lowest and highest signal types */
     for (i = 0; i < num_src; i++) {
@@ -216,10 +216,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             }
         }
         switch (tok.toktype) {
-            case TOK_MUTED:
-                muted = 1;
-                allow_toktype = TOK_VAR | TOK_TT;
-                break;
             case TOK_LITERAL:
                 /* push to output stack */
                 estack_push(out, &tok);
@@ -402,8 +398,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 }
                 vec_len_ctx = tok.gen.vec_len;
                 tok.var.vec_idx = 0;
-                if (muted)
-                    tok.gen.flags |= VAR_MUTED;
 
                 /* timetag tokens have type double */
                 if (tok.toktype == TOK_TT) {
@@ -423,7 +417,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     allow_toktype |= TOK_VFN_DOT;
                 if (tok.var.idx != VAR_Y || out_assigned > 1)
                     allow_toktype |= JOIN_TOKENS;
-                muted = 0;
                 break;
             }
             case TOK_FN:
