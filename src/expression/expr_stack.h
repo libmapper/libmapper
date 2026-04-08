@@ -323,6 +323,9 @@ done:
     return ret;
 }
 
+/* Note: this function may return an incorrect length if it is run on an expression stack that has
+ * already undergone expansion of postfix increment/decrement operators, since the stack may
+ * contain extra assignment tokens. */
 static int estack_get_substack_len(estack stk, int start_idx)
 {
     int idx, arity = 0;
@@ -334,11 +337,9 @@ static int estack_get_substack_len(estack stk, int start_idx)
     idx = start_idx;
 
     do {
-        if (tokens[idx].toktype < TOK_LOOP_START)
+        if ((tokens[idx].toktype & TOKEN_MASK) < TOK_LOOP_START)
             --arity;
         arity += etoken_get_arity(&tokens[idx]);
-        if (TOK_ASSIGN & tokens[idx].toktype)
-            ++arity;
         --idx;
     } while (arity >= 0 && idx >= 0);
     return start_idx - idx;
@@ -418,7 +419,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
     mpr_type type = tokens[sp].gen.datatype;
     uint8_t vec_len = tokens[sp].gen.vec_len;
 
-    switch (tokens[sp].toktype) {
+    switch (tokens[sp].toktype & TOKEN_MASK) {
         case TOK_OP:
             if (tokens[sp].op.idx == OP_IF) {
 #if TRACE_PARSE
@@ -443,9 +444,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
             can_precompute = 0;
             break;
         case TOK_ASSIGN:
-        case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_TT:
-        case TOK_ASSIGN_USE:
             arity = NUM_VAR_IDXS(tokens[sp].gen.flags) + 1;
             can_precompute = 0;
             break;
@@ -598,19 +597,21 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
          * this time we will also touch sub-arguments */
         i = sp;
         tskip = vskip = 0;
-        switch (tokens[sp].toktype) {
+        switch (tokens[sp].toktype & TOKEN_MASK) {
             case TOK_VECTORIZE:
                 vskip = tokens[sp].fn.arity;
-                depth = 0;
-                break;
-            case TOK_ASSIGN_USE:
-                vskip = 1;
                 depth = 0;
                 break;
             case TOK_VAR:
                 tskip = vskip = NUM_VAR_IDXS(tokens[sp].gen.flags);
                 depth = 0;
                 break;
+            case TOK_ASSIGN:
+                if (ASSIGN_KEEP_ARG & tokens[sp].toktype) {
+                    vskip = 1;
+                    depth = 0;
+                    break;
+                }
             default:
                 vskip = 0;
                 depth = arity;
@@ -667,14 +668,10 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                     vskip += var_idxs + 1;
                 }
             }
-            else if (TOK_ASSIGN == tokens[i].toktype) {
+            else if (TOK_ASSIGN & tokens[i].toktype) {
                 int _arity = etoken_get_arity(&tokens[i]) + 1;
-                vskip += _arity;
-                if (tskip > 0)
-                    tskip += _arity;
-            }
-            else if (TOK_ASSIGN_USE == tokens[i].toktype) {
-                int _arity = etoken_get_arity(&tokens[i]) + 2;
+                if (ASSIGN_KEEP_ARG & tokens[i].toktype)
+                    ++_arity;
                 vskip += _arity;
                 if (tskip > 0)
                     tskip += _arity;
@@ -765,18 +762,18 @@ static int estack_check_assign_type_and_len(estack stk, expr_var_t *vars)
         if (TOK_FN == tokens[j].toktype && FN_UNIFORM == tokens[j].fn.idx) {
             vec_len = tokens[sp].gen.vec_len;
         }
-        if (TOK_ASSIGN_CONST == tokens[sp].toktype && TOK_VAR == tokens[j].toktype) {
+        if (ASSIGN_CONSTANT & tokens[sp].toktype && TOK_VAR == tokens[j].toktype) {
             if (tokens[j].var.idx == tokens[sp].var.idx) {
-                tokens[sp].toktype = TOK_ASSIGN;
+                tokens[sp].toktype &= ~ASSIGN_CONSTANT;
             }
             else {
                 /* need to check if this variable has had a non-constant assignment earlier */
                 int k;
                 for (k = j-1; k >= 0; k--) {
                     if (   (tokens[k].toktype & TOK_ASSIGN)
-                        && (TOK_ASSIGN_CONST != tokens[k].toktype)
+                        && (!(ASSIGN_CONSTANT & tokens[k].toktype))
                         && (tokens[k].var.idx == tokens[sp].var.idx)) {
-                        tokens[sp].toktype = TOK_ASSIGN;
+                        tokens[sp].toktype &= ~ASSIGN_CONSTANT;
                         break;
                     }
                 }
@@ -885,7 +882,7 @@ static int estack_get_eval_buffer_size(estack stk)
     int i = 0, sp = 0, eval_buffer_len = 0;
     etoken_t *tok = stk->tokens;
     while (i < stk->num_tokens && tok->toktype != TOK_END) {
-        switch (tok->toktype) {
+        switch (tok->toktype & TOKEN_MASK) {
             case TOK_LITERAL:
             case TOK_VAR:
             case TOK_TT:
@@ -903,14 +900,10 @@ static int estack_get_eval_buffer_size(estack stk)
                 break;
 
             case TOK_ASSIGN:
-            case TOK_ASSIGN_CONST:
             case TOK_ASSIGN_TT:
-                --sp;
-                /* continue... */
-            case TOK_ASSIGN_USE:
                 sp -= etoken_get_arity(tok);
-                break;
-
+                if (ASSIGN_KEEP_ARG & tok->toktype)
+                    ++sp;
             case TOK_LOOP_START:
                 /* may need to cache instance */
             case TOK_SP_ADD:
@@ -959,96 +952,100 @@ static int estack_get_reduces_inst(estack stk)
 
 int estack_find_init_offset(estack stk)
 {
-    /* count subexpressions until we reach the bottom of the stack */
-    int i, top = stk->num_tokens - 1, num_expr = 0, offset = 0;
-    uint8_t *tops, *lens;
-    while (top > 0) {
-        assert(estack_peek(stk, top)->toktype & TOK_ASSIGN);
+    int i = 0, size = 0, var_referenced = 0;
 
-        /* top is one or more assignment tokens */
-        top -= estack_get_substack_len(stk, top);
-        ++num_expr;
-    }
+    stk->init_offset = 0;
 
-    if (num_expr <= 1) {
-        stk->init_offset = 0;
-        return 0;
-    }
-
-    tops = malloc(sizeof(uint8_t) * num_expr);
-    lens = malloc(sizeof(uint8_t) * num_expr);
-
-    top = stk->num_tokens - 1;
-    i = num_expr - 1;
-    while (top > 0) {
-        tops[i] = top;
-        lens[i] = estack_get_substack_len(stk, top);
-        top -= lens[i];
-        --i;
-    }
-
-    for (i = 0; i < num_expr - 1; i++) {
-        etoken t = estack_peek(stk, tops[i]);
-        assert(t->toktype & TOK_ASSIGN);
-        if (t->gen.flags & VAR_HIST_IDX) {
-            offset += lens[i];
-            continue;
-        }
-        if (VAR_Y == t->var.idx) {
-            goto done;
-        }
-        /* check for TOK_VAR within substack */
-        int j;
-        for (j = 1; j < lens[i]; j++) {
-            etoken t2 = estack_peek(stk, tops[i] - j);
-            switch (t2->toktype) {
-                case TOK_FN:
-                    if (t2->fn.idx >= FN_NORMAL) {
+    for (i = 0; i < stk->num_tokens; i++) {
+        etoken t = &stk->tokens[i];
+        switch (t->toktype & TOKEN_MASK) {
+            case TOK_LITERAL:
+            case TOK_VLITERAL:
+            case TOK_VAR_NUM_INST:
+            case TOK_VAR_INST_IDX:
+                ++size;
+                break;
+            case TOK_VAR:
+            case TOK_TT: {
+                int j;
+                if (t->var.idx == VAR_Y)
+                    goto done;
+                if (t->var.idx >= N_USER_VARS)
+                    var_referenced = 1;
+                /* check if variable is assigned in later subexpressions */
+                for (j = i + 1; j < stk->num_tokens; j++) {
+                    etoken t2 = &stk->tokens[j];
+                    if (    (TOK_ASSIGN & t2->toktype)
+                        &&  (t2->var.idx == t->var.idx)
+                        && !(t2->gen.flags & VAR_HIST_IDX)
+                        && !(ASSIGN_CONSTANT & t2->toktype)) {
                         goto done;
                     }
-                    break;
-                case TOK_VAR:
-                case TOK_TT:
-                    if (t2->var.idx >= N_USER_VARS) {
-                        goto done;
-                    }
-                    else {
-                        int k;
-                        /* check this subexpressions */
-                        if (t2->var.idx == t->var.idx) {
-                            goto done;
-                        }
-                        /* check earlier subexpressions */
-                        for (k = i - 1; k >= 0; k--) {
-                            etoken t3 = estack_peek(stk, tops[k]);
-                            if (    t2->var.idx == t3->var.idx
-                                && !(t3->gen.flags & VAR_HIST_IDX)
-                                && !(TOK_ASSIGN_CONST == t3->toktype)) {
-                                goto done;
-                            }
-                        }
-                        /* check later subexpressions */
-                        for (k = i + 1; k < num_expr; k++) {
-                            etoken t3 = estack_peek(stk, tops[k]);
-                            if (    t2->var.idx == t3->var.idx
-                                && !(t3->gen.flags & VAR_HIST_IDX)
-                                && !(TOK_ASSIGN_CONST == t3->toktype)) {
-                                goto done;
-                            }
-                        }
-                    }
-                    break;
-                default:
-                    break;
+                }
+                size += 1 - NUM_VAR_IDXS(t->gen.flags);
+                break;
             }
+            case TOK_OP:
+                size += 1 - op_tbl[t->op.idx].arity;
+                break;
+            case TOK_FN:
+                if (t->fn.idx >= FN_NORMAL)
+                    goto done;
+                size += 1 - fn_tbl[t->fn.idx].arity;
+                break;
+            case TOK_VFN:
+                size += 1 - vfn_tbl[t->fn.idx].arity;
+                break;
+            case TOK_LOOP_START:
+                if (t->con.flags & RT_INSTANCE)
+                    ++size;
+                break;
+            case TOK_SP_ADD:
+                size += t->lit.val.i;
+                break;
+            case TOK_LOOP_END:
+                /* NOP */
+                break;
+            case TOK_COPY_FROM:
+                ++size;
+                break;
+            case TOK_MOVE:
+                size -= t->con.cache_offset;
+                break;
+            case TOK_VECTORIZE:
+                size += 1 - t->fn.arity;
+                break;
+            case TOK_ASSIGN:
+                if ((var_referenced || t->var.idx >= N_USER_VARS) && !(t->gen.flags & VAR_HIST_IDX))
+                    goto done;
+                size -= NUM_VAR_IDXS(t->gen.flags);
+                if (t->gen.flags & CLEAR_STACK)
+                    size = 0;
+                else if (!(ASSIGN_KEEP_ARG & t->toktype)) {
+                    --size;
+                }
+                var_referenced = 0;
+                break;
+            case TOK_ASSIGN_TT:
+                if (var_referenced && !(t->gen.flags & VAR_HIST_IDX))
+                    goto done;
+                if (t->gen.flags & CLEAR_STACK)
+                    size = 0;
+                else
+                    --size;
+                var_referenced = 0;
+                break;
+            default:
+                printf("ERROR!");
+                stk->init_offset = 0;
+                return -1;
         }
-        offset += lens[i];
+        if (size == 0 && i != 0) {
+            stk->init_offset = i + 1;
+        }
     }
 done:
-    stk->init_offset = offset;
-    free(tops);
-    free(lens);
-    return offset;
+    return stk->init_offset;
 }
 
 #if TRACE_PARSE

@@ -75,7 +75,9 @@ int push_vfn_token(estack op, estack out, etoken tok, expr_var_t *vars, int *p_n
 
     for (i = 0; i < memory; i++) {
         /* add assignment token */
-        newtok.toktype = (i == 0) ? TOK_ASSIGN_USE : TOK_ASSIGN;
+        newtok.toktype = TOK_ASSIGN;
+        if (i == 0)
+            newtok.toktype |= ASSIGN_KEEP_ARG;
         newtok.var.idx = num_var;
 #if TRACE_PARSE
         printf("vfn memory: adding assign(vars[%d]) to op stack\n", num_var);
@@ -215,7 +217,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 goto error;
             }
         }
-        switch (tok.toktype) {
+        switch (tok.toktype & TOKEN_MASK) {
             case TOK_LITERAL:
                 /* push to output stack */
                 estack_push(out, &tok);
@@ -248,6 +250,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 #endif
                     {FAIL_IF(!found_in->loop_start_pos,
                              "local input variable used before lambda token.");}
+                    /* find offset of the value to be copied on the evaluation stack */
                     i = found_in->loop_start_pos + 1;
                     while (i < out->num_tokens) {
                         if (out->tokens[i].toktype <= TOK_MOVE)
@@ -919,7 +922,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     var_cache->loop_start_pos = 0;
 
                     GET_NEXT_TOKEN(tok);
-                    if (TOK_ASSIGN == tok.toktype) {
+                    if (TOK_ASSIGN == (tok.toktype & TOKEN_MASK)) {
                         /* expression contains accumulator variable initialization */
                         lambda_allowed = 1;
                     }
@@ -1383,7 +1386,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         /* move assignment tokens */
                         for (; memory > 0; memory--) {
                             etoken tmp = estack_pop(op);
-                            {FAIL_IF(tmp->toktype != TOK_ASSIGN && tmp->toktype != TOK_ASSIGN_USE,
+                            {FAIL_IF(!(tmp->toktype & TOK_ASSIGN),
                                      "VFN missing memory assignment tokens.");}
                             /* copy datatype and vector length from vfn token */
                             tmp->gen.datatype = t->gen.datatype;
@@ -1431,8 +1434,10 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     estack_push(out, &tok);
                     reduce_types &= ~(tok.con.flags & REDUCE_TYPE_MASK);
                 }
-                /* special case: if top of stack is tok_assign_use, pop to output */
-                if (op->num_tokens && (estack_peek(op, ESTACK_TOP))->toktype == TOK_ASSIGN_USE) {
+                /* special case: if top of stack is tok_assign with keep_arg flag, pop to output */
+                if (op->num_tokens
+                    && (estack_peek(op, ESTACK_TOP))->toktype & TOK_ASSIGN
+                    && (estack_peek(op, ESTACK_TOP))->toktype & ASSIGN_KEEP_ARG) {
                     estack_push(out, estack_pop(op));
                     {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (16).");}
                 }
@@ -1558,11 +1563,11 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         if ((op->num_tokens == 1) && op_top->toktype < TOK_ASSIGN)
                             {FAIL("Malformed expression (22)");}
                         estack_push(out, estack_pop(op));
-                        if (   TOK_ASSIGN_USE == (estack_peek(out, ESTACK_TOP))->toktype
+                        if (   ASSIGN_KEEP_ARG & op_top->toktype
                             && estack_check_assign_type_and_len(out, vars) == -1)
                             {FAIL("Malformed expression (23)");}
-                        if (!is_const && TOK_ASSIGN_CONST == estack_peek(out, ESTACK_TOP)->toktype)
-                            estack_peek(out, ESTACK_TOP)->toktype = TOK_ASSIGN;
+                        if (!is_const && ASSIGN_CONSTANT & op_top->toktype)
+                            estack_peek(out, ESTACK_TOP)->toktype &= ~ASSIGN_CONSTANT;
                     }
                     /* mark last assignment token to clear eval stack */
                     (estack_peek(out, ESTACK_TOP))->gen.flags |= CLEAR_STACK;
@@ -1583,13 +1588,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         }
                         else {
                             etoken t = estack_peek(out, ESTACK_TOP - substack_len);
-                            switch (t->toktype) {
+                            switch (t->toktype & TOKEN_MASK) {
                                 case TOK_OP:
                                     if (t->op.idx < OP_INCREMENT_PRE || t->op.idx > OP_DECREMENT_POST)
                                         {FAIL("misplaced increment or decrement operator");}
+                                    break;
                                 case TOK_ASSIGN:
                                 case TOK_ASSIGN_TT:
-                                case TOK_ASSIGN_CONST:
                                     out_top->gen.flags |= (TYPE_LOCKED | CLEAR_STACK);
                                     break;
                                 default:
@@ -1721,6 +1726,8 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 }
                 else {
                     /* we are retrieving signal instance index */
+                    /* evaluator will keep track of local instance being processed, so we don't
+                     * need to know which variable is being addressed */
                     GET_NEXT_TOKEN(tok);
                     {FAIL_IF(tok.toktype != TOK_VAR, "Misplaced instance index query.");}
                     tok.toktype = TOK_VAR_INST_IDX;
@@ -1739,8 +1746,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
                 allow_toktype = OBJECT_TOKENS & ~TOK_NEGATE;
                 break;
-            case TOK_ASSIGN:
-            case TOK_ASSIGN_OP: {
+            case TOK_ASSIGN: {
                 etoken out_top = estack_peek(out, ESTACK_TOP);
                 /* assignment to variable */
                 {FAIL_IF(!assigning, "Misplaced assignment operator.");}
@@ -1769,12 +1775,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         vars[var].flags |= VAR_ASSIGNED;
                     i = estack_get_substack_len(out, ESTACK_TOP);
                     /* nothing extraordinary, continue as normal */
-                    if (TOK_ASSIGN_OP == tok.toktype) {
-                        out_top->toktype = TOK_ASSIGN_OP;
+                    out_top->toktype = TOK_ASSIGN;
+                    if (ASSIGN_COMPOUND & tok.toktype) {
+                        out_top->toktype |= ASSIGN_COMPOUND;
                         out_top->var.op_idx = tok.var.op_idx;
                     }
-                    else {
-                        out_top->toktype = is_const ? TOK_ASSIGN_CONST : TOK_ASSIGN;
+                    if (is_const) {
+                        out_top->toktype |= ASSIGN_CONSTANT;
                     }
                     out_top->var.offset = 0;
                     while (i > 0) {
@@ -1791,12 +1798,10 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     {FAIL_IF(out_top->var.idx == VAR_Y && !(out_top->gen.flags & VAR_HIST_IDX),
                              "Only past samples of output timetag are writable.");}
                     i = estack_get_substack_len(out, ESTACK_TOP);
-                    if (TOK_ASSIGN_OP == tok.toktype) {
-                        out_top->toktype = TOK_ASSIGN_TT_OP;
+                    out_top->toktype = TOK_ASSIGN_TT;
+                    if (ASSIGN_COMPOUND & tok.toktype) {
+                        out_top->toktype |= ASSIGN_COMPOUND;
                         out_top->var.op_idx = tok.var.op_idx;
-                    }
-                    else {
-                        out_top->toktype = TOK_ASSIGN_TT;
                     }
                     out_top->gen.datatype = MPR_DBL;
                     while (i > 0) {
@@ -1807,8 +1812,9 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 else if (out_top->toktype == TOK_VECTORIZE) {
                     int var, j, arity = out_top->fn.arity;
 
-                    /* out token is vectorizer */
+                    /* remove vectorizer token from output */
                     estack_pop(out);
+
                     out_top = estack_peek(out, ESTACK_TOP);
                     {FAIL_IF(out_top->toktype != TOK_VAR, "Bad token left of assignment. (1)");}
                     var = out_top->var.idx;
@@ -1828,12 +1834,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         else if (out_top->var.idx != var)
                             {FAIL("Cannot mix variables in vector assignment.");}
                         j = estack_get_substack_len(out, ESTACK_TOP);
-                        if (TOK_ASSIGN_OP == tok.toktype) {
-                            out_top->toktype = TOK_ASSIGN_OP;
+                        out_top->toktype = TOK_ASSIGN;
+                        if (ASSIGN_COMPOUND & tok.toktype) {
+                            out_top->toktype |= ASSIGN_COMPOUND;
                             out_top->var.op_idx = tok.var.op_idx;
                         }
-                        else {
-                            out_top->toktype = is_const ? TOK_ASSIGN_CONST : TOK_ASSIGN;
+                        if (is_const) {
+                            out_top->toktype |= ASSIGN_CONSTANT;
                         }
                         while (j-- > 0)
                             estack_push(op, estack_pop(out));
@@ -1883,7 +1890,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 #endif
     for (i = 0; i < out->num_tokens; i++) {
         etoken t = estack_peek(out, i);
-        if (TOK_ASSIGN_OP == t->toktype || TOK_ASSIGN_TT_OP == t->toktype) {
+        if ((TOK_ASSIGN & t->toktype) && (ASSIGN_COMPOUND & t->toktype)) {
             /* include variable indexes/indexing subexpressions but not the value to be assigned */
             int j, assign_len = 1, arg_substack_len, var_substack_len = estack_get_substack_len(out, i) - 1;
             etoken_t newtok;
@@ -1924,10 +1931,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 etoken a = estack_peek(out, j);
                 if (!(TOK_ASSIGN & a->toktype))
                     break;
-                if (TOK_ASSIGN_OP == a->toktype)
-                    a->toktype = TOK_ASSIGN;
-                else if (TOK_ASSIGN_TT_OP == a->toktype)
-                    a->toktype = TOK_ASSIGN_TT;
+                a->toktype &= ~ASSIGN_COMPOUND;
                 --j;
             }
 
@@ -1943,10 +1947,11 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             /* we have inserted a token but i still points to the old assignment token position */
             for (j = 0; j < var_substack_len; j++) {
                 etoken a = estack_peek(out, i - arg_substack_len - j);
-                if (TOK_ASSIGN == a->toktype)
-                    a->toktype = TOK_VAR;
-                else if (TOK_ASSIGN_TT == a->toktype)
-                    a->toktype = TOK_TT;
+                switch (a->toktype & TOKEN_MASK) {
+                    case TOK_ASSIGN:    a->toktype = TOK_VAR;   break;
+                    case TOK_ASSIGN_TT: a->toktype = TOK_TT;    break;
+                    default:                                    break;
+                }
             }
 
             /* 6) if there are more than 1 assignment tokens we also need a TOK_VECTORIZE */
@@ -2027,10 +2032,12 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             newtok.gen.vec_len = 1;
             estack_insert(out, ++i, 1, &newtok);
 
-            /* add var substack and convert to assign_use */
+            /* add var substack and convert to assign with keep_arg flag */
             t = estack_insert(out, ++i, substack_len, estack_peek(out, var_idx - substack_len + 1));
             {FAIL_IF(t->toktype != TOK_VAR, "error!");}
-            t->toktype = pre ? TOK_ASSIGN_USE : TOK_ASSIGN;
+            t->toktype = TOK_ASSIGN;
+            if (pre)
+                t->toktype |= ASSIGN_KEEP_ARG;
             t->gen.flags |= flags;
             if (t->var.idx < VAR_Y) {
                 vars[t->var.idx].flags |= VAR_ASSIGNED;
@@ -2048,13 +2055,22 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     /* run checks on VAR_NOW and VAR_NEXT */
     for (i = 0; i < out->num_tokens; i++) {
         etoken t = estack_peek(out, i);
-        {FAIL_IF(   (TOK_VAR == t->toktype || TOK_ASSIGN == t->toktype)
-                 && (VAR_NOW == t->var.idx || VAR_NEXT == t->var.idx),
-                 "Illegal variable index.");}
-        {FAIL_IF(TOK_TT == t->toktype && VAR_NOW == t->var.idx && NUM_VAR_IDXS(t->gen.flags),
-                 "'now' timestamp does not accept indices.");}
-        {FAIL_IF(TOK_ASSIGN_TT == t->toktype && VAR_NOW == t->var.idx,
-                 "Cannot assign to 'now' timestamp.");}
+        switch (t->toktype & TOKEN_MASK) {
+            case TOK_VAR:
+            case TOK_ASSIGN:
+                {FAIL_IF(VAR_NOW == t->var.idx || VAR_NEXT == t->var.idx, "Illegal variable index.");}
+                break;
+            case TOK_TT:
+                {FAIL_IF(VAR_NOW == t->var.idx && NUM_VAR_IDXS(t->gen.flags),
+                         "'now' timestamp does not accept indices.");}
+                break;
+            case TOK_ASSIGN_TT:
+                {FAIL_IF(VAR_NOW == t->var.idx, "Cannot assign to 'now' timestamp.");}
+                break;
+            default:
+                break;
+
+        }
     }
 
     /* check that all used-defined variables were assigned */

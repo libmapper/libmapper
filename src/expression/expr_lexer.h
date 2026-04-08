@@ -16,7 +16,7 @@ static expr_op_t op_lookup(etoken t, const char *s)
         if (strncmp(s, name, len) == 0) {
             /* check for augmented assignment operator */
             if (op_tbl[i].assignment && ('=' == s[len])) {
-                t->toktype = TOK_ASSIGN_OP;
+                t->toktype = TOK_ASSIGN | ASSIGN_COMPOUND;
                 t->var.op_idx = i;
                 return len + 1;
             }
@@ -191,7 +191,7 @@ static int expr_lex(const char *str, int idx, etoken tok)
                 tok->op.idx = OP_DECREMENT_PRE;
                 return idx + 1;
             case '=':
-                tok->toktype = TOK_ASSIGN_OP;
+                tok->toktype = TOK_ASSIGN | ASSIGN_COMPOUND;
                 tok->var.op_idx = OP_SUBTRACT;
                 return idx + 1;
             default:

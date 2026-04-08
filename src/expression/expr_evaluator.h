@@ -182,7 +182,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         feclearexcept(FE_ALL_EXCEPT);
         errno = 0;
 
-        switch (tok->toktype) {
+        switch (tok->toktype & TOKEN_MASK) {
         case TOK_LITERAL:
         case TOK_VLITERAL:
             INCR_STACK_PTR(1);
@@ -244,6 +244,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 SET_TYPE(MPR_DBL);
                 SET_LEN(tok->gen.vec_len);
 #if TRACE_EVAL
+                printf("\r\t\t\t\t\t");
                 evalue_print(vals + sp, types[dp], lens[dp], dp);
 #endif
                 break;
@@ -914,9 +915,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #endif
             break;
         }
-        case TOK_ASSIGN:
-        case TOK_ASSIGN_USE:
-        case TOK_ASSIGN_CONST: {
+        case TOK_ASSIGN: {
             mpr_value v;
             /* currently only history and vector indices are supported for assignment */
             int idxp, hidx = tok->gen.flags & VAR_HIST_IDX, vidx = tok->gen.flags & VAR_VEC_IDX;
@@ -1045,7 +1044,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         assign_done:
             if (tok->gen.flags & CLEAR_STACK)
                 dp = -1;
-            else if (dp && TOK_ASSIGN_USE != tok->toktype)
+            else if (dp && !(tok->toktype & ASSIGN_KEEP_ARG))
                 --dp;
             sp = dp * vlen;
             break;

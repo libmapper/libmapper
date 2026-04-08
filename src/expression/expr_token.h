@@ -17,6 +17,19 @@
 #define USE_VAR_LEN     0x0040 /* reuse */
 #define VEC_LEN_LOCKED  0x0080
 
+enum etoken_datatype {
+    ETYPE_NONE = 0x00,
+    ETYPE_INT  = 0x01,
+    ETYPE_FLT  = 0x02,
+    ETYPE_DBL  = 0x03,
+};
+
+#define ASSIGN_KEEP_ARG 0x20000000
+#define ASSIGN_CONSTANT 0x40000000
+#define ASSIGN_COMPOUND 0x80000000
+
+#define TOKEN_MASK      0x0FFFFFFF
+
 enum etoken_type {
     TOK_UNKNOWN         = 0x00000000,
     TOK_LITERAL         = 0x00000001,    /* Scalar literal */
@@ -46,11 +59,7 @@ enum etoken_type {
     TOK_VECTORIZE       = 0x00400000,
     TOK_TT              = 0x00800000,   /* NTP Timestamp */
     TOK_ASSIGN          = 0x01000000,
-    TOK_ASSIGN_OP,
-    TOK_ASSIGN_USE,
-    TOK_ASSIGN_CONST,                   /* Const assignment (does not require input) */
     TOK_ASSIGN_TT,                      /* Assign to NTP timestamp */
-    TOK_ASSIGN_TT_OP,                   /* Assign to NTP timestamp */
     TOK_COPY_FROM       = 0x02000000,   /* Copy from stack */
     TOK_MOVE,                           /* Move stack */
     TOK_LAMBDA,
@@ -107,8 +116,6 @@ struct operator_type {
  * TOK_VAR
  * TOK_VAR_NUM_INST
  * TOK_ASSIGN
- * TOK_ASSIGN_USE
- * TOK_ASSIGN_CONST
  * TOK_ASSIGN_TT
  * TOK_TT
  */
@@ -194,26 +201,23 @@ static int etoken_get_is_1(etoken tok)
 
 static int etoken_get_arity(etoken tok)
 {
-    switch (tok->toktype) {
-        case TOK_VAR:
-        case TOK_TT:
+    int arity = 0;
+    switch (tok->toktype & TOKEN_MASK) {
         case TOK_ASSIGN:
-        case TOK_ASSIGN_CONST:
-        case TOK_ASSIGN_USE:
-        case TOK_ASSIGN_TT:     return NUM_VAR_IDXS(tok->gen.flags);
-        case TOK_OP:            return op_tbl[tok->op.idx].arity;
-        case TOK_FN:            return fn_tbl[tok->fn.idx].arity;
-        case TOK_RFN:           return rfn_tbl[tok->fn.idx].arity;
-        case TOK_VFN:           return vfn_tbl[tok->fn.idx].arity;
-        case TOK_VECTORIZE:     return tok->fn.arity;
-        case TOK_MOVE:          return tok->con.cache_offset + 1;
-        case TOK_LOOP_START:
-                                return tok->con.flags & RT_INSTANCE ? 1 : 0;
-        case TOK_LOOP_END:
-                                return 1;
-        default:                return 0;
+        case TOK_ASSIGN_TT:     arity = 1 + NUM_VAR_IDXS(tok->gen.flags);       break;
+        case TOK_VAR:
+        case TOK_TT:            arity = NUM_VAR_IDXS(tok->gen.flags);           break;
+        case TOK_OP:            arity = op_tbl[tok->op.idx].arity;              break;
+        case TOK_FN:            arity = fn_tbl[tok->fn.idx].arity;              break;
+        case TOK_RFN:           arity = rfn_tbl[tok->fn.idx].arity;             break;
+        case TOK_VFN:           arity = vfn_tbl[tok->fn.idx].arity;             break;
+        case TOK_VECTORIZE:     arity = tok->fn.arity;                          break;
+        case TOK_MOVE:          arity = tok->con.cache_offset + 1;              break;
+        case TOK_LOOP_START:    arity = tok->con.flags & RT_INSTANCE ? 1 : 0;   break;
+        case TOK_LOOP_END:      arity = 1;                                      break;
+        default:                                                                break;
     }
-    return 0;
+    return arity;
 }
 
 MPR_INLINE static void etoken_cpy(etoken dst, etoken src)
@@ -411,7 +415,7 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
     int i, d = 0, l = 128;
     char s[128];
     char *dims[] = {"unknown", "history", "instance", 0, "signal", 0, 0, 0, "vector"};
-    switch (tok->toktype) {
+    switch (tok->toktype & TOKEN_MASK) {
         case TOK_LITERAL:
             d = snprintf(s, l, "LITERAL\t");
             switch (tok->gen.flags & CONST_SPECIAL) {
@@ -462,21 +466,16 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
         case TOK_CLOSE_SQUARE:  snprintf(s, l, "]");                                    break;
 
         case TOK_ASSIGN:
-        case TOK_ASSIGN_CONST:
-        case TOK_ASSIGN_OP:
-        case TOK_ASSIGN_USE:
         case TOK_ASSIGN_TT:
-        case TOK_ASSIGN_TT_OP:
             d = snprintf(s, l, "ASSIGN");
-            switch (tok->toktype) {
-                case TOK_ASSIGN_USE:    d += snprintf(s + d, l - d, "_USE\t");          break;
-                case TOK_ASSIGN_CONST:  d += snprintf(s + d, l - d, "_CST\t");          break;
-                case TOK_ASSIGN_OP:
-                case TOK_ASSIGN_TT_OP:
-                    d += snprintf(s + d, l - d, "_OP%s\t", op_tbl[tok->var.op_idx].name);
-                    break;
-                default:                d += snprintf(s + d, l - d, "\t");              break;
-            }
+            if (ASSIGN_KEEP_ARG & tok->toktype)
+                d += snprintf(s + d, l - d, "_USE");
+            if (ASSIGN_CONSTANT & tok->toktype)
+                d += snprintf(s + d, l - d, "_CST");
+            if (ASSIGN_COMPOUND & tok->toktype)
+                d += snprintf(s + d, l - d, "_OP%s", op_tbl[tok->var.op_idx].name);
+            d += snprintf(s + d, l - d, "\t");
+            /* continue... */
         case TOK_VAR:
         case TOK_TT: {
             if (TOK_VAR == tok->toktype || TOK_TT == tok->toktype)
@@ -532,8 +531,10 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
             break;
         }
         case TOK_VAR_INST_IDX:
+            d = snprintf(s, l, "INST_IDX[?]\t");
+            break;
         case TOK_VAR_NUM_INST:
-            d = snprintf(s, l, "%s\t", TOK_VAR_INST_IDX == tok->toktype ? "INST_IDX" : "NUM_INST");
+            d = snprintf(s, l, "NUM_INST\t");
             if (tok->var.idx == VAR_Y)
                 snprintf(s + d, l - d, "var[y]");
             else if (tok->var.idx == VAR_X_NEWEST)

@@ -878,7 +878,7 @@ int run_tests()
         return 1;
 
     /* 50) Multiple Inputs */
-    set_expr_str("y=x+x$1[1:2]+x$2");
+    set_expr_str("y=_x+_x$1[1:2]+x$2");
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
     expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1] + src_dbl[0]);
     expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2] + src_dbl[1]);
@@ -953,7 +953,7 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
-    if (start_index < 0 || start_index == 53) {
+    if (start_index < 0 || start_index == 55) {
         if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
             eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
             return 1;
@@ -967,7 +967,7 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
-    if (start_index < 0 || start_index == 54) {
+    if (start_index < 0 || start_index == 56) {
         /* results may vary depending on machine but we can perform a sanity check */
         if (dst_dbl[0] < 0.0 || dst_dbl[0] > 0.1) {
             eprintf("... error: expected value between %g and %g\n", 0.0, 0.1);
@@ -984,7 +984,7 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
-    if (start_index < 0 || start_index == 55) {
+    if (start_index < 0 || start_index == 57) {
         /* results may vary depending on machine but we can perform a sanity check */
         if (dst_dbl[0] < 0. || dst_dbl[0] > 0.003) {
             eprintf("... error: expected value between %g and %g\n", 0.0, 0.003);
@@ -1003,7 +1003,7 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
-    if (start_index < 0 || start_index == 56) {
+    if (start_index < 0 || start_index == 58) {
         /* results may vary depending on machine but we can perform a sanity check */
         if (dst_dbl[0] < 0. || dst_dbl[0] > 0.002) {
             eprintf("... error: expected value between %g and %g\n", 0.0, 0.002);
@@ -1063,7 +1063,7 @@ int run_tests()
     expect_int[0] = src_int[0];
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, -1))
         return 1;
-    if (start_index < 0 || start_index == 61) {
+    if (start_index < 0 || start_index == 63) {
         if (abs(iterations / 2 - update_count) > 4) {
             eprintf("error: expected approximately %d updates\n", iterations / 2);
             return 1;
@@ -1717,7 +1717,7 @@ int run_tests()
     setup_test(MPR_FLT, 1, MPR_DBL, 2);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
         return 1;
-    if (start_index < 0 || start_index == 128) {
+    if (start_index < 0 || start_index == 130) {
         if (dst_dbl[1] < 0.1) {
             double d = ((double)src_flt[0] * dst_dbl[1] / 0.1);
             if (fabs(dst_dbl[0] - d) > fabs(d * 0.0000001)) {
@@ -1783,7 +1783,7 @@ int run_tests()
     setup_test(MPR_FLT, 1, MPR_FLT, 4);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 5, 0, iterations))
         return 1;
-    if (start_index < 0 || start_index == 133) {
+    if (start_index < 0 || start_index == 135) {
         for (i = 1; i < 4; i++) {
             int j;
             for (j = i - 1; j >= 0; j--) {
@@ -1913,7 +1913,7 @@ int run_tests()
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 11, 0, iterations))
         return 1;
-    if (start_index < 0 || start_index == 147) {
+    if (start_index < 0 || start_index == 148) {
         /* deviation should approach abs(x) as iterations increase */
         if ((fabsf(dst_flt[0]) - fabsf(src_flt[0])) > fabsf(src_flt[0])) {
             eprintf("... error: expected value approaching %g\n", fabsf(src_flt[0]));
