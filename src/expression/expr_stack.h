@@ -928,7 +928,7 @@ static int estack_get_eval_buffer_size(estack stk)
  * sub-expression */
 static int estack_get_reduces_inst(estack stk)
 {
-    int i, reducing = 0;
+    int i, reducing = 0, input_found = 0;
     for (i = 0; i < stk->num_tokens; i++) {
         etoken tok = &stk->tokens[i];
         switch (tok->toktype) {
@@ -940,14 +940,17 @@ static int estack_get_reduces_inst(estack stk)
                 if (tok->con.flags & RT_INSTANCE)
                     reducing = 0;
             case TOK_VAR:
-                if (!reducing && tok->var.idx >= VAR_X_NEWEST)
-                    return 0;
+                if (tok->var.idx >= VAR_X_NEWEST) {
+                    if (!reducing)
+                        return 0;
+                    input_found = 1;
+                }
                 break;
             default:
                 break;
         }
     }
-    return 1;
+    return input_found;
 }
 
 int estack_find_init_offset(estack stk)

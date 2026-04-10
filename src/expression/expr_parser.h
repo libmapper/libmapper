@@ -137,7 +137,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 {
     estack out = estack_new(STACK_SIZE), op = estack_new(STACK_SIZE);
     expr_var_t vars[N_USER_VARS];
-    int i, lex_idx = 0, allow_toktype = 0x2FFFFF;;
+    int i, lex_idx = 0, allow_toktype = 0x2FFFFF;
 
     /* TODO: use bitflags instead? */
     uint8_t assigning = 0, is_const = 1, out_assigned = 0, vectorizing = 0;
@@ -355,7 +355,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     else {
                         {FAIL_IF(num_var >= N_USER_VARS, "Maximum number of variables exceeded. (2)");}
                         /* need to store new variable */
-                        expr_var_set(&vars[num_var], varname, len, type_hi, 0, VAR_INSTANCED);
+                        expr_var_set(&vars[num_var], varname, len, type_hi, 0, 0);
 #if TRACE_PARSE
                         printf("Stored new variable '%s' at index %i\n", vars[num_var].name, num_var);
 #endif
@@ -1553,8 +1553,6 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             op_top->gen.vec_len = vars[var_idx].vec_len;
                         op_top->gen.datatype = vars[var_idx].datatype;
                         op_top->gen.flags |= VEC_LEN_LOCKED;
-                        if (is_const)
-                            vars[var_idx].flags &= ~VAR_INSTANCED;
                     }
                     /* pop assignment operators to output */
                     while (op->num_tokens && (op_top = estack_peek(op, ESTACK_TOP))) {
@@ -1886,14 +1884,62 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     {FAIL_IF(op->num_tokens, "Unmerged tokens on operator stack");}
 
 #if TRACE_PARSE
-    printf("expanding assign-op and increment/decrement macro tokens\n");
+    printf("checking whether user-defined variables should be singleton or instanced\n");
+#endif
+    /* check whether user variables should be singleton or support instancing */
+    {
+        int changed = 1, instanced = 0;
+        while (changed) {
+            changed = 0;
+            for (i = 0; i < out->num_tokens; i++) {
+                etoken t = estack_peek(out, i);
+                switch (t->toktype & TOKEN_MASK) {
+                    case TOK_VAR:
+                    case TOK_TT:
+                        // next needs special treatment here - leaving as instanced for now
+                        if (t->var.idx >= VAR_NEXT)
+                            instanced = VAR_INSTANCED;
+                        else if (vars[t->var.idx].flags & VAR_INSTANCED)
+                            instanced = VAR_INSTANCED;
+                        break;
+                    case TOK_ASSIGN:
+                        if (   t->var.idx < N_USER_VARS
+                            && instanced > (vars[t->var.idx].flags & VAR_INSTANCED)) {
+                            vars[t->var.idx].flags |= VAR_INSTANCED;
+                            ++changed;
+                            instanced = 0;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+#if TRACE_PARSE
+        for (i = 0; i < num_var; i++) {
+            printf("  variable[%d] '%s': %s\n", i, vars[i].name ? vars[i].name : "----",
+                   vars[i].flags & VAR_INSTANCED ? "instanced" : "singleton");
+        }
+#endif
+    }
+
+#if TRACE_PARSE
+    printf("checking for compound assignment and increment/decrement macro tokens\n");
 #endif
     for (i = 0; i < out->num_tokens; i++) {
         etoken t = estack_peek(out, i);
         if ((TOK_ASSIGN & t->toktype) && (ASSIGN_COMPOUND & t->toktype)) {
+#if TRACE_PARSE
+            printf("expanding compound assignment token at index %d\n", i);
+#endif
             /* include variable indexes/indexing subexpressions but not the value to be assigned */
-            int j, assign_len = 1, arg_substack_len, var_substack_len = estack_get_substack_len(out, i) - 1;
+            int j, assign_len = 1, arg_substack_len, var_substack_len = 1;
             etoken_t newtok;
+
+            for (j = NUM_VAR_IDXS(t->gen.flags); j > 0; j--) {
+                var_substack_len += 1 + estack_get_substack_len(out, i - var_substack_len);
+                {FAIL_IF(var_substack_len >= i, "error calculating variable subexpression length.\n");}
+            }
 
             /* check if there are additional assignment tokens (cf. assignment swizzling) */
             while ((i + 1) < out->num_tokens && estack_peek(out, i + 1)->toktype & TOK_ASSIGN) {
@@ -1964,6 +2010,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             /* start scan again */
             i = 0;
         }
+    }
+
+#if TRACE_PARSE
+    printf("checking for increment/decrement macro tokens\n");
+#endif
+    for (i = 0; i < out->num_tokens; i++) {
+        etoken t = estack_peek(out, i);
         if (TOK_OP == t->toktype && (t->op.idx >= OP_INCREMENT_PRE && t->op.idx <= OP_DECREMENT_POST)) {
             int substack_len,
                 inc = t->op.idx == OP_INCREMENT_PRE || t->op.idx == OP_INCREMENT_POST,
@@ -1971,7 +2024,8 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 var_idx = i - 1,
                 flags = t->gen.flags;
 #if TRACE_PARSE
-            printf("expanding %sfix %screment operator\n", pre ? "pre" : "post", inc ? "in" : "de");
+            printf("expanding %sfix %screment operator at index %d\n",
+                   pre ? "pre" : "post", inc ? "in" : "de", i);
 #endif
             etoken_t newtok, *vartok = estack_peek(out, var_idx);
             {FAIL_IF(TOK_VAR != vartok->toktype, "misplaced increment or decrement operator");}
@@ -2042,6 +2096,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             if (t->var.idx < VAR_Y) {
                 vars[t->var.idx].flags |= VAR_ASSIGNED;
             }
+
             /* start scan again */
             i = 0;
         }
