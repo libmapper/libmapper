@@ -75,6 +75,8 @@ void mpr_expr_cpy_stack_and_vars(mpr_expr expr, void *stack, void *vars, int num
 
 int mpr_expr_get_num_tokens(mpr_expr expr);
 
+void mpr_expr_restart(mpr_expr expr);
+
 #if DEBUG
 void mpr_expr_print(mpr_expr expr);
 #endif /* DEBUG */

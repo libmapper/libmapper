@@ -270,3 +270,8 @@ int mpr_expr_get_num_tokens(mpr_expr expr)
 {
     return expr->stack->num_tokens;
 }
+
+void mpr_expr_restart(mpr_expr expr)
+{
+    expr->stack->initialized = 0;
+}
