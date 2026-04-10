@@ -911,13 +911,24 @@ mpr_time mpr_map_process(mpr_local_map m, mpr_time time)
         if (!mpr_bitflags_get(m->updated_inst, i)) {
             if (m->timed) {
                 mpr_time next_inst = mpr_value_get_time(m->next_inst, i, 0);
+                int j;
                 if (mpr_time_cmp(next_inst, time) >= 0.001) {
                     /* not yet time for this instance */
                     if (mpr_time_cmp(next_inst, m->next) < 0)
                         m->next = next_inst;
                     continue;
                 }
-                /* instance is ready for next scheduled evaluation */
+
+                /* check if source signals have a value for this instance */
+                /* TODO: check whether source signal is actually referenced in the map expression */
+                for (j = 0; j < m->num_src; j++) {
+                    if (!mpr_value_get_has_value(src_vals[0], i))
+                        break;
+                }
+                if (j < m->num_src)
+                    continue;
+
+                /* this instance is ready for next scheduled evaluation */
             }
             else {
                 continue;
@@ -1702,9 +1713,11 @@ int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
         else if (0 == e)
             ++updated;
     }
-    else if (expr_str)
+    else if (expr_str) {
+        /* map is not ready – just store extression string for now */
         updated += mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL,
                                       1, MPR_STR, expr_str, MOD_REMOTE);
+    }
 
     if (orig_loc != m->process_loc)
         ++updated;
