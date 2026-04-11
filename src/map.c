@@ -1085,7 +1085,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
         for (j = 0; j < m->num_vars; j++) {
             if (!m->var_names[j] || strcmp(m->var_names[j], var_names[i]))
                 continue;
-            if (mpr_value_get_vlen(m->vars[i]) != vlen)
+            if (mpr_value_get_vlen(m->vars[j]) != vlen)
                 continue;
             /* match found */
             break;
