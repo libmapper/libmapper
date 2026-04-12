@@ -1033,6 +1033,8 @@ mpr_time mpr_map_process(mpr_local_map m, mpr_time time)
     if (MPR_LOC_SRC & process_loc) {
         mpr_local_slot_send_msg(m->dst, NULL, time, m->protocol);
     }
+    if (0 == mpr_time_cmp(m->next, MPR_TIME_MAX))
+        m->next = time;
     mpr_bitflags_clear(m->updated_inst);
     m->updated = 0;
     return m->next;
