@@ -73,7 +73,7 @@ void mpr_time_add_dbl(mpr_time *t, double d)
         return;
 
     d += (double)t->frac * multiplier;
-    if (d < 0 && floor(d) > t->sec)
+    if (d < 0 && fabs(floor(d)) > t->sec)
         t->sec = t->frac = 0;
     else {
         t->sec += floor(d);
