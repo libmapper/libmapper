@@ -19,7 +19,8 @@ int shared_graph = 0;
 int done = 0;
 int period = 100;
 
-int num_inst = 5;
+// TODO: increase
+int num_inst = 1;
 
 mpr_dev src = 0;
 mpr_dev dst = 0;
@@ -37,28 +38,64 @@ double expected = 0;
 // to add:
 // - start time in the future
 
-
-/* schedule next periodic event from a repeating pattern (implicit start time) */
-#define PATT "period = 1; p=[1,.5,.5] * period; y = 1; next = next + p[i++];"
-//#define PATT "period = 1; p=[1,.5,.5] * period; y = i; next = next + p[i]; i = i + 1;"
-
-/* schedule next periodic event using a sinusoid */
-#define SINE "period = 1; y = 1; next = next + (sin(next) + 1.1) * period;"
-
-/* schedule next periodic event using a ramp */
-#define RAMP "period = 1; y = a; a = (a + 0.1) % 1; next = next + a;"
-
-/* schedule next periodic event (implicit start time) */
-#define NEXT "period = 1; y = 1; next = next + period;"
-
-/* schedule next periodic event (explicit start time) */
-#define START "period = 1; y = 1; next = now + period - ((now - 10000) % period);"
-
-/* schedule next periodic event in the past */
-#define PAST "period = 1; y = 1; next = now - 1;"
+//if map is instanced, map-produced instance updates should cause activation right?
+//if map is not instanced, only already-active instances would be updated
 
 /* schedule next periodic event from current time */
-#define NOW "period = 1; y = 1; next = now + period;"
+#define NOW \
+    "period = %g; y = a++; next = now + period;"
+
+/* schedule next periodic event (explicit start time) */
+#define NOW_W_START \
+    "period = %g; start = 10; y = 1; next = (floor((now - start) / period) + 1) * period + start;"
+
+/* schedule next periodic event (implicit start time) */
+#define NEXT \
+    "period = %g; y = 1; next += period;"
+
+/* better to schedule using `next` timestamp for drift-free timing */
+#define NEXT_W_START \
+    "period = %g; start = 10; y = _x; next = (floor((next - start) / period) + 1) * period + start;"
+
+/* if we track num_periods it is much cheaper to calculate `(n++)*period+start`
+ * also have access to beat number which could be useful
+ * this version has no division at "runtime" */
+#define START_NO_DIV \
+    "start = 10; period = %g; i{-1} = floor((now - start) / period); y = 1; next = (i++) * period + start;"
+
+/* schedule next periodic event from a repeating pattern (implicit start time) */
+#define PATT \
+    "period = %g; p=[1,.5,.5] * period; y = 1; next += p[i++];"
+
+/* schedule next periodic event using a ramp */
+#define RAMP \
+    "period = %g; y = a; a += period * 0.1; next += a %% period;"
+
+/* schedule next periodic event using a sinusoid */
+#define SINE \
+    "start{-1} = now; period = %g; y = 1; next += (sin(now-start) + 1.1) * period;"
+
+/* schedule next periodic event in the past */
+#define PAST \
+    "period = %g; y = 1; next = now - 1;"
+
+#define UPSAMPLE \
+    "period = %g; y = ema(_x, 0.1); next = next + period * 0.67;"
+
+#define DOWNSAMPLE \
+    "period = %g; y = ema(_x, 0.5); next = next + period * 2;"
+
+#define QUANTIZE \
+    "period = ema(t_x - t_x{-1}, 0.2); y = period; next = now + period;"
+
+/* TODO: need unmodified t_x to estimate timebase offset
+ * or direct access to timebase offset estimation, e.g. `periodic(period, x - t0_x)` */
+#define SYNC \
+    "period = %g; y = 1; next = now + period - ((t_now - t_x - x) %% period);"
+
+/* the periodic function is a macro, expanding `next=periodic(a, b)` -> `next=...` */
+#define PERIODIC \
+    "period = %g; start = 10; y = 1; next = periodic(period, start);"
 
 
 typedef struct _test_config
@@ -66,24 +103,40 @@ typedef struct _test_config
     int test_id;
     const char *expr;
     mpr_loc process_loc;
-    double time_mult;
+    double time_mult_min;
+    double time_mult_max;
 } test_config;
 
 test_config test_configs[] = {
-    { 1, NEXT, MPR_LOC_SRC, 0.8 },
-    { 2, NEXT, MPR_LOC_DST, 0.7 },
-    { 3, PATT, MPR_LOC_SRC, 1.0 },
-    { 4, PATT, MPR_LOC_DST, 1.0 },
-    { 5, RAMP, MPR_LOC_SRC, 1.0 },
-    { 6, RAMP, MPR_LOC_DST, 1.0 },
-    { 7, SINE, MPR_LOC_SRC, 1.0 },
-    { 8, SINE, MPR_LOC_DST, 1.0 },
-//    { 3, START, MPR_LOC_SRC },
-//    { 4, START, MPR_LOC_DST },
-//    { 3, PAST, MPR_LOC_SRC },
-//    { 4, PAST, MPR_LOC_DST },
-//    { 3, NOW, MPR_LOC_SRC },
-//    { 4, NOW, MPR_LOC_DST },
+    {  1, NOW,          MPR_LOC_SRC, 0.95, 1.05 },
+    {  2, NOW,          MPR_LOC_DST, 0.95, 1.05 },
+    {  3, NOW_W_START,  MPR_LOC_SRC, 0.95, 1.05 },
+    {  4, NOW_W_START,  MPR_LOC_DST, 0.95, 1.05 },
+    {  5, NEXT,         MPR_LOC_SRC, 0.95, 1.05 },
+    {  6, NEXT,         MPR_LOC_DST, 0.95, 1.05 },
+    {  7, NEXT_W_START, MPR_LOC_SRC, 0.95, 1.05 },
+    {  8, NEXT_W_START, MPR_LOC_DST, 0.95, 1.05 },
+    {  9, START_NO_DIV, MPR_LOC_SRC, 0.95, 1.05 },
+    { 10, START_NO_DIV, MPR_LOC_DST, 0.95, 1.05 },
+    { 11, PATT,         MPR_LOC_SRC, 0.60, 0.70 },
+    { 12, PATT,         MPR_LOC_DST, 0.60, 0.70 },
+    { 13, RAMP,         MPR_LOC_SRC, 0.48, 0.51 },
+    { 14, RAMP,         MPR_LOC_DST, 0.48, 0.51 },
+    { 15, SINE,         MPR_LOC_SRC, 0.85, 0.95 },
+    { 16, SINE,         MPR_LOC_DST, 0.85, 0.95 },
+    { 17, PAST,         MPR_LOC_SRC, 0.00, 0.10 },
+    { 18, PAST,         MPR_LOC_DST, 0.00, 0.10 },
+    { 19, UPSAMPLE,     MPR_LOC_SRC, 0.65, 0.70 },
+    { 20, UPSAMPLE,     MPR_LOC_DST, 0.65, 0.70 },
+    { 21, DOWNSAMPLE,   MPR_LOC_SRC, 1.95, 2.05 },
+    { 22, DOWNSAMPLE,   MPR_LOC_DST, 1.95, 2.05 },
+    { 23, QUANTIZE,     MPR_LOC_SRC, 0.60, 0.70 },
+    { 24, QUANTIZE,     MPR_LOC_DST, 0.25, 0.35 },
+//    { 21, SYNC_LOCAL,   MPR_LOC_SRC, 2.0,  2.0  },
+//    { 22, SYNC_LOCAL,   MPR_LOC_DST, 2.0,  2.0  },
+//    { 23, SYNC_REMOTE,  MPR_LOC_SRC, 2.0,  2.0  },
+//    { 24, SYNC_REMOTE,  MPR_LOC_DST, 2.0,  2.0  },
+
 };
 const int NUM_TESTS = sizeof(test_configs)/sizeof(test_configs[0]);
 
@@ -135,14 +188,21 @@ void cleanup_src(void)
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
-    eprintf("handler inst %d\n", instance);
+    mpr_time now = t;
+    if (verbose) {
+        eprintf("handler inst %d, evt %d", instance, event);
+        if (value)
+            printf(", val %g\n", *(float*)value);
+        else
+            printf("\n");
+    }
     /* check elapsed time */
     mpr_time_sub(&t, t_last);
 //    double elapsed = mpr_time_as_dbl(t);
 //    if (elapsed == expected)
         ++received;
-    eprintf("  received: %d\n", received);
-    t_last = t;
+    eprintf("  received: %d (%gms)\n", received, mpr_time_as_dbl(t) * 1000);
+    t_last = now;
 }
 
 int setup_dst(mpr_graph g, const char *iface)
@@ -158,7 +218,7 @@ int setup_dst(mpr_graph g, const char *iface)
             mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
-                          NULL, NULL, &num_inst, handler, MPR_SIG_UPDATE);
+                          NULL, NULL, &num_inst, handler, MPR_STATUS_ANY);
 
     eprintf("Input signal 'insig' registered.\n");
     l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
@@ -189,28 +249,22 @@ int wait_ready(void)
     return done;
 }
 
-void loop(double expected_duration_sec)
+void loop()
 {
-    mpr_time end;
-    mpr_time_set(&end, MPR_NOW);
-    mpr_time_add_dbl(&end, expected_duration_sec);
-
     received = 0;
     mpr_dev_start_polling(dst, 10);
 
     eprintf("Polling device..\n");
     while ((!terminate || received < 50) && !done) {
-        if (terminate) {
-            mpr_time now;
-            mpr_time_set(&now, MPR_NOW);
-            if (mpr_time_cmp(now, end) > 0)
-                break;
-        }
+
+        ++sent;
+        if (sent % 3)
+            mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &sent);
 
         mpr_dev_poll(src, period);
 
         if (!verbose) {
-            printf("\r  Received: %4i   ", received);
+            printf("\r  Received: %4i updates ", received);
             fflush(stdout);
         }
     }
@@ -220,13 +274,18 @@ void loop(double expected_duration_sec)
 
 int run_test(test_config *config)
 {
-    double period_sec;
-    int zero = 0;
+    double period_sec = period * 0.001;
+    mpr_time t_start;
+    int result = 0;
+//    int zero = 0;
     mpr_map map;
+    char expr[256];
+
+    snprintf(expr, 256, config->expr, period_sec);
 
     printf("Configuration %d: ", config->test_id);
-    printf("; processing: %s", config->process_loc == MPR_LOC_SRC ? "SRC" : "DST");
-    printf("; expression: %s\n", config->expr);
+    printf("processing: %s", config->process_loc == MPR_LOC_SRC ? "SRC" : "DST");
+    printf("; expression: '%s'\n", expr);
 
     map = mpr_map_new(1, &sendsig, 1, &recvsig);
 
@@ -234,7 +293,10 @@ int run_test(test_config *config)
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROCESS_LOC, NULL, 1, MPR_INT32, &config->process_loc, 1);
 
     /* set expression */
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, config->expr, 1);
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
+
+    // TODO: ensure can set this with an int, etc
+//    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_USE_INST, NULL, 1, MPR_BOOL, &zero, 1);
 
     mpr_obj_push(map);
 
@@ -244,28 +306,59 @@ int run_test(test_config *config)
         mpr_dev_poll(dst, 10);
     }
 
-    /* also set period variable according to program flags */
-    period_sec = period * 0.001;
-//    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "var@period", 1, MPR_DBL, &period_sec, 1);
+    /* wait for changes to take effect */
+    do {
+        int ready = 1;
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
 
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_USE_INST, NULL, 1, MPR_INT32, &zero, 1);
-    mpr_obj_push((mpr_obj)map);
-
-    mpr_dev_poll(src, 10);
-    mpr_dev_poll(dst, 10);
-    mpr_dev_poll(src, 10);
-    mpr_dev_poll(dst, 10);
-    mpr_dev_poll(src, 10);
-    mpr_dev_poll(dst, 10);
+        eprintf("\r  checking process location...");
+        if (   !shared_graph
+            && mpr_obj_get_prop_as_int32((mpr_obj)map, MPR_PROP_PROCESS_LOC, 0) != config->process_loc)
+            ready = 0;
+        else {
+            eprintf("\r  checking expression...      ");
+            if (strcmp(mpr_obj_get_prop_as_str((mpr_obj)map, MPR_PROP_EXPR, 0), expr))
+                ready = 0;
+        }
+        if (ready) {
+            eprintf("\r  configuration ready         \n");
+            break;
+        }
+    } while (!done);
 
     /* activate a destination instance */
-    mpr_sig_activate_inst(recvsig, 0);
+//    mpr_sig_activate_inst(recvsig, 0);
 
-    loop(config->time_mult * period_sec * 50);
+    mpr_time_set(&t_start, MPR_NOW);
+
+    loop();
+
+    if (terminate) {
+        /* check result timing */
+        mpr_time t_end;
+        double min_expected_sec;
+        double max_expected_sec;
+        double elapsed_sec;
+
+        mpr_time_set(&t_end, MPR_NOW);
+
+        elapsed_sec = mpr_time_as_dbl(t_end) - mpr_time_as_dbl(t_start);
+        min_expected_sec = 50 * period_sec * config->time_mult_min;
+        max_expected_sec = 50 * period_sec * config->time_mult_max;
+
+        printf("in %.2f sec (expected %.2f – %.2f)", elapsed_sec, min_expected_sec, max_expected_sec);
+
+        result = elapsed_sec < min_expected_sec || elapsed_sec > max_expected_sec;
+    }
 
     mpr_map_release(map);
 
-    return received <= 50;
+    if (!verbose) {
+        printf(" ........ %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
+    }
+
+    return result;
 }
 
 void segv(int sig)
@@ -293,7 +386,6 @@ int main(int argc, char **argv)
                 switch (argv[i][j]) {
                     case 'h':
                         printf("test_map_timed.c: possible arguments "
-                               "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-s shared (use one mpr_graph only), "
@@ -301,9 +393,6 @@ int main(int argc, char **argv)
                                "--iface network interface, "
                                "--config specify a configuration to run (1-%d)\n", NUM_TESTS);
                         return 1;
-                        break;
-                    case 'f':
-                        period = 1;
                         break;
                     case 'q':
                         verbose = 0;
