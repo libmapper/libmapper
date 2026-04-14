@@ -1745,6 +1745,8 @@ static int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
         m->obj.status &= ~(MPR_STATUS_REMOVED | MPR_STATUS_EXPIRED);
         ++updated;
     }
+    if (updated)
+        mpr_obj_incr_version(&m->obj);
     return updated;
 }
 
@@ -1756,6 +1758,14 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
 
     if (!msg)
         goto done;
+
+    if (   mpr_map_get_locality(m)
+        && mpr_msg_get_prop(msg, MPR_PROP_VERSION)
+        && mpr_msg_get_prop_as_int32(msg, MPR_PROP_VERSION) < m->obj.version) {
+        trace("version mismatch %d<%d... skipping property updates\n",
+              mpr_msg_get_prop_as_int32(msg, MPR_PROP_VERSION), m->obj.version)
+        return 0;
+    }
 
     if (MPR_DIR_OUT == mpr_slot_get_dir(m->dst)) {
         /* check if MPR_PROP_SLOT property is defined */
@@ -2013,6 +2023,13 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
         /* only include modified properties */
         if (mpr_tbl_get_is_dirty(m->obj.props.staged)) {
             mpr_tbl_add_to_msg(m->obj.props.staged, NULL, msg);
+
+            if (m->obj.is_local) {
+                /* also include version property */
+                lo_message_add_string(msg, mpr_prop_as_str(MPR_PROP_VERSION, 0));
+                lo_message_add_int32(msg, version ? version : m->obj.version);
+            }
+
             mpr_net_add_msg(mpr_graph_get_net(m->obj.graph), 0, cmd, msg);
         }
         else {
