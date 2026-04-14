@@ -403,7 +403,7 @@ int mpr_value_set_next_coerced(mpr_value v, unsigned int inst_idx, unsigned int 
     return status;
 }
 
-void mpr_value_set_time(mpr_value v, mpr_time t, unsigned int inst_idx, int hist_idx)
+void mpr_value_set_time(mpr_value v, unsigned int inst_idx, int hist_idx, mpr_time t)
 {
     mpr_value_buffer b = GET_BUFFER();
     int idx = (b->pos + v->mlen + hist_idx) % v->mlen;

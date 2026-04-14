@@ -103,7 +103,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                   mpr_value v_out, mpr_time *time, mpr_value v_next, int inst_idx)
 {
 #if TRACE_EVAL
-    printf("evaluating expression...\n");
+    printf("evaluating expression with instance index %d\n", inst_idx);
 #endif
     estack stk = expr->stack;
     etoken_t *tok = stk->tokens, *end = tok + stk->num_tokens;
@@ -996,7 +996,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             /* Copy time from input (VAR_Y time already set) */
             /* TODO: isn't it enough to set some of output mpr_value sample? */
             if (time)
-                mpr_value_set_time(v, *time, inst_idx, hidx);
+                mpr_value_set_time(v, inst_idx, hidx, *time);
 
             switch (mpr_value_get_type(v)) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                                              \
@@ -1096,7 +1096,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             if (!v)
                 return status;
             mpr_time_set_dbl(&t, vals[sp].d);
-            mpr_value_set_time(v, t, inst_idx, hidx);
+            mpr_value_set_time(v, inst_idx, hidx, t);
 
             if (tok->gen.flags & CLEAR_STACK)
                 dp = -1;

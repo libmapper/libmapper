@@ -1385,6 +1385,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             estack_push(out, estack_pop(op));
                         /* move assignment tokens */
                         for (; memory > 0; memory--) {
+                            int j;
                             etoken tmp = estack_pop(op);
                             {FAIL_IF(!(tmp->toktype & TOK_ASSIGN),
                                      "VFN missing memory assignment tokens.");}
@@ -1392,6 +1393,17 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             tmp->gen.datatype = t->gen.datatype;
                             tmp->gen.vec_len = t->gen.vec_len;
                             estack_push(out, tmp);
+
+                            /* also upgrade type and vec_len for variable and load tokens */
+                            vars[tmp->var.idx].datatype = t->gen.datatype;
+                            vars[tmp->var.idx].vec_len = t->gen.vec_len;
+                            for (j = out->num_tokens - 2; j >= 0; j--) {
+                                etoken tmp2 = estack_peek(out, j);
+                                if (TOK_VAR == tmp2->toktype && tmp2->var.idx == tmp->var.idx) {
+                                    tmp2->gen.datatype = t->gen.datatype;
+                                    tmp2->gen.vec_len = t->gen.vec_len;
+                                }
+                            }
                         }
                     }
                 }
