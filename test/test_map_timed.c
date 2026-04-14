@@ -1,14 +1,7 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
-//#include <stdarg.h>
-//#include <math.h>
 #include <ctype.h>
 #include <string.h>
-#ifdef WIN32
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
 #include <signal.h>
 #include <stdlib.h>
 
@@ -35,9 +28,6 @@ int matched = 0;
 mpr_time t_last = {0, 0};
 double expected = 0;
 
-// to add:
-// - start time in the future
-
 //if map is instanced, map-produced instance updates should cause activation right?
 //if map is not instanced, only already-active instances would be updated
 
@@ -61,7 +51,7 @@ double expected = 0;
  * also have access to beat number which could be useful
  * this version has no division at "runtime" */
 #define START_NO_DIV \
-    "start = 10; period = %g; i{-1} = floor((now - start) / period); y = 1; next = (i++) * period + start;"
+    "start{-1} = 10; period{-1} = %g; i{-1} = floor((now - start) / period); y = 1; next = (i++) * period + start;"
 
 /* schedule next periodic event from a repeating pattern (implicit start time) */
 #define PATT \

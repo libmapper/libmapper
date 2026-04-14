@@ -514,6 +514,7 @@ void mpr_local_dev_check_map_timing(mpr_local_dev dev)
             dev->next.sec = 0;
             return;
         }
+        list = mpr_list_get_next(list);
     }
     dev->timed = 0;
 }
