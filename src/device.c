@@ -544,12 +544,12 @@ static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir, int force)
     return sent;
 }
 
-static int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
+static int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, net_msg_t cmd)
 {
     mpr_list maps = mpr_dev_get_maps((mpr_dev)dev, dir);
     int sent = 0;
     while (maps) {
-        mpr_map_send_state((mpr_map)*maps, -1, msg, 0);
+        mpr_map_send_state((mpr_map)*maps, -1, cmd, 0);
         maps = mpr_list_get_next(maps);
         ++sent;
     }
@@ -601,8 +601,8 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     mpr_time_set(&ldev->time, time);
     ldev->time_is_stale = 0;
 
-    if (ldev->timed && mpr_time_get_diff(ldev->next, time) <= 0.0001) {
-        ldev->updated = (MPR_DIR_IN | MPR_DIR_OUT);
+    if (ldev->timed && mpr_time_get_diff(ldev->next, time) <= 0.001) {
+        ldev->updated = MPR_DIR_ANY;
         if (!ldev->locked) {
             /* process timed maps due under the new timestamp */
             mpr_dev_process_maps(ldev);
@@ -981,10 +981,10 @@ void mpr_dev_remove_link(mpr_dev dev1, mpr_dev dev2)
     }
 }
 
-static int mpr_dev_update_linked(mpr_dev dev, mpr_msg_atom a)
+static int mpr_dev_update_linked(mpr_dev dev, mpr_msg_atom atom)
 {
-    int i, j, updated = 0, num = mpr_msg_atom_get_len(a);
-    lo_arg **link_list = mpr_msg_atom_get_values(a);
+    int i, j, updated = 0, num = mpr_msg_atom_get_len(atom);
+    lo_arg **link_list = mpr_msg_atom_get_values(atom);
     if (link_list && *link_list) {
         const char *name;
         if (num == 1 && strcmp(&link_list[0]->s, "none")==0)
@@ -1023,25 +1023,25 @@ static int mpr_dev_update_linked(mpr_dev dev, mpr_msg_atom a)
 }
 
 /*! Update information about a device record based on message properties. */
-int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
+int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg msg)
 {
     int i, num, updated = 0;
-    RETURN_ARG_UNLESS(m, 0);
-    num = mpr_msg_get_num_atoms(m);
+    RETURN_ARG_UNLESS(msg, 0);
+    num = mpr_msg_get_num_atoms(msg);
     for (i = 0; i < num; i++) {
-        mpr_msg_atom a = mpr_msg_get_atom(m, i);
-        switch (MASK_PROP_BITFLAGS(mpr_msg_atom_get_prop(a))) {
+        mpr_msg_atom atom = mpr_msg_get_atom(msg, i);
+        switch (MASK_PROP_BITFLAGS(mpr_msg_atom_get_prop(atom))) {
             case MPR_PROP_HOST: {
                 /* ignore self-reported IP addresses */
                 break;
             }
             case MPR_PROP_LINKED: {
                 if (!dev->obj.is_local)
-                    updated += mpr_dev_update_linked(dev, a);
+                    updated += mpr_dev_update_linked(dev, atom);
                 break;
             }
             default:
-                updated += mpr_tbl_add_record_from_msg_atom(dev->obj.props.synced, a, MOD_REMOTE);
+                updated += mpr_tbl_add_record_from_msg_atom(dev->obj.props.synced, atom, MOD_REMOTE);
                 break;
         }
     }
