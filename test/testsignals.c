@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <math.h>
-#include <lo/lo.h>
 #ifdef WIN32
 #include <io.h>
 #else

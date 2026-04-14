@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <math.h>
-#include <lo/lo.h>
 #include <stdlib.h>
 #ifdef WIN32
 #include <io.h>

@@ -1,14 +1,6 @@
-#include "../src/mpr_signal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include <math.h>
-#ifdef WIN32
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
 #include <string.h>
 #include <signal.h>
 

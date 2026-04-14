@@ -5,7 +5,6 @@
 #include <stdarg.h>
 #include <math.h>
 #include <ctype.h>
-#include <lo/lo.h>
 #ifdef WIN32
 #include <io.h>
 #else
