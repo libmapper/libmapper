@@ -241,7 +241,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
                 /* send release to downstream */
                 if (MPR_LOC_SRC == mpr_map_get_process_loc((mpr_map)map)) {
                     mpr_expr expr = mpr_local_map_get_expr(map);
-                    if (!mpr_expr_get_manages_inst(expr)) {
+                    if (expr && !mpr_expr_get_manages_inst(expr)) {
                         /* need to build msg immediately since id_map won't be available later */
                         /* TODO: use updated bitflags (or released before/after if necessary) to mark release,
                          * don't send immediately */
