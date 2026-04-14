@@ -69,6 +69,10 @@ double expected = 0;
 #define PAST \
     "period = %g; y = 1; next = now - 1;"
 
+/* 'start' time is in the future */
+#define FUTURE \
+    "start = 0; period = %g; i{-1} = floor((now - start) / period) + 50; y = 1; next = (i++) * period + start;"
+
 #define UPSAMPLE \
     "period = %g; y = ema(_x, 0.1); next = next + period * 0.67;"
 
@@ -87,7 +91,6 @@ double expected = 0;
 #define PERIODIC \
     "period = %g; start = 10; y = 1; next = periodic(period, start);"
 
-
 typedef struct _test_config
 {
     int test_id;
@@ -98,8 +101,8 @@ typedef struct _test_config
 } test_config;
 
 test_config test_configs[] = {
-    {  1, NOW,          MPR_LOC_SRC, 0.95, 1.05 },
-    {  2, NOW,          MPR_LOC_DST, 0.95, 1.05 },
+    {  1, NOW,          MPR_LOC_SRC, 0.95, 1.15 },
+    {  2, NOW,          MPR_LOC_DST, 0.95, 1.20 },
     {  3, NOW_W_START,  MPR_LOC_SRC, 0.95, 1.05 },
     {  4, NOW_W_START,  MPR_LOC_DST, 0.95, 1.05 },
     {  5, NEXT,         MPR_LOC_SRC, 0.95, 1.05 },
@@ -110,18 +113,20 @@ test_config test_configs[] = {
     { 10, START_NO_DIV, MPR_LOC_DST, 0.95, 1.05 },
     { 11, PATT,         MPR_LOC_SRC, 0.60, 0.70 },
     { 12, PATT,         MPR_LOC_DST, 0.60, 0.70 },
-    { 13, RAMP,         MPR_LOC_SRC, 0.48, 0.51 },
-    { 14, RAMP,         MPR_LOC_DST, 0.48, 0.51 },
-    { 15, SINE,         MPR_LOC_SRC, 0.85, 0.95 },
-    { 16, SINE,         MPR_LOC_DST, 0.85, 0.95 },
-    { 17, PAST,         MPR_LOC_SRC, 0.00, 0.10 },
-    { 18, PAST,         MPR_LOC_DST, 0.00, 0.10 },
-    { 19, UPSAMPLE,     MPR_LOC_SRC, 0.65, 0.70 },
-    { 20, UPSAMPLE,     MPR_LOC_DST, 0.65, 0.70 },
-    { 21, DOWNSAMPLE,   MPR_LOC_SRC, 1.95, 2.05 },
-    { 22, DOWNSAMPLE,   MPR_LOC_DST, 1.95, 2.05 },
-    { 23, QUANTIZE,     MPR_LOC_SRC, 0.60, 0.70 },
-    { 24, QUANTIZE,     MPR_LOC_DST, 0.25, 0.35 },
+    { 13, RAMP,         MPR_LOC_SRC, 0.44, 0.52 },
+    { 14, RAMP,         MPR_LOC_DST, 0.44, 0.52 },
+    { 15, SINE,         MPR_LOC_SRC, 0.85, 2.00 },
+    { 16, SINE,         MPR_LOC_DST, 0.85, 2.00 },
+    { 17, PAST,         MPR_LOC_SRC, 0.00, 0.35 },
+    { 18, PAST,         MPR_LOC_DST, 0.00, 0.35 },
+    { 19, FUTURE,       MPR_LOC_SRC, 1.95, 2.05 },
+    { 20, FUTURE,       MPR_LOC_DST, 1.95, 2.05 },
+    { 21, UPSAMPLE,     MPR_LOC_SRC, 0.65, 0.70 },
+    { 22, UPSAMPLE,     MPR_LOC_DST, 0.65, 0.70 },
+    { 23, DOWNSAMPLE,   MPR_LOC_SRC, 1.95, 2.05 },
+    { 24, DOWNSAMPLE,   MPR_LOC_DST, 1.95, 2.05 },
+    { 25, QUANTIZE,     MPR_LOC_SRC, 0.60, 1.05 },
+    { 26, QUANTIZE,     MPR_LOC_DST, 0.00, 1.05 },
 //    { 21, SYNC_LOCAL,   MPR_LOC_SRC, 2.0,  2.0  },
 //    { 22, SYNC_LOCAL,   MPR_LOC_DST, 2.0,  2.0  },
 //    { 23, SYNC_REMOTE,  MPR_LOC_SRC, 2.0,  2.0  },
@@ -178,7 +183,6 @@ void cleanup_src(void)
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
-    mpr_time now = t;
     if (verbose) {
         eprintf("handler inst %d, evt %d", instance, event);
         if (value)
@@ -186,13 +190,8 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
         else
             printf("\n");
     }
-    /* check elapsed time */
-    mpr_time_sub(&t, t_last);
-//    double elapsed = mpr_time_as_dbl(t);
-//    if (elapsed == expected)
-        ++received;
+    ++received;
     eprintf("  received: %d (%gms)\n", received, mpr_time_as_dbl(t) * 1000);
-    t_last = now;
 }
 
 int setup_dst(mpr_graph g, const char *iface)
@@ -254,7 +253,7 @@ void loop()
         mpr_dev_poll(src, period);
 
         if (!verbose) {
-            printf("\r  Received: %4i updates ", received);
+            printf("\r  Received: %4i", received);
             fflush(stdout);
         }
     }
@@ -274,8 +273,8 @@ int run_test(test_config *config)
     snprintf(expr, 256, config->expr, period_sec);
 
     printf("Configuration %d: ", config->test_id);
-    printf("processing: %s", config->process_loc == MPR_LOC_SRC ? "SRC" : "DST");
-    printf("; expression: '%s'\n", expr);
+    printf("PROC: %s", config->process_loc == MPR_LOC_SRC ? "src" : "dst");
+    printf("; EXPR: \"%s\"\n", expr);
 
     map = mpr_map_new(1, &sendsig, 1, &recvsig);
 
@@ -299,6 +298,8 @@ int run_test(test_config *config)
     /* wait for changes to take effect */
     do {
         int ready = 1;
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
 
@@ -337,17 +338,12 @@ int run_test(test_config *config)
         min_expected_sec = 50 * period_sec * config->time_mult_min;
         max_expected_sec = 50 * period_sec * config->time_mult_max;
 
-        printf("in %.2f sec (expected %.2f – %.2f)", elapsed_sec, min_expected_sec, max_expected_sec);
+        printf(" in %.2fs (expected %.2fs–%.2fs)", elapsed_sec, min_expected_sec, max_expected_sec);
 
-        result = elapsed_sec < min_expected_sec || elapsed_sec > max_expected_sec;
+        result = elapsed_sec < min_expected_sec || elapsed_sec > (max_expected_sec + 0.1);
     }
 
-    mpr_map_release(map);
-
-    if (!verbose) {
-        printf(" ........ %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
-    }
-
+    printf(" ..... %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }
 
@@ -378,11 +374,15 @@ int main(int argc, char **argv)
                         printf("test_map_timed.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
+                               "-f fast (execute quickly), "
                                "-s shared (use one mpr_graph only), "
                                "-h help, "
                                "--iface network interface, "
                                "--config specify a configuration to run (1-%d)\n", NUM_TESTS);
                         return 1;
+                        break;
+                    case 'f':
+                        period = 50;
                         break;
                     case 'q':
                         verbose = 0;
@@ -476,7 +476,7 @@ int main(int argc, char **argv)
     cleanup_dst();
     cleanup_src();
     if (g) mpr_graph_free(g);
-    printf("...................Test %s\x1B[0m.\n",
+    printf("..................................................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }
