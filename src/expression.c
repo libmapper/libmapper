@@ -227,7 +227,7 @@ int mpr_expr_get_src_causes_update(mpr_expr expr, int idx)
     int i, muted = VAR_MUTED;
     etoken_t *tok = expr->stack->tokens;
     for (i = 0; i < expr->stack->num_tokens; i++) {
-        if (tok[i].toktype == TOK_VAR && tok[i].var.idx == idx + VAR_X) {
+        if ((tok[i].toktype == TOK_VAR || tok[i].toktype == TOK_TT) && tok[i].var.idx == idx + VAR_X) {
             muted &= tok[i].gen.flags;
         }
     }
