@@ -148,4 +148,7 @@ double mpr_dev_set_offset(mpr_dev dev, double offset, double weight);
 
 void mpr_local_dev_check_map_timing(mpr_local_dev dev);
 
+/* returns the number of ms until next device event */
+int mpr_local_dev_update_maps(mpr_local_dev dev);
+
 #endif /* __MPR_DEVICE_H__ */

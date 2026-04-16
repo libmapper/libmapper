@@ -1013,9 +1013,14 @@ static void mpr_net_housekeeping(mpr_net net, int force_ping)
     return;
 }
 
+static inline int min(int a, int b)
+{
+    return a < b ? a : b;
+}
+
 int mpr_net_poll_internal(mpr_net net, int block_ms)
 {
-    int i, count = 0, left_ms, elapsed_ms, admin_elapsed_ms = 0;
+    int i, count = 0, left_ms = block_ms >= 0 ? block_ms : 0, elapsed_ms, admin_elapsed_ms = 0;
     double then;
 
     if (++net->polling > 1) {
@@ -1028,7 +1033,7 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
     mpr_net_housekeeping(net, 0);
 
     for (i = 0; i < net->num_devs; i++) {
-        mpr_dev_update_maps((mpr_dev)net->devs[i]);
+        left_ms = min(left_ms, mpr_local_dev_update_maps(net->devs[i]));
     }
 
     /* Desired behavour here:
@@ -1037,13 +1042,12 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
      * If block_ms < 0, loop over lo_servers_recv_noblock until no messages remain
      */
 
-    left_ms = block_ms >= 0 ? block_ms : 0;
     do {
         register int recvd = 0;
         /* set timeout to a maximum of 5ms */
         /* TODO: adjust this based on device self-timing, with a max of 100ms */
-        if (left_ms > 5)
-            left_ms = 5;
+        if (left_ms > 100)
+            left_ms = 100;
 
         if (lo_servers_recv_noblock(net->servers, net->server_status, net->num_servers, left_ms)) {
             int idx = NUM_NET_SERVERS;
@@ -1061,8 +1065,11 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
             }
             recvd = 1;
         }
+        left_ms = 100;
         for (i = 0; i < net->num_devs; i++) {
-            mpr_dev_update_maps((mpr_dev)net->devs[i]);
+            int dev_left_ms = mpr_local_dev_update_maps(net->devs[i]);
+            left_ms = min(left_ms, dev_left_ms);
+
         }
 
         /* Only run mpr_net_housekeeping() again if more than 100ms have elapsed. */
@@ -1074,10 +1081,10 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
         }
 
         if (block_ms > 0)
-            left_ms = block_ms - elapsed_ms;
+            left_ms = min(left_ms, block_ms - elapsed_ms);
         else if (!recvd)
             break;
-    } while (block_ms < 0 || left_ms > 0);
+    } while (block_ms < 0 || elapsed_ms < block_ms);
 
     for (i = 0; i < net->num_devs; i++) {
         mpr_dev_update_subscribers(net->devs[i]);

@@ -8,6 +8,7 @@
     #include <malloc.h>
 #endif
 #include <assert.h>
+#include <limits.h>
 
 #include <stddef.h>
 
@@ -79,7 +80,7 @@ struct _mpr_local_dev {
     } id_maps;
 
     mpr_time time;
-    mpr_time next;
+    mpr_time t_next;
     int num_sig_groups;
     mpr_dir updated;
     uint8_t time_is_stale;  // only need 1 bit
@@ -91,8 +92,6 @@ struct _mpr_local_dev {
 
 /* prototypes */
 static int check_registration(mpr_local_dev dev);
-
-mpr_time ts = {0,1};
 
 size_t mpr_dev_get_struct_size(int is_local)
 {
@@ -459,7 +458,7 @@ void mpr_dev_process_maps(mpr_local_dev dev)
     graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
-    dev->next = MPR_TIME_MAX;
+    dev->t_next = MPR_TIME_MAX;
     list = mpr_graph_get_list(graph, MPR_MAP);
     while (list) {
         mpr_map map = (mpr_map)*list;
@@ -469,8 +468,8 @@ void mpr_dev_process_maps(mpr_local_dev dev)
             break;
         }
         t = mpr_map_process((mpr_local_map)map, dev->time);
-        if (mpr_time_get_diff(dev->next, t) > 0)
-            dev->next = t;
+        if (mpr_time_cmp(dev->t_next, t) > 0)
+            dev->t_next = t;
         list = mpr_list_get_next(list);
     }
     if (MPR_DIR_OUT & dev->updated) {
@@ -511,7 +510,7 @@ void mpr_local_dev_check_map_timing(mpr_local_dev dev)
         }
         if (mpr_local_map_get_is_timed((mpr_local_map)map)) {
             dev->timed = 1;
-            dev->next.sec = 0;
+            dev->t_next = MPR_TIME_0;
             return;
         }
         list = mpr_list_get_next(list);
@@ -519,13 +518,25 @@ void mpr_local_dev_check_map_timing(mpr_local_dev dev)
     dev->timed = 0;
 }
 
+int mpr_local_dev_update_maps(mpr_local_dev dev) {
+    mpr_time t;
+    mpr_time_set(&t, MPR_NOW);
+    mpr_time_add_dbl(&t, dev->clk_offset);
+    mpr_dev_set_time((mpr_dev)dev, t);
+
+    if (dev->timed) {
+        int next_ms = floor(mpr_time_get_diff(dev->t_next, t) * 1000);
+        if (next_ms < 0)
+            next_ms = 0;
+        return next_ms;
+    }
+    else
+        return INT_MAX;
+}
+
 void mpr_dev_update_maps(mpr_dev dev) {
     RETURN_UNLESS(dev && dev->obj.is_local);
-    if (!((mpr_local_dev)dev)->locked) {
-        mpr_dev_process_maps((mpr_local_dev)dev);
-    }
-    ((mpr_local_dev)dev)->time_is_stale = 1;
-    mpr_dev_get_time(dev);
+    mpr_local_dev_update_maps((mpr_local_dev)dev);
 }
 
 static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir, int force)
@@ -602,7 +613,7 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     mpr_time_set(&ldev->time, time);
     ldev->time_is_stale = 0;
 
-    if (ldev->timed && mpr_time_get_diff(ldev->next, time) <= 0.001) {
+    if (ldev->timed && mpr_time_get_diff(ldev->t_next, time) <= 0.001) {
         ldev->updated = MPR_DIR_ANY;
         if (!ldev->locked) {
             /* process timed maps due under the new timestamp */
