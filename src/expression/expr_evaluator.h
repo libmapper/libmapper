@@ -436,12 +436,12 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 double t_d;
                 mpr_time t = mpr_value_get_time(v, inst_idx, hidx);
                 if (0 == mpr_time_cmp(t, MPR_TIME_0))
-                    t = *time;
+                    t = mpr_value_get_start(v, inst_idx);
                 t_d = mpr_time_as_dbl(t);
                 if (hwt) {
                     t = mpr_value_get_time(v, inst_idx, hidx - 1);
                     if (0 == mpr_time_cmp(t, MPR_TIME_0))
-                        t = *time;
+                        t = mpr_value_get_start(v, inst_idx);
                     t_d = t_d * hwt + mpr_time_as_dbl(t) * (1 - hwt);
                 }
                 for (i = sp; i < sp + tok->gen.vec_len; i++)
