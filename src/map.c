@@ -911,7 +911,7 @@ mpr_time mpr_map_process(mpr_local_map m, mpr_time t_now)
             if (m->is_self_timed) {
                 mpr_time t_next_inst = mpr_value_get_time(m->next_inst_val, i, 0);
                 int j;
-                if (mpr_time_cmp(t_next_inst, t_now) >= 0.001) {
+                if (mpr_time_get_diff(t_next_inst, t_now) > 0.001) {
                     /* not yet time for this instance */
                     if (mpr_time_cmp(t_next_inst, m->t_next) < 0)
                         m->t_next = t_next_inst;
