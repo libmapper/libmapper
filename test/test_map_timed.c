@@ -32,64 +32,104 @@ double expected = 0;
 //if map is not instanced, only already-active instances would be updated
 
 /* schedule next periodic event from current time */
-#define NOW \
-    "period = %g; y = a++; next = now + period;"
+#define NOW                 \
+    "period = %g;"          \
+    "y = a++;"              \
+    "next = now + period;"
 
 /* schedule next periodic event (explicit start time) */
-#define NOW_W_START \
-    "period = %g; start = 10; y = 1; next = (floor((now - start) / period) + 1) * period + start;"
+#define NOW_W_START                                                 \
+    "period = %g;"                                                  \
+    "start = 10;"                                                   \
+    "y = 1;"                                                        \
+    "next = (floor((now - start) / period) + 1) * period + start;"
 
 /* schedule next periodic event (implicit start time) */
-#define NEXT \
-    "period = %g; y = 1; next += period;"
+#define NEXT            \
+    "period = %g;"      \
+    "y = 1;"            \
+    "next += period;"
 
-/* better to schedule using `next` timestamp for drift-free timing */
-#define NEXT_W_START \
-    "period = %g; start = 10; y = _x; next = (floor((next - start) / period) + 1) * period + start;"
+/* better to schedule by incrementing the `next` timestamp for drift-free timing */
+#define NEXT_W_START                                                \
+    "period = %g;"                                                  \
+    "start = 10;"                                                   \
+    "y = _x;"                                                       \
+    "next = (floor((next - start) / period) + 1) * period + start;"
 
 /* if we track num_periods it is much cheaper to calculate `(n++)*period+start`
  * also have access to beat number which could be useful
  * this version has no division at "runtime" */
-#define START_NO_DIV \
-    "start{-1} = 10; period{-1} = %g; i{-1} = floor((now - start) / period); y = 1; next = (i++) * period + start;"
+#define START_NO_DIV                        \
+    "start{-1} = 10;"                       \
+    "period{-1} = %g;"                      \
+    "i{-1} = floor((now - start) / period);"\
+    "y = 1; next = (i++) * period + start;"
 
 /* schedule next periodic event from a repeating pattern (implicit start time) */
-#define PATT \
-    "period = %g; p=[1,.5,.5] * period; y = 1; next += p[i++];"
+#define PATT                    \
+    "period = %g;"              \
+    "p = [1,.5,.5] * period;"   \
+    "y = 1; next += p[i++];"
 
 /* schedule next periodic event using a ramp */
-#define RAMP \
-    "period = %g; y = a; a += period * 0.1; next += a %% period;"
+#define RAMP                \
+    "period = %g;"          \
+    "y = a;"                \
+    "a += period * 0.1;"    \
+    "next += a %% period;"
 
 /* schedule next periodic event using a sinusoid */
-#define SINE \
-    "start{-1} = now; period = %g; y = 1; next += (sin(now-start) + 1.1) * period;"
+#define SINE                                    \
+    "start{-1} = now;"                          \
+    "period = %g; y = 1;"                       \
+    "next += (sin(now-start) + 1.1) * period;"
 
 /* schedule next periodic event in the past */
-#define PAST \
-    "period = %g; y = 1; next = now - 1;"
+#define PAST                \
+    "period = %g;"          \
+    "y = 1;"                \
+    "next = now - 1;"
 
 /* 'start' time is in the future */
-#define FUTURE \
-    "start = 0; period = %g; i{-1} = floor((now - start) / period) + 50; y = 1; next = (i++) * period + start;"
+#define FUTURE                                          \
+    "start{-1} = 0; period{-1} = %g;"                   \
+    "i{-1} = floor((now - start) / period) + 50; y = 1;"\
+    "next = (i++) * period + start;"
 
-#define UPSAMPLE \
-    "period = %g; y = ema(_x, 0.1); next = next + period * 0.67;"
+#define UPSAMPLE            \
+    "period = %g;"          \
+    "y = ema(_x, 0.1);"     \
+    "next += period * 0.67;"
 
-#define DOWNSAMPLE \
-    "period = %g; y = ema(_x, 0.5); next = next + period * 2;"
+#define DOWNSAMPLE                  \
+    "period = %g;"                  \
+    "y = ema(_x, 0.5);"             \
+    "next = next{-1} + period * 2;"
 
-#define QUANTIZE \
-    "period = ema(t_x - t_x{-1}, 0.2); y = period; next = now + period;"
+#define QUANTIZE                                    \
+    "period = ema((_t_x-_t_x{-1}) ?: %f * 25, 0.2);"\
+    "y = period;"                                   \
+    "next += period;"
+
+//"new{-1}=0; period = ema(new?0.1:(t_x')
 
 /* TODO: need unmodified t_x to estimate timebase offset
  * or direct access to timebase offset estimation, e.g. `periodic(period, x - t0_x)` */
-#define SYNC \
-    "period = %g; y = 1; next = now + period - ((t_now - t_x - x) %% period);"
+
+/* note: since the expression string is being processed by `snprintf()` below, the modulus operator
+ * `%` needs to be escaped using `%%` */
+#define SYNC                                                \
+    "period = %g;"                                          \
+    "y = 1;"                                                \
+    "next = now + period - ((t_now - t_x - x) %% period);"
 
 /* the periodic function is a macro, expanding `next=periodic(a, b)` -> `next=...` */
-#define PERIODIC \
-    "period = %g; start = 10; y = 1; next = periodic(period, start);"
+#define PERIODIC                        \
+    "period = %g;"                      \
+    "start = 10;"                       \
+    "y = 1;"                            \
+    "next = periodic(period, start);"
 
 typedef struct _test_config
 {
@@ -117,16 +157,16 @@ test_config test_configs[] = {
     { 14, RAMP,         MPR_LOC_DST, 0.44, 0.52 },
     { 15, SINE,         MPR_LOC_SRC, 0.85, 2.00 },
     { 16, SINE,         MPR_LOC_DST, 0.85, 2.00 },
-    { 17, PAST,         MPR_LOC_SRC, 0.00, 0.35 },
-    { 18, PAST,         MPR_LOC_DST, 0.00, 0.35 },
+    { 17, PAST,         MPR_LOC_SRC, 0.00, 0.05 },
+    { 18, PAST,         MPR_LOC_DST, 0.00, 0.05 },
     { 19, FUTURE,       MPR_LOC_SRC, 1.95, 2.05 },
     { 20, FUTURE,       MPR_LOC_DST, 1.95, 2.05 },
     { 21, UPSAMPLE,     MPR_LOC_SRC, 0.65, 0.70 },
     { 22, UPSAMPLE,     MPR_LOC_DST, 0.65, 0.70 },
     { 23, DOWNSAMPLE,   MPR_LOC_SRC, 1.95, 2.05 },
     { 24, DOWNSAMPLE,   MPR_LOC_DST, 1.95, 2.05 },
-    { 25, QUANTIZE,     MPR_LOC_SRC, 0.60, 1.05 },
-    { 26, QUANTIZE,     MPR_LOC_DST, 0.00, 1.05 },
+    { 25, QUANTIZE,     MPR_LOC_SRC, 1.65, 1.90 },
+    { 26, QUANTIZE,     MPR_LOC_DST, 1.65, 1.90 },
 //    { 21, SYNC_LOCAL,   MPR_LOC_SRC, 2.0,  2.0  },
 //    { 22, SYNC_LOCAL,   MPR_LOC_DST, 2.0,  2.0  },
 //    { 23, SYNC_REMOTE,  MPR_LOC_SRC, 2.0,  2.0  },
@@ -191,7 +231,8 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
             printf("\n");
     }
     ++received;
-    eprintf("  received: %d (%gms)\n", received, mpr_time_as_dbl(t) * 1000);
+    eprintf("  received: %d (%gms)\n", received, (mpr_time_as_dbl(t) - mpr_time_as_dbl(t_last)) * 1000);
+    t_last = t;
 }
 
 int setup_dst(mpr_graph g, const char *iface)
@@ -207,7 +248,7 @@ int setup_dst(mpr_graph g, const char *iface)
             mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
-                          NULL, NULL, &num_inst, handler, MPR_STATUS_ANY);
+                          NULL, NULL, &num_inst, handler, MPR_STATUS_UPDATE_REM);
 
     eprintf("Input signal 'insig' registered.\n");
     l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
@@ -241,7 +282,7 @@ int wait_ready(void)
 void loop()
 {
     received = 0;
-    mpr_dev_start_polling(dst, 10);
+    mpr_dev_start_polling(dst, 100);
 
     eprintf("Polling device..\n");
     while ((!terminate || received < 50) && !done) {
@@ -322,6 +363,7 @@ int run_test(test_config *config)
 //    mpr_sig_activate_inst(recvsig, 0);
 
     mpr_time_set(&t_start, MPR_NOW);
+    t_last = t_start;
 
     loop();
 
