@@ -171,14 +171,16 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
     inst_idx = si->idx;
     time = mpr_dev_get_time((mpr_dev)sig->dev);
 
-    /* TODO: remove duplicate flag set */
-    mpr_local_dev_set_sending(sig->dev); /* mark as updated */
-
     /* TODO: use an incrementing counter for slot ids; remove item and squash array when map is
      * removed; use bsearch for slot lookup since ids will be monotonic though not sequential */
 
     if (!mpr_value_get_num_samps(sig->value, inst_idx)) {
         RETURN_UNLESS(sig->use_inst);
+        RETURN_UNLESS(sig->num_maps_in || sig->num_maps_out);
+
+        /* mark device as updated */
+        mpr_local_dev_set_sending(sig->dev);
+
         *locked = 1;
         for (i = 0; i < sig->num_maps_in; i++) {
             mpr_proto proto;
@@ -258,6 +260,11 @@ static void process_maps(mpr_local_sig sig, int id_map_idx)
         *locked = 0;
         return;
     }
+
+    RETURN_UNLESS(sig->num_maps_out);
+
+    /* mark device as updated */
+    mpr_local_dev_set_sending(sig->dev);
     *locked = 1;
     for (i = 0; i < sig->num_maps_out; i++) {
         mpr_local_slot src_slot;
@@ -1374,7 +1381,6 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
 static void mpr_local_sig_set_updated(mpr_local_sig sig, int inst_idx)
 {
     mpr_bitflags_set(sig->updated_inst, inst_idx);
-    mpr_local_dev_set_sending(sig->dev);
     sig->updated = 1;
 }
 

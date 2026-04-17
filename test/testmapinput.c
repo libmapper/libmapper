@@ -12,7 +12,7 @@
 #include <string.h>
 
 mpr_dev devices[2];
-mpr_sig inputs[4];
+mpr_sig inputs[5];
 
 int sent = 0;
 int received = 0;
@@ -86,9 +86,11 @@ int setup_devs(const char *iface)
                             NULL, mnf1, mxf1, NULL, handler, MPR_SIG_UPDATE);
     inputs[1] = mpr_sig_new(devices[0], MPR_DIR_IN, "insig_2", 1, MPR_DBL,
                             NULL, &mnd, &mxd, NULL, handler, MPR_SIG_UPDATE);
-    inputs[2] = mpr_sig_new(devices[1], MPR_DIR_IN, "insig_3", 3, MPR_FLT,
+    inputs[2] = mpr_sig_new(devices[0], MPR_DIR_IN, "insig_3", 1, MPR_DBL,
+                            NULL, &mnd, &mxd, NULL, handler, MPR_SIG_UPDATE);
+    inputs[3] = mpr_sig_new(devices[1], MPR_DIR_IN, "insig_4", 3, MPR_FLT,
                             NULL, mnf1, mxf1, NULL, handler, MPR_SIG_UPDATE);
-    inputs[3] = mpr_sig_new(devices[1], MPR_DIR_IN, "insig_4", 1, MPR_FLT,
+    inputs[4] = mpr_sig_new(devices[1], MPR_DIR_IN, "insig_5", 1, MPR_FLT,
                             NULL, mnf2, mxf2, NULL, handler, MPR_SIG_UPDATE);
 
     /* In this test inputs[2] will never get its full vector value from
@@ -132,28 +134,38 @@ void loop(void)
     eprintf("-------------------- GO ! --------------------\n");
 
     if (autoconnect) {
-        mpr_map maps[2];
+        mpr_map maps[3];
+
+        /* pre-chain local destination input to another input on same device */
+        maps[0] = mpr_map_new(1, &inputs[1], 1, &inputs[2]);
+        /* deliberately skip mpr_obj_push() to test automatic recovery */
+        /* mpr_obj_push((mpr_obj)maps[0]); */
+
         /* map input to another input on same device */
-        maps[0] = mpr_map_new(1, &inputs[0], 1, &inputs[1]);
-        mpr_obj_push((mpr_obj)maps[0]);
+        maps[1] = mpr_map_new(1, &inputs[0], 1, &inputs[1]);
+        /* deliberately skip mpr_obj_push() to test automatic recovery */
+        /* mpr_obj_push((mpr_obj)maps[1]); */
 
         /* map input to an input on another device */
-        maps[1] = mpr_map_new(1, &inputs[1], 1, &inputs[2]);
-        mpr_obj_push((mpr_obj)maps[1]);
+        maps[2] = mpr_map_new(1, &inputs[1], 1, &inputs[3]);
+        /* deliberately skip mpr_obj_push() to test automatic recovery */
+        /* mpr_obj_push((mpr_obj)maps[2]); */
 
         /* wait until mapping has been established */
         while (!done && !ready) {
             mpr_dev_poll(devices[0], 100);
             mpr_dev_poll(devices[1], 100);
-            ready = mpr_map_get_is_ready(maps[0]) & mpr_map_get_is_ready(maps[1]);
+            ready = (   mpr_map_get_is_ready(maps[0])
+                     && mpr_map_get_is_ready(maps[1])
+                     && mpr_map_get_is_ready(maps[2]));
         }
     }
 
     i = 0;
     while ((!terminate || i < 50) && !done) {
         val = (i % 10) * 1.0f;
+        eprintf("updating insig_1 value to %f -->\n", val);
         mpr_sig_set_value(inputs[0], 0, 1, MPR_FLT, &val);
-        eprintf("insig_1 value updated to %f -->\n", val);
         sent += 1;
 
         recvd = mpr_dev_poll(devices[0], period);
@@ -244,7 +256,7 @@ int main(int argc, char ** argv)
 
     loop();
 
-    if (autoconnect && received != sent * 2) {
+    if (autoconnect && received != sent * 3) {
         eprintf("sent: %d, recvd: %d\n", sent, received);
         result = 1;
     }

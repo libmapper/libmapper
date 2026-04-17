@@ -191,7 +191,6 @@ static void mpr_local_map_init(mpr_local_map map)
         /* TODO: revise this hackery */
         map->protocol = mpr_link_get_dev_dir(link, dev) ? MPR_PROTO_TCP : MPR_PROTO_UDP;
         map->locality = MPR_LOC_BOTH;
-        map->obj.status |= MPR_MAP_STATUS_PUSHED;
     }
 
     /* Default to processing at source device unless the maps has heterogeneous sources. */

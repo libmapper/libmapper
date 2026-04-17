@@ -453,12 +453,19 @@ void mpr_dev_process_maps(mpr_local_dev dev)
 {
     mpr_list list;
     mpr_graph graph;
-    RETURN_UNLESS(dev->updated && !(dev->locked++));
+    int updated = dev->updated;
+    RETURN_UNLESS(updated && !(dev->locked++));
 
     graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
     dev->t_next = MPR_TIME_MAX;
+
+    /* cache and clear the `updated` flags since local maps may be updated during link processing */
+    dev->updated = 0;
+
+    /* process updated maps (both incoming and outgoing) */
+    // TODO: is it useful to order the maps based on direction?
     list = mpr_graph_get_list(graph, MPR_MAP);
     while (list) {
         mpr_map map = (mpr_map)*list;
@@ -472,7 +479,11 @@ void mpr_dev_process_maps(mpr_local_dev dev)
             dev->t_next = t;
         list = mpr_list_get_next(list);
     }
-    if (MPR_DIR_OUT & dev->updated) {
+
+    /* TODO: consider restricting calls to mpr_dev_set_sending() so this block is only called if
+     * outgoing messages have actually been generated */
+    /* send link bundles */
+    if (MPR_DIR_OUT & updated) {
         /* need to process outgoing messages */
         list = mpr_graph_get_list(graph, MPR_LINK);
         while (list) {
@@ -485,6 +496,11 @@ void mpr_dev_process_maps(mpr_local_dev dev)
             list = mpr_list_get_next(list);
         }
     }
+
+    /* TODO: verify that we are not generating local-map slot messages during the previous step
+     * that should not be cleared. If so we could add a logical clock argument to
+     * `mpr_slot_build_msg()` and `mpr_map_clear_slot_msgs()` to specify which slots should be
+     * cleared */
     list = mpr_graph_get_list(graph, MPR_MAP);
     while (list) {
         mpr_map map = (mpr_map)*list;
@@ -495,7 +511,6 @@ void mpr_dev_process_maps(mpr_local_dev dev)
         mpr_map_clear_slot_msgs((mpr_local_map)map);
         list = mpr_list_get_next(list);
     }
-    dev->updated = 0;
     dev->locked = 0;
 }
 
