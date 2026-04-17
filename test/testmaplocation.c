@@ -129,7 +129,8 @@ int set_map_location(mpr_loc loc)
 {
     int len;
     mpr_type type;
-    const void *val;
+    mpr_map *map_src;
+    const void *proc_loc_src, *proc_loc_dst;
 
     if (shared_graph) {
         eprintf("skipping location switch since map endpoints share a graph.\n");
@@ -147,13 +148,22 @@ int set_map_location(mpr_loc loc)
     }
     mpr_obj_push((mpr_obj)map);
 
-    /* wait until change has taken effect */
-    do {
+    map_src = mpr_dev_get_maps(src, MPR_DIR_ANY);
+    if (!map_src)
+        return 1;
+
+    /* wait until change has taken effect – check both endpoints before proceeding */
+    while (!done) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
-        mpr_obj_get_prop_by_idx(map, MPR_PROP_PROCESS_LOC, NULL, &len, &type, &val, 0);
+        mpr_obj_get_prop_by_idx(map, MPR_PROP_PROCESS_LOC, NULL, &len, &type, &proc_loc_dst, 0);
+        if (1 != len || MPR_INT32 != type || *(int*)proc_loc_dst != loc)
+            continue;
+        mpr_obj_get_prop_by_idx(*map_src, MPR_PROP_PROCESS_LOC, NULL, &len, &type, &proc_loc_src, 0);
+        if (1 != len || MPR_INT32 != type || *(int*)proc_loc_src != loc)
+            continue;
+        break;
     }
-    while (!done && (1 != len || MPR_INT32 != type || *(int*)val != loc));
 
     return done;
 }
@@ -290,7 +300,7 @@ int main(int argc, char **argv)
             result = 1;
             goto done;
         }
-        eprintf("PROCESS_LOC: DST\n");
+        eprintf("PROCESS_LOC: SRC\n");
         loop();
 
         if (set_map_location(MPR_LOC_DST)) {
@@ -298,7 +308,7 @@ int main(int argc, char **argv)
             result = 1;
             goto done;
         }
-        eprintf("PROCESS_LOC: SRC\n");
+        eprintf("PROCESS_LOC: DST\n");
         loop();
     } while (!terminate && !done);
 

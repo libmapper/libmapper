@@ -37,25 +37,28 @@ double expected = 0;
     "y = a++;"              \
     "next = now + period;"
 
-/* schedule next periodic event (explicit start time) */
-#define NOW_W_START                                                 \
-    "period = %g;"                                                  \
-    "start = 10;"                                                   \
-    "y = 1;"                                                        \
-    "next = (floor((now - start) / period) + 1) * period + start;"
+/* schedule next periodic event from current time (explicit phase)
+ * we "round up" when calculating num periods since start if closer than 0.999 */
+#define NOW_W_START                                                         \
+    "period = %g;"                                                          \
+    "start = 10;"                                                           \
+    "y = 1;"                                                                \
+    "next = (floor((now - start + 0.001) / period) + 1) * period + start;"
 
-/* schedule next periodic event (implicit start time) */
+/* better to schedule by incrementing the `next` timestamp for drift-free timing */
+/* schedule next periodic event (implicit phase) */
 #define NEXT            \
     "period = %g;"      \
     "y = 1;"            \
     "next += period;"
 
-/* better to schedule by incrementing the `next` timestamp for drift-free timing */
+/* schedule next periodic event (explicit phase)
+ * we "round up" when calculating num periods since start if closer than 0.999 */
 #define NEXT_W_START                                                \
     "period = %g;"                                                  \
     "start = 10;"                                                   \
     "y = _x;"                                                       \
-    "next = (floor((next - start) / period) + 1) * period + start;"
+    "next = (floor((next - start + 0.001) / period) + 1) * period + start;"
 
 /* if we track num_periods it is much cheaper to calculate `(n++)*period+start`
  * also have access to beat number which could be useful
@@ -112,6 +115,9 @@ double expected = 0;
     "y = period;"                                   \
     "next += period;"
 
+#define RANDOM  \
+    "p = %g; r = uniform(p) + p * 0.5; y = r; next += r;"
+
 //"new{-1}=0; period = ema(new?0.1:(t_x')
 
 /* TODO: need unmodified t_x to estimate timebase offset
@@ -167,10 +173,12 @@ test_config test_configs[] = {
     { 24, DOWNSAMPLE,   MPR_LOC_DST, 1.95, 2.05 },
     { 25, QUANTIZE,     MPR_LOC_SRC, 1.65, 1.90 },
     { 26, QUANTIZE,     MPR_LOC_DST, 1.65, 1.90 },
-//    { 21, SYNC_LOCAL,   MPR_LOC_SRC, 2.0,  2.0  },
-//    { 22, SYNC_LOCAL,   MPR_LOC_DST, 2.0,  2.0  },
-//    { 23, SYNC_REMOTE,  MPR_LOC_SRC, 2.0,  2.0  },
-//    { 24, SYNC_REMOTE,  MPR_LOC_DST, 2.0,  2.0  },
+    { 27, RANDOM,       MPR_LOC_SRC, 0.75, 1.25 },
+    { 28, RANDOM,       MPR_LOC_DST, 0.75, 1.25 },
+//    { 29, SYNC_LOCAL,   MPR_LOC_SRC, 2.0,  2.0  },
+//    { 30, SYNC_LOCAL,   MPR_LOC_DST, 2.0,  2.0  },
+//    { 31, SYNC_REMOTE,  MPR_LOC_SRC, 2.0,  2.0  },
+//    { 32, SYNC_REMOTE,  MPR_LOC_DST, 2.0,  2.0  },
 
 };
 const int NUM_TESTS = sizeof(test_configs)/sizeof(test_configs[0]);
