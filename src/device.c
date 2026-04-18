@@ -92,6 +92,7 @@ struct _mpr_local_dev {
 
 /* prototypes */
 static int check_registration(mpr_local_dev dev);
+static void process_maps(mpr_local_dev dev);
 
 size_t mpr_dev_get_struct_size(int is_local)
 {
@@ -245,7 +246,7 @@ void mpr_dev_free(mpr_dev dev)
         free(sub);
     }
 
-    mpr_dev_process_maps(ldev);
+    process_maps(ldev);
 
     /* free signals owned by this device */
     list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
@@ -449,7 +450,7 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
     return 0;
 }
 
-void mpr_dev_process_maps(mpr_local_dev dev)
+static void process_maps(mpr_local_dev dev)
 {
     mpr_list list;
     mpr_graph graph;
@@ -620,19 +621,19 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     mpr_time_set(&now, MPR_NOW);
     mpr_dev_set_offset(dev, mpr_time_get_diff(time, now), dev->clk_offset ? 0.1 : 1.0);
 
-    if (!ldev->locked) {
-        /* process any updates made under the old timestamp */
-        mpr_dev_process_maps(ldev);
-    }
-
     mpr_time_set(&ldev->time, time);
     ldev->time_is_stale = 0;
+
+    if (!ldev->locked) {
+        /* process any updates made under the old timestamp */
+        process_maps(ldev);
+    }
 
     if (ldev->timed && mpr_time_get_diff(ldev->t_next, time) <= 0.001) {
         ldev->updated = MPR_DIR_ANY;
         if (!ldev->locked) {
             /* process timed maps due under the new timestamp */
-            mpr_dev_process_maps(ldev);
+            process_maps(ldev);
         }
     }
 }

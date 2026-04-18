@@ -1018,7 +1018,7 @@ MPR_INLINE static int mpr_min(int a, int b)
     return a < b ? a : b;
 }
 
-int mpr_net_poll_internal(mpr_net net, int block_ms)
+static int mpr_net_poll_internal(mpr_net net, int block_ms)
 {
     int i, count = 0, left_ms = 0, elapsed_ms, admin_elapsed_ms = 0;
     double then;
@@ -1069,8 +1069,7 @@ int mpr_net_poll_internal(mpr_net net, int block_ms)
         }
         left_ms = 100;
         for (i = 0; i < net->num_devs; i++) {
-            int dev_left_ms = mpr_local_dev_update_maps(net->devs[i]);
-            left_ms = mpr_min(left_ms, dev_left_ms);
+            left_ms = mpr_min(left_ms, mpr_local_dev_update_maps(net->devs[i]));
 
         }
 

@@ -77,8 +77,6 @@ int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map id_map);
 
 void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id);
 
-void mpr_dev_process_maps(mpr_local_dev dev);
-
 void mpr_dev_update_subscribers(mpr_local_dev dev);
 
 void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig);

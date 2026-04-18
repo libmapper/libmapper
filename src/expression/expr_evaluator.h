@@ -103,7 +103,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                   mpr_value v_out, mpr_time *time, mpr_value v_next, int inst_idx)
 {
 #if TRACE_EVAL
-    printf("evaluating expression with instance index %d\n", inst_idx);
+    printf("evaluating expression with instance index %d at time %f\n",
+           inst_idx, time ? mpr_time_as_dbl(*time) : -1);
 #endif
     estack stk = expr->stack;
     etoken_t *tok = stk->tokens, *end = tok + stk->num_tokens;
