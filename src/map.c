@@ -1581,9 +1581,9 @@ static int set_expr(mpr_local_map m, const char *expr_str)
         }
 
         for (i = 0; i < m->num_inst; i++) {
-            mpr_expr_restart(m->expr);
             mpr_expr_eval(m->expr, mpr_graph_get_expr_eval_buffer(m->obj.graph), 0,
                           m->var_vals, dst_val, &t_now, m->next_inst_val, i);
+            mpr_expr_restart(m->expr);
         }
 
         /* reset map id_map */
