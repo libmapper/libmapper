@@ -2028,7 +2028,12 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
                 lo_message_add_string(msg, mpr_prop_as_str(MPR_PROP_VERSION, 0));
                 lo_message_add_int32(msg, version ? version : m->obj.version);
             }
-
+            mpr_net_add_msg(mpr_graph_get_net(m->obj.graph), 0, cmd, msg);
+        }
+        else if (m->obj.is_local) {
+            /* just send the version property */
+            lo_message_add_string(msg, mpr_prop_as_str(MPR_PROP_VERSION, 0));
+            lo_message_add_int32(msg, version ? version : m->obj.version);
             mpr_net_add_msg(mpr_graph_get_net(m->obj.graph), 0, cmd, msg);
         }
         else {

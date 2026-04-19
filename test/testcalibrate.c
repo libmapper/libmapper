@@ -177,8 +177,8 @@ void loop(void)
     eprintf("Polling device..\n");
 
     while (1) {
-        eprintf("Calibrating to dst range [%f, %f]\n", dMin, dMax);
         setup_maps(1);
+        eprintf("Calibrating to dst range [%f, %f]\n", dMin, dMax);
         i = 0;
         while (i < 50 && !done) {
             val += (rand() % 6) - 3;
