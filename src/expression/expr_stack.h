@@ -430,14 +430,14 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
             arity = op_tbl[tokens[sp].op.idx].arity;
             break;
         case TOK_FN:
-            arity = fn_tbl[tokens[sp].fn.idx].arity;
+            arity = tokens[sp].fn.arity;
             if (tokens[sp].fn.idx >= FN_DEL_IDX)
                 can_precompute = 0;
             break;
         case TOK_VFN:
             if (VFN_CONCAT == tokens[sp].fn.idx || VFN_LENGTH == tokens[sp].fn.idx)
                 return &tokens[sp];
-            arity = vfn_tbl[tokens[sp].fn.idx].arity;
+            arity = tokens[sp].fn.arity;
             break;
         case TOK_VECTORIZE:
             arity = tokens[sp].fn.arity;
@@ -474,7 +474,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
             }
 
             if (tokens[i].toktype == TOK_FN) {
-                if (fn_tbl[tokens[i].fn.idx].arity) {
+                if (tokens[i].fn.arity) {
                     can_precompute = 0;
                 }
             }
@@ -869,7 +869,7 @@ static void estack_lock_vec_len(estack stk)
         // TODO: try etoken_get_arity() instead
         switch (tok->toktype) {
             case TOK_OP:        arity += op_tbl[tok->op.idx].arity; break;
-            case TOK_FN:        arity += fn_tbl[tok->fn.idx].arity; break;
+            case TOK_FN:
             case TOK_VECTORIZE: arity += tok->fn.arity;             break;
             default:                                                break;
         }
@@ -994,10 +994,10 @@ int estack_find_init_offset(estack stk)
             case TOK_FN:
                 if (t->fn.idx >= FN_NORMAL)
                     goto done;
-                size += 1 - fn_tbl[t->fn.idx].arity;
+                size += 1 - t->fn.arity;
                 break;
             case TOK_VFN:
-                size += 1 - vfn_tbl[t->fn.idx].arity;
+                size += 1 - t->fn.arity;
                 break;
             case TOK_LOOP_START:
                 if (t->con.flags & RT_INSTANCE)

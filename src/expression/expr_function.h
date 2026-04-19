@@ -57,6 +57,23 @@ return cos##T(2.0 * M_PI * v2) * sqrt##T(-2.0 * log##T(v1)) * abs##T(x);\
 NORMAL_FUNC(float, f)
 NORMAL_FUNC(double, d)
 
+/* Returns next timestamp in periodic sequence
+ * This function is declared as arity-2 in the fn_tbl, however during parsing another argument is
+ * added to the instruction stack and the function token is upgraded to arity-3 */
+/* TODO: consider using NTP type for this instead of double */
+static double periodicd(double period, double t_start, double t_now)
+{
+    if (period <= 0)
+        period = 1;
+    if (t_start > t_now) {
+        printf("returning future start_time %f\n", t_start);
+        return t_start;
+    }
+    printf("returning next %f (%f)\n", (floor((t_now - t_start + 0.001) / period) + 1) * period + t_start,
+           t_now);
+    return (floor((t_now - t_start + 0.001) / period) + 1) * period + t_start;
+}
+
 #define COMP_VFUNC(NAME, TYPE, OP, CMP, RET, T)     \
 static void NAME(evalue val, uint8_t *dim, int inc) \
 {                                                   \
@@ -560,6 +577,7 @@ typedef enum {
     FN_VEC_IDX,
     FN_NORMAL,
     FN_UNIFORM,
+    FN_PERIODIC,
     N_FN
 } expr_fn_t;
 
@@ -648,6 +666,7 @@ static struct {
     { "vec_idx",  1, (void*)1,     0,                0                },
     { "normal",   1, 0,            (void*)normalf,   (void*)normald   },
     { "uniform",  1, 0,            (void*)uniformf,  (void*)uniformd  },
+    { "periodic", 2, 0,            0,                (void*)periodicd },
 };
 
 typedef enum {

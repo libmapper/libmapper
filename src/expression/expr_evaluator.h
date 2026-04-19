@@ -582,7 +582,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         }
         case TOK_FN: {
             int i, diff;
-            uint8_t max_len, llen, rlen = 0, arity = fn_tbl[tok->fn.idx].arity;
+            uint8_t max_len, llen, rlen = 0, arity = tok->fn.arity;
             INCR_STACK_PTR(1 - arity);
             /* TODO: use preprocessor macro or inline func here */
             /* first copy vals[sp] elements if necessary */
@@ -649,7 +649,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             break;
         }
         case TOK_VFN: {
-            uint8_t i, arity = vfn_tbl[tok->fn.idx].arity;
+            uint8_t i, arity = tok->fn.arity;
             INCR_STACK_PTR(1 - arity);
             if (VFN_CONCAT != tok->fn.idx
                 && (arity > 1 || VFN_DOT == tok->fn.idx)) {

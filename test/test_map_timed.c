@@ -86,7 +86,7 @@ double expected = 0;
 #define SINE                                    \
     "start{-1} = now;"                          \
     "period = %g; y = 1;"                       \
-    "next += (sin(now-start) + 1.1) * period;"
+    "next += (sin(now - start) + 1.1) * period;"
 
 /* schedule next periodic event in the past */
 #define PAST                \
@@ -130,11 +130,18 @@ double expected = 0;
     "y = 1;"                                                \
     "next = now + period - ((t_now - t_x - x) %% period);"
 
-/* the periodic function is a macro, expanding `next=periodic(a, b)` -> `next=...` */
-#define PERIODIC                        \
-    "period = %g;"                      \
-    "start = 10;"                       \
-    "y = 1;"                            \
+/* the periodic function (syntactic sugar) */
+#define FN_PERIODIC                         \
+    "period = %g;"                          \
+    "start = 10;"                           \
+    "y = 1;"                                \
+    "next = periodic(period, start);"
+
+/* the periodic function with start time in the future */
+#define FN_PERIODIC_FUTURE                  \
+    "period{-1} = %g;"                      \
+    "start{-1} = now + period * 50;"        \
+    "y = 1;"                                \
     "next = periodic(period, start);"
 
 typedef struct _test_config
@@ -147,38 +154,42 @@ typedef struct _test_config
 } test_config;
 
 test_config test_configs[] = {
-    {  1, NOW,          MPR_LOC_SRC, 0.95, 1.15 },
-    {  2, NOW,          MPR_LOC_DST, 0.95, 1.20 },
-    {  3, NOW_W_START,  MPR_LOC_SRC, 0.95, 1.05 },
-    {  4, NOW_W_START,  MPR_LOC_DST, 0.95, 1.05 },
-    {  5, NEXT,         MPR_LOC_SRC, 0.95, 1.05 },
-    {  6, NEXT,         MPR_LOC_DST, 0.95, 1.05 },
-    {  7, NEXT_W_START, MPR_LOC_SRC, 0.95, 1.05 },
-    {  8, NEXT_W_START, MPR_LOC_DST, 0.95, 1.05 },
-    {  9, START_NO_DIV, MPR_LOC_SRC, 0.95, 1.05 },
-    { 10, START_NO_DIV, MPR_LOC_DST, 0.95, 1.05 },
-    { 11, PATT,         MPR_LOC_SRC, 0.60, 0.70 },
-    { 12, PATT,         MPR_LOC_DST, 0.60, 0.70 },
-    { 13, RAMP,         MPR_LOC_SRC, 0.44, 0.52 },
-    { 14, RAMP,         MPR_LOC_DST, 0.44, 0.52 },
-    { 15, SINE,         MPR_LOC_SRC, 0.85, 2.00 },
-    { 16, SINE,         MPR_LOC_DST, 0.85, 2.00 },
-    { 17, PAST,         MPR_LOC_SRC, 0.00, 0.05 },
-    { 18, PAST,         MPR_LOC_DST, 0.00, 0.05 },
-    { 19, FUTURE,       MPR_LOC_SRC, 1.95, 2.05 },
-    { 20, FUTURE,       MPR_LOC_DST, 1.95, 2.05 },
-    { 21, UPSAMPLE,     MPR_LOC_SRC, 0.65, 0.70 },
-    { 22, UPSAMPLE,     MPR_LOC_DST, 0.65, 0.70 },
-    { 23, DOWNSAMPLE,   MPR_LOC_SRC, 1.95, 2.05 },
-    { 24, DOWNSAMPLE,   MPR_LOC_DST, 1.95, 2.05 },
-    { 25, QUANTIZE,     MPR_LOC_SRC, 1.65, 1.90 },
-    { 26, QUANTIZE,     MPR_LOC_DST, 1.65, 1.90 },
-    { 27, RANDOM,       MPR_LOC_SRC, 0.75, 1.25 },
-    { 28, RANDOM,       MPR_LOC_DST, 0.75, 1.25 },
-//    { 29, SYNC_LOCAL,   MPR_LOC_SRC, 2.0,  2.0  },
-//    { 30, SYNC_LOCAL,   MPR_LOC_DST, 2.0,  2.0  },
-//    { 31, SYNC_REMOTE,  MPR_LOC_SRC, 2.0,  2.0  },
-//    { 32, SYNC_REMOTE,  MPR_LOC_DST, 2.0,  2.0  },
+    {  1, NOW,                  MPR_LOC_SRC, 0.95, 1.15 },
+    {  2, NOW,                  MPR_LOC_DST, 0.95, 1.20 },
+    {  3, NOW_W_START,          MPR_LOC_SRC, 0.95, 1.05 },
+    {  4, NOW_W_START,          MPR_LOC_DST, 0.95, 1.05 },
+    {  5, NEXT,                 MPR_LOC_SRC, 0.95, 1.05 },
+    {  6, NEXT,                 MPR_LOC_DST, 0.95, 1.05 },
+    {  7, NEXT_W_START,         MPR_LOC_SRC, 0.95, 1.05 },
+    {  8, NEXT_W_START,         MPR_LOC_DST, 0.95, 1.05 },
+    {  9, START_NO_DIV,         MPR_LOC_SRC, 0.95, 1.05 },
+    { 10, START_NO_DIV,         MPR_LOC_DST, 0.95, 1.05 },
+    { 11, PATT,                 MPR_LOC_SRC, 0.60, 0.70 },
+    { 12, PATT,                 MPR_LOC_DST, 0.60, 0.70 },
+    { 13, RAMP,                 MPR_LOC_SRC, 0.44, 0.52 },
+    { 14, RAMP,                 MPR_LOC_DST, 0.44, 0.52 },
+    { 15, SINE,                 MPR_LOC_SRC, 0.85, 2.00 },
+    { 16, SINE,                 MPR_LOC_DST, 0.85, 2.00 },
+    { 17, PAST,                 MPR_LOC_SRC, 0.00, 0.05 },
+    { 18, PAST,                 MPR_LOC_DST, 0.00, 0.05 },
+    { 19, FUTURE,               MPR_LOC_SRC, 1.95, 2.05 },
+    { 20, FUTURE,               MPR_LOC_DST, 1.95, 2.05 },
+    { 21, UPSAMPLE,             MPR_LOC_SRC, 0.65, 0.70 },
+    { 22, UPSAMPLE,             MPR_LOC_DST, 0.65, 0.70 },
+    { 23, DOWNSAMPLE,           MPR_LOC_SRC, 1.95, 2.05 },
+    { 24, DOWNSAMPLE,           MPR_LOC_DST, 1.95, 2.05 },
+    { 25, QUANTIZE,             MPR_LOC_SRC, 1.65, 1.90 },
+    { 26, QUANTIZE,             MPR_LOC_DST, 1.65, 1.90 },
+    { 27, RANDOM,               MPR_LOC_SRC, 0.75, 1.25 },
+    { 28, RANDOM,               MPR_LOC_DST, 0.75, 1.25 },
+    { 29, FN_PERIODIC,          MPR_LOC_SRC, 0.95, 1.15 },
+    { 30, FN_PERIODIC,          MPR_LOC_DST, 0.95, 1.15 },
+    { 31, FN_PERIODIC_FUTURE,   MPR_LOC_SRC, 1.95, 2.05 },
+    { 32, FN_PERIODIC_FUTURE,   MPR_LOC_DST, 1.85, 2.05 },
+//    { 33, SYNC_LOCAL,           MPR_LOC_SRC, 2.0,  2.0  },
+//    { 34, SYNC_LOCAL,           MPR_LOC_DST, 2.0,  2.0  },
+//    { 35, SYNC_REMOTE,          MPR_LOC_SRC, 2.0,  2.0  },
+//    { 36, SYNC_REMOTE,          MPR_LOC_DST, 2.0,  2.0  },
 
 };
 const int NUM_TESTS = sizeof(test_configs)/sizeof(test_configs[0]);

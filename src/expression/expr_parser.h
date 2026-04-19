@@ -426,7 +426,12 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             case TOK_FN_DOT: {
                 etoken_t newtok;
                 int dot = TOK_FN_DOT == tok.toktype;
-                tok.gen.datatype = fn_tbl[tok.fn.idx].fn_int ? MPR_INT32 : MPR_FLT;
+                if (fn_tbl[tok.fn.idx].fn_int)
+                    tok.gen.datatype = MPR_INT32;
+                else if (fn_tbl[tok.fn.idx].fn_flt)
+                    tok.gen.datatype = MPR_FLT;
+                else
+                    tok.gen.datatype = MPR_DBL;
                 tok.fn.arity = fn_tbl[tok.fn.idx].arity;
                 tok.toktype = TOK_FN;
                 estack_push(op, &tok);
@@ -1349,6 +1354,21 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         if (!(top->gen.flags & VAR_HIST_IDX))
                             allow_toktype |= TOK_OPEN_CURLY;
                         break;
+                    }
+                    else if (FN_PERIODIC == op_top->fn.idx) {
+                        /* add a token for a 3rd argument */
+                        etoken_t newtok, *t;
+                        newtok.toktype = TOK_TT;
+                        newtok.var.idx = VAR_NOW;
+                        newtok.gen.datatype = MPR_DBL;
+                        newtok.gen.vec_len = 1;
+                        newtok.gen.flags = TYPE_LOCKED;
+                        estack_push(out, &newtok);
+
+                        /* upgrade function token arity from 2 to 3 */
+                        t = estack_pop(op);
+                        t->fn.arity = 3;
+                        estack_push(out, t);
                     }
                     else {
                         if (arity != fn_tbl[op_top->fn.idx].arity) {
