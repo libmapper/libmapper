@@ -165,6 +165,8 @@ int set_map_location(mpr_loc loc)
         break;
     }
 
+    mpr_list_free(map_src);
+
     return done;
 }
 
