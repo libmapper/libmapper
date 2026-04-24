@@ -867,12 +867,14 @@ mpr_time mpr_map_process(mpr_local_map m, mpr_time t_now)
         }
         src_vals[i] = mpr_slot_get_value(m->src[i]);
     }
+    dst_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)m->dst);
     if (MPR_LOC_SRC & m->locality) {
         group = mpr_local_sig_get_group((mpr_local_sig)src_sig);
         dev = (mpr_local_dev)mpr_sig_get_dev((mpr_sig)src_sig);
     }
     else {
-        dst_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)m->dst);
+        group = mpr_local_sig_get_group((mpr_local_sig)dst_sig);
+        dev = (mpr_local_dev)mpr_sig_get_dev((mpr_sig)dst_sig);
     }
     dst_val = mpr_slot_get_value(m->dst);
 
@@ -1013,6 +1015,7 @@ mpr_time mpr_map_process(mpr_local_map m, mpr_time t_now)
         }
         else {
             /* this is the destination endpoint */
+            assert(dst_sig);
 
             /* TODO: for a sourceless map any instance activation has to happen here */
 
