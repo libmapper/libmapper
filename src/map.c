@@ -2172,8 +2172,7 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
                 ++in_refs;
                 break;
             default:
-                trace("Illegal format token '%%%c' in mpr_map_new_from_str().\n", expr[i+1]);
-                goto error;
+                break;
         }
         i += 2;
     }
@@ -2194,18 +2193,25 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
             new_expr[j++] = expr[i++];
         if (!expr[i])
             break;
-        sig = va_arg(aq, void*);
-        if (expr[i+1] == 'y') {
-            /* replace the preceding '%' with a space */
-            new_expr[j++] = 'y';
+        switch (expr[i+1]) {
+            case 'y':
+                /* replace the preceding '%' with a space */
+                new_expr[j++] = 'y';
+                sig = va_arg(aq, void*);
+                i += 2;
+                break;
+            case 'x':
+                /* replace "%x" with "x$i" where i is the signal index */
+                new_expr[j++] = 'x';
+                new_expr[j++] = '$';
+                sig = va_arg(aq, void*);
+                new_expr[j++] = "0123456789"[mpr_map_get_sig_idx(map, sig, MPR_LOC_SRC) % 10];
+                i += 2;
+                break;
+            default:
+                new_expr[j++] = expr[i++];
+                break;
         }
-        else {  /* 'x' */
-            /* replace "%x" with "x$i" where i is the signal index */
-            new_expr[j++] = 'x';
-            new_expr[j++] = '$';
-            new_expr[j++] = "0123456789"[mpr_map_get_sig_idx(map, sig, MPR_LOC_SRC) % 10];
-        }
-        i += 2;
     }
     va_end(aq);
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, new_expr, 1);
