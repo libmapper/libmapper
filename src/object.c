@@ -265,7 +265,7 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
         p = mpr_prop_from_str(s);
     }
 
-    /* MPR_PROP_DATA and MPR_PROP_SYNCED always refer to a local proporty even if obj is remote */
+    /* MPR_PROP_DATA and MPR_PROP_SYNCED always refer to a local property even if obj is remote */
     if (!o->props.staged || !publish || p == MPR_PROP_DATA || p == MPR_PROP_SYNCED) {
         tbl = o->props.synced;
         flags = MOD_LOCAL;
@@ -276,13 +276,21 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
             trace("Cannot set read-only property [%d] '%s'\n", p, s ? s : mpr_prop_as_str(p, 1));
             return MPR_PROP_UNKNOWN;
         }
+        /* local maps have both synced and staged property tables, so we need to ensure that
+         * user code can redeclare properties with a different 'publish' flag */
+        if (   MPR_MAP == o->type
+            && o->is_local
+            && MPR_PROP_EXTRA == p) {
+            /* we will update the private record in synced table and make it public */
+            mpr_tbl_set_record_flags(o->props.synced, MPR_PROP_EXTRA, s, 0, LOCAL_ACCESS);
+        }
         tbl = o->props.staged;
         flags = MOD_REMOTE;
     }
     if (!publish)
         flags |= LOCAL_ACCESS;
     updated = mpr_tbl_add_record(tbl, p, s, len, type, val, flags);
-    if (updated && o->is_local)
+    if (updated && o->is_local && (tbl == o->props.staged))
         mpr_obj_incr_version(o);
     return updated ? p : MPR_PROP_UNKNOWN;
 }

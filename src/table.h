@@ -7,6 +7,9 @@ typedef struct _mpr_tbl_record *mpr_tbl_record;
 
 #include "message.h"
 
+/* additional type for mpr_value types used for user vars from local map expressions */
+#define MPR_VAL 'V' /* 0x56 */
+
 /* bit flags for tracking permissions for modifying properties */
 #define MOD_NONE        0x00    /* 00000000 */
 #define MOD_LOCAL       0x01    /* 00000001 */
@@ -130,5 +133,7 @@ void mpr_tbl_set_is_dirty(mpr_tbl tbl, int is_dirty);
 int mpr_tbl_get_prop_is_set(mpr_tbl tbl, mpr_prop prop);
 
 void mpr_tbl_set_prop_is_set(mpr_tbl tbl, mpr_prop prop);
+
+void mpr_tbl_set_record_flags(mpr_tbl tbl, mpr_prop prop, const char *key, int add, int remove);
 
 #endif /* __MPR_TABLE_H__ */

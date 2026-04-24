@@ -20,6 +20,7 @@ MPR_INLINE static int mpr_type_get_size(mpr_type type)
         case 'F':           return sizeof(int);
         case MPR_FLT:       return sizeof(float);
         case MPR_DBL:       return sizeof(double);
+        case 'V':           /* MPR_VAL */
         case MPR_PTR:       return sizeof(void*);
         case MPR_STR:       return sizeof(char*);
         case MPR_INT64:     return sizeof(int64_t);

@@ -1113,8 +1113,15 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
             vars[i] = mpr_value_new(vlen, mpr_expr_get_var_type(e, i), 1, var_num_inst);
         }
         /* set position to 0 since we are not currently allowing history on user variables */
-        for (j = 0; j < var_num_inst; j++)
+        for (j = 0; j < var_num_inst; j++) {
             mpr_value_incr_idx(vars[i], j, MPR_TIME_0);
+        }
+
+        /* add to map object's property table */
+        char tmp[128];
+        snprintf(tmp, 128, "var@%s", var_name);
+        mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXTRA, tmp, 1,
+                           MPR_VAL, vars[i], MOD_LOCAL | LOCAL_ACCESS);
     }
 
     /* free old variables and replace with new */
@@ -1131,6 +1138,10 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
                         break;
                 }
                 if (j >= num_vars) {
+                    /* remove from map object's property table */
+                    char tmp[128];
+                    snprintf(tmp, 128, "var@%s", m->var_names[i]);
+                    mpr_tbl_remove_record(m->obj.props.synced, MPR_PROP_EXTRA, tmp, MOD_LOCAL);
                     m->old_var_names[m->num_old_vars + i] = m->var_names[i];
                 }
                 else {
@@ -1652,8 +1663,19 @@ int mpr_local_map_update_status(mpr_local_map map)
         mpr_sig sig;
         int use_inst;
 
-        trace("  map metadata OK, status is now READY\n");
         mpr_map_alloc_values(map, 1);
+        if (!map->expr_str) {
+            /* Check if we already have an expression string in the staged property table. */
+            int len;
+            mpr_type type;
+            const void *expr_str;
+            mpr_tbl_get_record_by_idx(map->obj.props.staged, MPR_PROP_EXPR, NULL,
+                                      &len, &type, &expr_str, NULL);
+            if (expr_str) {
+                mpr_tbl_add_record(map->obj.props.synced, MPR_PROP_EXPR, NULL,
+                                   1, MPR_STR, expr_str, MOD_REMOTE);
+            }
+        }
         set_expr(map, map->expr_str);
         map->obj.status |= MPR_MAP_STATUS_READY;
 
@@ -1880,65 +1902,25 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
             }
             case MPR_PROP_EXTRA: {
                 const char *key = mpr_msg_atom_get_key(a);
-                if (strcmp(key, "expression")==0) {
-                    if (mpr_type_get_is_str(types[0])) {
-                        /* set property type to expr and repeat */
-                        mpr_msg_atom_set_prop(a, MPR_PROP_EXPR);
-                        --i;
-                    }
-                }
-                else if (strncmp(key, "var@", 4)==0) {
-                    if (m->obj.is_local && ((mpr_local_map)m)->expr) {
-                        mpr_local_map lm = (mpr_local_map)m;
-                        const char *name;
-                        int k = 0, l, var_len;
-                        for (j = 0; j < lm->num_vars; j++) {
-                            /* check if matches existing varname */
-                            name = mpr_expr_get_var_name(lm->expr, j);
-                            /* skip function memory variables since they do not have names */
-                            if (!name || strcmp(name, key+4)!=0)
-                                continue;
-                            /* found variable */
-                            ++updated;
-                            /* TODO: handle multiple instances */
-                            var_len = mpr_value_get_vlen(lm->var_vals[j]);
-                            /* cast if necessary */
-                            switch (mpr_value_get_type(lm->var_vals[j])) {
-#define TYPED_CASE(MTYPE, TYPE, MTYPE1, EL1, MTYPE2, EL2)                           \
-                                case MTYPE: {                                       \
-                                    TYPE *v = mpr_value_get_value(lm->var_vals[j], k, 0);\
-                                    for (k = 0, l = 0; k < var_len; k++, l++) {     \
-                                        if (l >= mpr_msg_atom_get_len(a))           \
-                                            l = 0;                                  \
-                                        switch (types[l]) {                         \
-                                            case MTYPE1:                            \
-                                                v[k] = (TYPE)vals[l]->EL1;          \
-                                                break;                              \
-                                            case MTYPE2:                            \
-                                                v[k] = (TYPE)vals[l]->EL2;          \
-                                                break;                              \
-                                            default:                                \
-                                                --updated;                          \
-                                                k = var_len;                        \
-                                        }                                           \
-                                    }                                               \
-                                    break;                                          \
+                if (0 == strncmp(key, "var@", 4)) {
+                    /* expression user variable */
+                    if (mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE)) {
+                        ++updated;
+                        if (m->obj.is_local && ((mpr_local_map)m)->expr) {
+                            /* also inform expression since it may need to be reset */
+                            mpr_local_map lm = (mpr_local_map)m;
+                            for (j = 0; j < lm->num_vars; j++) {
+                                const char *name = mpr_expr_get_var_name(lm->expr, j);
+                                if (name && (0 == strcmp(name, key + 4))) {
+                                    /* found variable */
+                                    mpr_expr_set_var_updated(lm->expr, j);
                                 }
-                                TYPED_CASE(MPR_INT32, int, MPR_FLT, f, MPR_DBL, d)
-                                TYPED_CASE(MPR_FLT, float, MPR_INT32, i, MPR_DBL, d)
-                                TYPED_CASE(MPR_DBL, double, MPR_INT32, i, MPR_FLT, f)
-#undef TYPED_CASE
-                                default:
-                                    --updated;
                             }
-                            mpr_expr_set_var_updated(lm->expr, j);
-                            break;
                         }
                     }
-                    if (m->obj.is_local)
-                        break;
-                    /* otherwise continue to mpr_tbl_add_record_from_msg_atom() below */
+                    break;
                 }
+                /* otherwise continue to mpr_tbl_add_record_from_msg_atom() below */
             }
             case MPR_PROP_ID:
             case MPR_PROP_MUTED:
@@ -2076,38 +2058,6 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd, int version)
     if (MSG_MAPPED == cmd || (MPR_DIR_IN == dst_dir))
         mpr_slot_add_props_to_msg(msg, m->dst, 1);
 
-    /* add public expression variables */
-    if (m->obj.is_local && ((mpr_local_map)m)->expr) {
-        mpr_local_map lm = (mpr_local_map)m;
-        int j, k;
-        char varname[32];
-        for (j = 0; j < lm->num_vars; j++) {
-            /* TODO: handle multiple instances */
-            k = 0;
-            snprintf(varname, 32, "@var@%s", mpr_expr_get_var_name(lm->expr, j));
-            /* hide variables for instance and muting control */
-            if (   0 == strcmp(varname + 5, "alive")
-                || 0 == strcmp(varname + 5, "muted")
-                || 0 == strcmp(varname + 5, "next"))
-                continue;
-            if (mpr_value_get_has_value(lm->var_vals[j], k)) {
-                lo_message_add_string(msg, varname);
-                mpr_value_add_to_msg(lm->var_vals[j], k, msg);
-            }
-            else {
-                trace("public expression variable '%s' is not yet initialised.\n",
-                      mpr_expr_get_var_name(lm->expr, j));
-            }
-        }
-        if (lm->num_old_vars && lm->old_var_names) {
-            for (j = 0; j < lm->num_old_vars; j++) {
-                if (lm->old_var_names[j]) {
-                    snprintf(varname, 32, "-@var@%s", lm->old_var_names[j]);
-                    lo_message_add_string(msg, varname);
-                }
-            }
-        }
-    }
     mpr_net_add_msg(mpr_graph_get_net(m->obj.graph), 0, cmd, msg);
     return i-1;
 }

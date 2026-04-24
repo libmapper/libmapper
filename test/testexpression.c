@@ -22,12 +22,13 @@ mpr_dev src = 0;
 mpr_dev dst = 0;
 mpr_sig sendsig = 0;
 mpr_sig recvsig = 0;
-mpr_map map = 0;
+mpr_map src_map = 0;
+mpr_map dst_map = 0;
 
 int sent = 0;
 int received = 0;
 int matched = 0;
-int addend[2] = {1, 2};
+int addend[2] = {0, 0};
 
 float expected_val[2];
 double expected_time;
@@ -40,6 +41,38 @@ static void eprintf(const char *format, ...)
     va_start(args, format);
     vprintf(format, args);
     va_end(args);
+}
+
+/*! A helper function to seed the random number generator. */
+static void seed_srand()
+{
+    unsigned int s;
+    double d;
+    mpr_time t;
+
+#ifndef WIN32
+    FILE *f = fopen("/dev/urandom", "rb");
+    if (f) {
+        if (1 == fread(&s, 4, 1, f)) {
+            srand(s);
+            fclose(f);
+            return;
+        }
+        fclose(f);
+    }
+#endif
+
+    mpr_time_set(&t, MPR_NOW);
+    d = mpr_time_as_dbl(t);
+    s = (unsigned int)((d - (unsigned long)d) * 100000);
+    srand(s);
+}
+
+void randomize_addend()
+{
+    addend[0] = rand() * (rand() % 2 ? 1 : -1);
+    addend[1] = rand() * (rand() % 2 ? 1 : -1);
+    eprintf("set addend to [%d, %d]\n", addend[0], addend[1]);
 }
 
 int setup_src(mpr_graph g, const char *iface)
@@ -132,14 +165,40 @@ void cleanup_dst(void)
 
 int setup_maps(void)
 {
-    map = mpr_map_new(1, &sendsig, 1, &recvsig);
-    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=[1,2];y=x*10+foo", 1);
+    mpr_list list;
+    char expr[128];
+
+    mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
+
+    snprintf(expr, 128, "foo=[%d,%d];y=x*10+foo", addend[0], addend[1]);
+    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
+
     mpr_obj_push(map);
 
     /* wait until mapping has been established */
     while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
+    }
+
+    /* store 2 copies of the map, one from each endpoint */
+    list = mpr_dev_get_maps(src, MPR_DIR_ANY);
+    if (list) {
+        src_map = *list;
+        mpr_list_free(list);
+    }
+    else {
+        eprintf("error retrieving map from source device\n");
+        return 1;
+    }
+    list = mpr_dev_get_maps(dst, MPR_DIR_ANY);
+    if (list) {
+        dst_map = *list;
+        mpr_list_free(list);
+    }
+    else {
+        eprintf("error retrieving map from destination device\n");
+        return 1;
     }
 
     return 0;
@@ -196,7 +255,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
     char *iface = 0;
-    mpr_graph g;
+    mpr_graph graph;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -243,15 +302,17 @@ int main(int argc, char **argv)
     signal(SIGSEGV, segv);
     signal(SIGINT, ctrlc);
 
-    g = shared_graph ? mpr_graph_new(0) : 0;
+    seed_srand();
 
-    if (setup_dst(g, iface)) {
+    graph = shared_graph ? mpr_graph_new(0) : 0;
+
+    if (setup_dst(graph, iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_src(g, iface)) {
+    if (setup_src(graph, iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
@@ -263,6 +324,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
+    randomize_addend();
     if (autoconnect && setup_maps()) {
         eprintf("Error setting map.\n");
         result = 1;
@@ -271,26 +333,85 @@ int main(int argc, char **argv)
 
     loop();
 
-    eprintf("Modifying expression variable");
-    addend[0] = 1000;
-    addend[1] = 234;
-    mpr_obj_set_prop(map, MPR_PROP_EXTRA, "var@foo", 2, MPR_INT32, addend, 1);
-    mpr_obj_push(map);
-    /* wait for change to take effect */
-    mpr_dev_poll(dst, 100);
-    mpr_dev_poll(src, 100);
+    /* By default, expression variable are private to the device processing the map.
+     * We will modify the variable here and leave the 'publish' argument as False. */
+    eprintf("Modifying expression variable at source device\n");
+    {
+        randomize_addend();
+        mpr_obj_set_prop(src_map, MPR_PROP_EXTRA, "var@foo", 2, MPR_INT32, addend, 0);
+        mpr_obj_push(src_map);
 
-    loop();
+        /* wait for change to take effect */
+        mpr_dev_poll(dst, 100);
+        mpr_dev_poll(src, 100);
 
-    eprintf("Modifying expression to check that variable is overwritten");
-    addend[0] = addend[1] = 20;
-    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=[20,20];y=x*10+foo", 1);
-    mpr_obj_push(map);
-    /* wait for change to take effect */
-    mpr_dev_poll(dst, 100);
-    mpr_dev_poll(src, 100);
+        loop();
+    }
 
-    loop();
+    /* Since the expression variable property is private, changing it remotely should not work.
+     * Instead of randomizing the addend here we will use different values since we expect the
+     * map to continue using the old addend values. */
+    eprintf("Modifying private expression variable at remote device\n");
+    if (!shared_graph) {
+        int tmp[2] = { rand() * (rand() % 2 ? 1 : -1), rand() * (rand() % 2 ? 1 : -1) };
+        mpr_obj_set_prop(dst_map, MPR_PROP_EXTRA, "var@foo", 2, MPR_INT32, tmp, 1);
+        mpr_obj_push(dst_map);
+
+        /* wait for change to take effect */
+        mpr_dev_poll(dst, 100);
+        mpr_dev_poll(src, 100);
+
+        loop();
+    }
+
+    /* We can force the expression variable property to be public using the object property API. */
+    eprintf("Modifying public expression variable at remote device\n");
+    {
+        mpr_obj_set_prop(src_map, MPR_PROP_EXTRA, "var@foo", 2, MPR_INT32, addend, 1);
+        mpr_obj_push(src_map);
+
+        /* wait for change to take effect */
+        mpr_dev_poll(dst, 100);
+        mpr_dev_poll(src, 100);
+
+        /* Once the property is public we should be able to change the value remotely. */
+        randomize_addend();
+        mpr_obj_set_prop(dst_map, MPR_PROP_EXTRA, "var@foo", 2, MPR_INT32, addend, 1);
+        mpr_obj_push(dst_map);
+
+        /* wait for change to take effect */
+        mpr_dev_poll(dst, 100);
+        mpr_dev_poll(src, 100);
+
+        loop();
+    }
+
+    /* Verify that editing the expression property overwrites our changes. */
+    eprintf("Modifying expression to check that variable is overwritten\n");
+    {
+        addend[0] = addend[1] = 20;
+        mpr_obj_set_prop(src_map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=[20,20];y=x*10+foo", 1);
+        mpr_obj_push(src_map);
+
+        /* wait for change to take effect */
+        mpr_dev_poll(dst, 100);
+        mpr_dev_poll(src, 100);
+
+        loop();
+    }
+
+    eprintf("Modifying expression to check that variable is overwritten\n");
+    {
+        addend[0] = addend[1] = -50;
+        mpr_obj_set_prop(dst_map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=[-50,-50];y=x*10+foo", 1);
+        mpr_obj_push(dst_map);
+
+        /* wait for change to take effect */
+        mpr_dev_poll(dst, 100);
+        mpr_dev_poll(src, 100);
+
+        loop();
+    }
 
     if (autoconnect && (!received || sent != matched)) {
         eprintf("Mismatch between sent and received/matched messages.\n");
@@ -302,7 +423,8 @@ int main(int argc, char **argv)
   done:
     cleanup_dst();
     cleanup_src();
-    if (g) mpr_graph_free(g);
+    if (graph)
+        mpr_graph_free(graph);
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

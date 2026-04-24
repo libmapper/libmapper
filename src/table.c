@@ -82,15 +82,24 @@ void mpr_tbl_clear(mpr_tbl t)
         if (free_vals && rec->val) {
             void *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
             if (val) {
-                if (MPR_LIST == rec->type)
-                    mpr_list_free(val);
-                else if (MPR_OBJ != rec->type && MPR_PTR != rec->type) {
-                    if ((MPR_STR == rec->type) && rec->len > 1) {
-                        char **vals = (char**)val;
-                        for (j = 0; j < rec->len; j++)
-                            FUNC_IF(free, vals[j]);
-                    }
-                    free(val);
+                switch (rec->type) {
+                    case MPR_OBJ:
+                    case MPR_PTR:
+                    case MPR_VAL:
+                        /* do nothing */
+                        break;
+                    case MPR_LIST:
+                        mpr_list_free(val);
+                        break;
+                    case MPR_STR:
+                        if (rec->len > 1) {
+                            char **vals = (char**)val;
+                            for (j = 0; j < rec->len; j++)
+                                FUNC_IF(free, vals[j]);
+                        }
+                        /* continue */
+                    default:
+                        free(val);
                 }
             }
             if (rec->flags & INDIRECT)
@@ -167,14 +176,31 @@ mpr_prop mpr_tbl_get_record_by_key(mpr_tbl t, const char *key, int *len, mpr_typ
 
     if (!rec || rec->prop & PROP_REMOVE)
         found = 0;
-    if (len)
-        *len = found ? rec->len : 0;
-    if (type)
-        *type = found ? rec->type : MPR_NULL;
+    if (len) {
+        if (found)
+            *len = (MPR_VAL == rec->type) ? mpr_value_get_vlen((mpr_value)rec->val) : rec->len;
+        else
+            *len = 0;
+    }
+    if (type) {
+        if (found)
+            *type = (MPR_VAL == rec->type) ? mpr_value_get_type((mpr_value)rec->val) : rec->type;
+        else
+            *type = MPR_NULL;
+    }
     if (val) {
-        *val = found ? (rec->flags & INDIRECT ? *rec->val : rec->val) : NULL;
-        if (found && MPR_LIST == rec->type)
-            *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
+        if (found) {
+            if (MPR_VAL == rec->type) {
+                /* TODO: consider instanced values */
+                *val = mpr_value_get_value((mpr_value)rec->val, 0, 0);
+            }
+            else
+                *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
+            if (MPR_LIST == rec->type)
+                *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
+        }
+        else
+            *val = NULL;
     }
     if (pub)
         *pub = found && !(rec->flags & LOCAL_ACCESS);
@@ -213,14 +239,30 @@ mpr_prop mpr_tbl_get_record_by_idx(mpr_tbl t, int prop, const char **key, int *l
         found = 0;
     if (key)
         *key = found ? (rec->key ? rec->key : mpr_prop_as_str(rec->prop, 1)) : NULL;
-    if (len)
-        *len = found ? rec->len : 0;
-    if (type)
-        *type = found ? rec->type : MPR_NULL;
+    if (len) {
+        if (found)
+            *len = (MPR_VAL == rec->type) ? mpr_value_get_vlen((mpr_value)rec->val) : rec->len;
+        else
+            *len = 0;
+    }
+    if (type) {
+        if (found)
+            *type = (MPR_VAL == rec->type) ? mpr_value_get_type((mpr_value)rec->val) : rec->type;
+        else
+            *type = MPR_NULL;
+    }
     if (val) {
-        *val = found ? (rec->flags & INDIRECT ? *rec->val : rec->val) : NULL;
-        if (found && MPR_LIST == rec->type)
-            *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
+        if (found) {
+            *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
+            if (MPR_LIST == rec->type)
+                *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
+            else if (MPR_VAL == rec->type) {
+                /* TODO: consider instanced values */
+                *val = mpr_value_get_value((mpr_value)*val, 0, 0);
+            }
+        }
+        else
+            *val = NULL;
     }
     if (pub)
         *pub = found && !(rec->flags & LOCAL_ACCESS);
@@ -263,7 +305,7 @@ int mpr_tbl_remove_record(mpr_tbl t, mpr_prop prop, const char *key, int flags)
         }
 
         /* Calculate its key in the records. */
-        if (rec->val && rec->type != MPR_PTR) {
+        if (rec->val && rec->type != MPR_PTR && rec->type != MPR_VAL) {
             if ((rec->type == MPR_STR) && rec->len > 1) {
                 char **vals = (char**)rec->val;
                 for (i = 0; i < rec->len; i++)
@@ -302,7 +344,29 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, 
 {
     int i, updated = 0;
     void *old_val, *new_val, *coerced = 0;
+
     RETURN_ARG_UNLESS(len && (rec->val || !(rec->flags & INDIRECT)), 0);
+    if (MPR_VAL == type) {
+        assert(1 == len);
+        if (rec->val == val)
+            return 0;
+        rec->val = (void*)val;
+        rec->type = MPR_VAL;
+        rec->len = 1;
+        rec->flags |= PROP_SET;
+        return 1;
+    }
+    else if (MPR_VAL == rec->type) {
+        mpr_time now;
+        int status;
+        RETURN_ARG_UNLESS(rec->val, 0);
+        /* TODO: need to apply appropriate device clock offset here */
+        mpr_time_set(&now, MPR_NOW);
+        /* TODO: consider instanced values */
+        status = mpr_value_set_next_coerced((mpr_value)rec->val, 0, len, type, val, now);
+        return -1 != status;
+    }
+
     old_val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
     new_val = old_val;
     if (old_val && (type != rec->type || len != rec->len)) {
@@ -434,6 +498,13 @@ int mpr_tbl_add_record(mpr_tbl t, int prop, const char *key, int len,
     return set_internal(t, prop, key, len, type, args, flags);
 }
 
+void mpr_tbl_set_record_flags(mpr_tbl t, mpr_prop prop, const char *key, int add, int remove)
+{
+    mpr_tbl_record rec = mpr_tbl_get_record(t, prop, key);
+    if (rec)
+        rec->flags = (rec->flags & ~remove) | add;
+}
+
 void mpr_tbl_link_value(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *val, int flags)
 {
     mpr_tbl_record rec = mpr_tbl_get_record(t, prop, NULL);
@@ -526,9 +597,12 @@ int mpr_tbl_add_record_from_msg_atom(mpr_tbl t, mpr_msg_atom atom, int flags)
         return mpr_tbl_remove_record(t, prop, key, flags);
 
     rec = mpr_tbl_get_record(t, prop, key);
-    if (rec)
+    if (rec) {
+        if (rec->flags & LOCAL_ACCESS)
+            return 0;
         updated = t->dirty = update_elements_osc(rec, len, mpr_msg_atom_get_types(atom),
                                                  mpr_msg_atom_get_values(atom));
+    }
     else {
         /* Need to add a new entry. */
         const mpr_type *types = mpr_msg_atom_get_types(atom);
@@ -552,6 +626,13 @@ static void _add_typed_val(lo_message msg, int len, mpr_type type, const void *v
     int i;
     if (type && len < 1)
         return;
+
+    /* TODO: consider instanced values */
+    if (MPR_VAL == type && 1 == len && mpr_value_get_has_value((mpr_value)val, 0)) {
+        type = mpr_value_get_type((mpr_value)val);
+        len = mpr_value_get_vlen((mpr_value)val);
+        val = mpr_value_get_value((mpr_value)val, 0, 0);
+    }
 
     switch (type) {
         case MPR_STR:
@@ -759,12 +840,14 @@ static const char *type_name(mpr_type type)
         case MPR_TIME:      return "MPR_TIME";
         case MPR_PTR:       return "MPR_PTR";
         case MPR_NULL:      return "MPR_NULL";
+        case MPR_VAL:       return "MPR_VAL";
         default:            return "unknown type!";
     }
 }
 
 void mpr_tbl_print_record(mpr_tbl_record rec)
 {
+    void *val;
     if (!rec) {
         printf("error: no record found");
         return;
@@ -785,8 +868,26 @@ void mpr_tbl_print_record(mpr_tbl_record rec)
         printf("]");
     }
     printf(": %s[%d] : ", type_name(rec->type), rec->len);
-    void *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
-    mpr_prop_print(rec->len, rec->type, val);
+    if ((rec->flags & INDIRECT) && !rec->val) {
+        printf("<NULL>");
+        return;
+    }
+    val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
+    switch (rec->type) {
+        case MPR_VAL: {
+            int len = mpr_value_get_vlen((mpr_value)val);
+            mpr_type type = mpr_value_get_type((mpr_value)val);
+            /* TODO: consider instanced values */
+            val = mpr_value_get_value((mpr_value)val, 0, 0);
+            mpr_prop_print(len, type, val);
+            break;
+        }
+        case MPR_LIST:
+            /* do not break */
+            val = mpr_list_start(mpr_list_get_cpy((mpr_list)val));
+        default:
+            mpr_prop_print(rec->len, rec->type, val);
+    }
 }
 
 void mpr_tbl_print(mpr_tbl t)
