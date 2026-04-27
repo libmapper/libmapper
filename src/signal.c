@@ -664,7 +664,7 @@ again:
                 }
             }
         }
-        if (GID)
+        if (GID || !sig->use_inst)
             break;
     }
 done:
