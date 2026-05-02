@@ -25,7 +25,7 @@ int sent = 0;
 int received = 0;
 int matched = 0;
 
-mpr_time t_last = {0, 0};
+mpr_time t_last = {0, 0}, t_now;
 double expected = 0;
 
 //if map is instanced, map-produced instance updates should cause activation right?
@@ -33,90 +33,94 @@ double expected = 0;
 
 /* schedule next periodic event from current time */
 #define NOW                 \
-    "period = %g;"          \
-    "y = a++;"              \
+    "period = %g; "         \
+    "y = a++; "             \
     "next = now + period;"
 
 /* schedule next periodic event from current time (explicit phase)
  * we "round up" when calculating num periods since start if closer than 0.999 */
 #define NOW_W_START                                                         \
-    "period = %g;"                                                          \
-    "start = 10;"                                                           \
-    "y = 1;"                                                                \
+    "period = %g; "                                                         \
+    "start = 10; "                                                          \
+    "y = 1; "                                                               \
     "next = (floor((now - start + 0.001) / period) + 1) * period + start;"
 
 /* better to schedule by incrementing the `next` timestamp for drift-free timing */
 /* schedule next periodic event (implicit phase) */
 #define NEXT            \
-    "period = %g;"      \
-    "y = 1;"            \
+    "period = %g; "     \
+    "y = 1; "           \
     "next += period;"
 
 /* schedule next periodic event (explicit phase)
  * we "round up" when calculating num periods since start if closer than 0.999 */
 #define NEXT_W_START                                                \
-    "period = %g;"                                                  \
-    "start = 10;"                                                   \
-    "y = _x;"                                                       \
+    "period = %g; "                                                 \
+    "start = 10; "                                                  \
+    "y = _x; "                                                      \
     "next = (floor((next - start + 0.001) / period) + 1) * period + start;"
 
 /* if we track num_periods it is much cheaper to calculate `(n++)*period+start`
  * also have access to beat number which could be useful
  * this version has no division at "runtime" */
-#define START_NO_DIV                        \
-    "start{-1} = 10;"                       \
-    "period{-1} = %g;"                      \
-    "i{-1} = floor((now - start) / period);"\
+#define START_NO_DIV                            \
+    "start{-1} = 10; "                          \
+    "period{-1} = %g; "                         \
+    "i{-1} = floor((now - start) / period); "   \
     "y = 1; next = (i++) * period + start;"
 
 /* schedule next periodic event from a repeating pattern (implicit start time) */
 #define PATT                    \
-    "period = %g;"              \
-    "p = [1,.5,.5] * period;"   \
+    "period = %g; "             \
+    "p = [1,.5,.5] * period; "  \
     "y = 1; next += p[i++];"
 
 /* schedule next periodic event using a ramp */
 #define RAMP                \
-    "period = %g;"          \
-    "y = a;"                \
-    "a += period * 0.1;"    \
+    "period = %g; "         \
+    "y = a; "               \
+    "a += period * 0.1; "   \
     "next += a %% period;"
 
 /* schedule next periodic event using a sinusoid */
 #define SINE                                    \
-    "start{-1} = now;"                          \
-    "period = %g; y = 1;"                       \
+    "start{-1} = now; "                         \
+    "period = %g; y = 1; "                      \
     "next += (sin(now - start) + 1.1) * period;"
 
 /* schedule next periodic event in the past */
 #define PAST                \
-    "period = %g;"          \
-    "y = 1;"                \
+    "period = %g; "         \
+    "y = 1; "               \
     "next = now - 1;"
 
 /* 'start' time is in the future */
-#define FUTURE                                          \
-    "start{-1} = 0; period{-1} = %g;"                   \
-    "i{-1} = floor((now - start) / period) + 50; y = 1;"\
+#define FUTURE                                      \
+    "start{-1} = 0; "                               \
+    "period{-1} = %g; "                             \
+    "i{-1} = floor((now - start) / period) + 50; "  \
+    "y = 1; "                                       \
     "next = (i++) * period + start;"
 
 #define UPSAMPLE            \
-    "period = %g;"          \
-    "y = ema(_x, 0.1);"     \
+    "period = %g; "         \
+    "y = ema(_x, 0.1); "    \
     "next += period * 0.67;"
 
 #define DOWNSAMPLE                  \
-    "period = %g;"                  \
-    "y = ema(_x, 0.5);"             \
+    "period = %g; "                 \
+    "y = ema(_x, 0.5); "            \
     "next = next{-1} + period * 2;"
 
-#define QUANTIZE                                    \
-    "period = ema((_t_x-_t_x{-1}) ?: %f * 25, 0.2);"\
-    "y = period;"                                   \
+#define QUANTIZE                                        \
+    "period = ema((_t_x-_t_x{-1}) ?: %f * 25, 0.2); "   \
+    "y = period; "                                      \
     "next += period;"
 
-#define RANDOM  \
-    "p = %g; r = uniform(p) + p * 0.5; y = r; next += r;"
+#define RANDOM                  \
+    "p = %g; "                  \
+    "r = uniform(p) + p * 0.5; "\
+    "y = r; next += r;"
 
 //"new{-1}=0; period = ema(new?0.1:(t_x')
 
@@ -126,22 +130,22 @@ double expected = 0;
 /* note: since the expression string is being processed by `snprintf()` below, the modulus operator
  * `%` needs to be escaped using `%%` */
 #define SYNC                                                \
-    "period = %g;"                                          \
-    "y = 1;"                                                \
+    "period = %g; "                                         \
+    "y = 1; "                                               \
     "next = now + period - ((t_now - t_x - x) %% period);"
 
 /* the periodic function (syntactic sugar) */
 #define FN_PERIODIC                         \
-    "period = %g;"                          \
-    "start = 10;"                           \
-    "y = 1;"                                \
+    "period = %g; "                         \
+    "start = 10; "                          \
+    "y = 1; "                               \
     "next = periodic(period, start);"
 
 /* the periodic function with start time in the future */
 #define FN_PERIODIC_FUTURE                  \
-    "period{-1} = %g;"                      \
-    "start{-1} = now + period * 50;"        \
-    "y = 1;"                                \
+    "period{-1} = %g; "                     \
+    "start{-1} = now + period * 50; "       \
+    "y = 1; "                               \
     "next = periodic(period, start);"
 
 typedef struct _test_config
@@ -242,6 +246,7 @@ void cleanup_src(void)
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
+    mpr_time_set(&t_now, MPR_NOW);
     if (verbose) {
         eprintf("handler inst %d, evt %d", instance, event);
         if (value)
@@ -250,8 +255,9 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
             printf("\n");
     }
     ++received;
-    eprintf("  received: %d (%gms)\n", received, (mpr_time_as_dbl(t) - mpr_time_as_dbl(t_last)) * 1000);
-    t_last = t;
+    eprintf("  received: %d (%gms)\n", received,
+            (mpr_time_as_dbl(t_now) - mpr_time_as_dbl(t_last)) * 1000);
+    t_last = t_now;
 }
 
 int setup_dst(mpr_graph g, const char *iface)

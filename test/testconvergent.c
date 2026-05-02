@@ -379,6 +379,9 @@ void loop(void)
             fflush(stdout);
         }
     }
+
+    /* poll destination one more time to process any remaining messages. */
+    mpr_dev_poll(dst, 1);
 }
 
 void segv(int sig)
