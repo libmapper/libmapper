@@ -38,8 +38,8 @@ EXPORTS
     mpr_list_get_size                           @36
     mpr_list_get_union                          @37
     mpr_list_print                              @38
-    mpr_map_allow_scope                         @39
-    mpr_map_block_scope                         @40
+    mpr_map_allow_instance_origin               @39
+    mpr_map_block_instance_origin               @40
     mpr_map_new                                 @41
     mpr_map_new_from_str                        @42
     mpr_map_get_is_ready                        @43
