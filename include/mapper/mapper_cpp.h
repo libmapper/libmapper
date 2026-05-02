@@ -104,45 +104,46 @@ namespace mapper {
     /*! Symbolic identifiers for core object properties. */
     enum class Property
     {
-        //BUNDLE              = MPR_PROP_BUNDLE,
-        DATA                = MPR_PROP_DATA,        /*!< User data pointer. */
-        DEVICE              = MPR_PROP_DEV,         /*!< Parent Device for a Signal object. */
-        DIRECTION           = MPR_PROP_DIR,         /*!< Direction of a Signal (output or input). */
-        EPHEMERAL           = MPR_PROP_EPHEM,       /*!< For Signals: whether Instances are ephemeral. */
-        EXPRESSION          = MPR_PROP_EXPR,        /*!< Signal processing expression for a Map. */
-        HOST                = MPR_PROP_HOST,        /*!< Network host IP. */
-        ID                  = MPR_PROP_ID,          /*!< Unique identifier. */
-        IS_LOCAL            = MPR_PROP_IS_LOCAL,    /*!< Whether the object is local or remote. */
-        JITTER              = MPR_PROP_JITTER,      /*!< Estimated jitter of value updates. */
-        LENGTH              = MPR_PROP_LEN,         /*!< Vector length. */
-        LIBVERSION          = MPR_PROP_LIBVER,      /*!< Version of libmapper used by an object. */
-        LINKED              = MPR_PROP_LINKED,      /*!< Linked remote devices. */
-        MAX                 = MPR_PROP_MAX,         /*!< Maximum value. */
-        MIN                 = MPR_PROP_MIN,         /*!< Minimum value. */
-        MUTED               = MPR_PROP_MUTED,       /*!< For Maps: whether updates are processed. */
-        NAME                = MPR_PROP_NAME,        /*!< Object name. */
-        NUM_INSTANCES       = MPR_PROP_NUM_INST,    /*!< Number of associated Instances. */
-        NUM_MAPS            = MPR_PROP_NUM_MAPS,    /*!< Number of associated maps. */
-        NUM_MAPS_IN         = MPR_PROP_NUM_MAPS_IN, /*!< Number of associated incoming maps. */
-        NUM_MAPS_OUT        = MPR_PROP_NUM_MAPS_OUT,/*!< Number of associated outgoing maps. */
-        NUM_SIGNALS_IN      = MPR_PROP_NUM_SIGS_IN, /*!< Number of associated incoming signals. */
-        NUM_SIGNALS_OUT     = MPR_PROP_NUM_SIGS_OUT,/*!< Number of associated outgoing signals. */
-        ORDINAL             = MPR_PROP_ORDINAL,     /*!< Ordinal associated with a Device. */
-        PERIOD              = MPR_PROP_PERIOD,      /*!< Estimated period of value updates. */
-        PORT                = MPR_PROP_PORT,        /*!< Network port used for peer-to-peer comms. */
-        PROCESS_LOCATION    = MPR_PROP_PROCESS_LOC, /*!< For Maps: location where processing occurs. */
-        PROTOCOL            = MPR_PROP_PROTOCOL,    /*!< For Maps: network protocol used for comms. */
-        //RATE                = MPR_PROP_RATE,
-        SCOPE               = MPR_PROP_SCOPE,       /*!< For Maps: scope governing update propagation. */
-        SIGNAL              = MPR_PROP_SIG,         /*!< Associated Signal(s). */
+        ALLOW_ORIGIN     = MPR_PROP_ALLOW_ORIGIN, /*!< Scope for instance propagation across maps. */
+        BLOCK_ORIGIN     = MPR_PROP_BLOCK_ORIGIN, /*!< Scope for instance propagation across maps. */
+        //BUNDLE           = MPR_PROP_BUNDLE,
+        DATA             = MPR_PROP_DATA,         /*!< User data pointer. */
+        DEVICE           = MPR_PROP_DEV,          /*!< Parent Device for a Signal object. */
+        DIRECTION        = MPR_PROP_DIR,          /*!< Direction of a Signal (output or input). */
+        EPHEMERAL        = MPR_PROP_EPHEM,        /*!< For Signals: whether Instances are ephemeral. */
+        EXPRESSION       = MPR_PROP_EXPR,         /*!< Signal processing expression for a Map. */
+        HOST             = MPR_PROP_HOST,         /*!< Network host IP. */
+        ID               = MPR_PROP_ID,           /*!< Unique identifier. */
+        IS_LOCAL         = MPR_PROP_IS_LOCAL,     /*!< Whether the object is local or remote. */
+        JITTER           = MPR_PROP_JITTER,       /*!< Estimated jitter of value updates. */
+        LENGTH           = MPR_PROP_LEN,          /*!< Vector length. */
+        LIBVERSION       = MPR_PROP_LIBVER,       /*!< Version of libmapper used by an object. */
+        LINKED           = MPR_PROP_LINKED,       /*!< Linked remote devices. */
+        MAX              = MPR_PROP_MAX,          /*!< Maximum value. */
+        MIN              = MPR_PROP_MIN,          /*!< Minimum value. */
+        MUTED            = MPR_PROP_MUTED,        /*!< For Maps: whether updates are processed. */
+        NAME             = MPR_PROP_NAME,         /*!< Object name. */
+        NUM_INSTANCES    = MPR_PROP_NUM_INST,     /*!< Number of associated Instances. */
+        NUM_MAPS         = MPR_PROP_NUM_MAPS,     /*!< Number of associated maps. */
+        NUM_MAPS_IN      = MPR_PROP_NUM_MAPS_IN,  /*!< Number of associated incoming maps. */
+        NUM_MAPS_OUT     = MPR_PROP_NUM_MAPS_OUT, /*!< Number of associated outgoing maps. */
+        NUM_SIGNALS_IN   = MPR_PROP_NUM_SIGS_IN,  /*!< Number of associated incoming signals. */
+        NUM_SIGNALS_OUT  = MPR_PROP_NUM_SIGS_OUT, /*!< Number of associated outgoing signals. */
+        ORDINAL          = MPR_PROP_ORDINAL,      /*!< Ordinal associated with a Device. */
+        PERIOD           = MPR_PROP_PERIOD,       /*!< Estimated period of value updates. */
+        PORT             = MPR_PROP_PORT,         /*!< Network port used for peer-to-peer comms. */
+        PROCESS_LOCATION = MPR_PROP_PROCESS_LOC,  /*!< For Maps: location where processing occurs. */
+        PROTOCOL         = MPR_PROP_PROTOCOL,     /*!< For Maps: network protocol used for comms. */
+        //RATE             = MPR_PROP_RATE,
+        SIGNAL           = MPR_PROP_SIG,          /*!< Associated Signal(s). */
         /* MPR_PROP_SLOT DELIBERATELY OMITTED */
-        STATUS              = MPR_PROP_STATUS,      /*!< Current status of an object. */
-        STEAL_MODE          = MPR_PROP_STEAL_MODE,  /*!< For Signals: mode used for Instance stealing. */
-        SYNCED              = MPR_PROP_SYNCED,      /*!< For Remote objects: last ping time. */
-        TYPE                = MPR_PROP_TYPE,        /*!< Data type. */
-        UNIT                = MPR_PROP_UNIT,        /*!< Unit associated with a value. */
-        USE_INSTANCES       = MPR_PROP_USE_INST,    /*!< Whether a Signal or Map uses Instances. */
-        VERSION             = MPR_PROP_VERSION,     /*!< Object version. */
+        STATUS           = MPR_PROP_STATUS,       /*!< Current status of an object. */
+        STEAL_MODE       = MPR_PROP_STEAL_MODE,   /*!< For Signals: mode used for Instance stealing. */
+        SYNCED           = MPR_PROP_SYNCED,       /*!< For Remote objects: last ping time. */
+        TYPE             = MPR_PROP_TYPE,         /*!< Data type. */
+        UNIT             = MPR_PROP_UNIT,         /*!< Unit associated with a value. */
+        USE_INSTANCES    = MPR_PROP_USE_INST,     /*!< Whether a Signal or Map uses Instances. */
+        VERSION          = MPR_PROP_VERSION,      /*!< Object version. */
     };
 
     typedef mpr_id Id;
@@ -832,23 +833,23 @@ namespace mapper {
         bool ready() const
             { return mpr_map_get_is_ready(_obj); }
 
-        /*! Add a scope to this Map. Map scopes configure the propagation of Signal updates across
-         *  the Map. Changes will not take effect until synchronized with the distributed graph
-         *  using `push()`.
-         *  \param dev      Device to add as a scope for this Map. After taking effect, this
-         *                  setting will cause instance updates originating from the specified
-         *                  Device to be propagated across the Map.
+        /*! Add an instance origin scope to this Map. Map instance origin scope configures the
+         *  propagation of signal instance updates across the map. Changes to remote maps will not
+         *  take effect until synchronized with the distributed graph using `mpr_obj_push()`.
+         *  \param dev      Device to allow as a scope for this Map. After taking effect, this
+         *                  setting will allow instance updates originating at this device to be
+         *                  propagated across the Map.
          *  \return         Self. */
-        inline Map& add_scope(const Device& dev);
+        inline Map& allow_instance_origin(const Device& dev);
 
-        /*! Remove a scope from this Map. Map scopes configure the propagation of Signal updates
-         *  across the Map. Changes will not take effect until synchronized with the distributed
-         *  graph using `push()`.
-         *  \param dev      Device to remove as a scope for this Map. After taking effect, this
-         *                  setting will cause instance updates originating from the specified
-         *                  Device to be blocked from propagating across the Map.
+        /*! Remove an instance origin scope from this Map. Map instance origin scope configures the
+         *  propagation of signal instance updates across the map. Changes to remote maps will not
+         *  take effect until synchronized with the distributed graph using `mpr_obj_push()`.
+         *  \param dev      Device to block as an instance origin scope for this Map. After taking
+         *                  effect, this setting will cause instance updates originating at this
+         *                  device to be blocked from propagating across the Map.
          *  \return         Self. */
-        inline Map& remove_scope(const Device& dev);
+        inline Map& block_instance_origin(const Device& dev);
 
         /*! Get the index of the Map endpoint matching a specific Signal.
          *  \param sig      The Signal to look for.
@@ -2640,11 +2641,11 @@ namespace mapper {
     inline signal_type::signal_type(const Signal& sig)
         { _sig = (mpr_sig)sig; }
 
-    inline Map& Map::add_scope(const Device& dev)
-        { mpr_map_add_scope(_obj, mpr_dev(dev)); RETURN_SELF }
+    inline Map& Map::allow_instance_origin(const Device& dev)
+        { mpr_map_allow_instance_origin(_obj, mpr_dev(dev)); RETURN_SELF }
 
-    inline Map& Map::remove_scope(const Device& dev)
-        { mpr_map_remove_scope(_obj, mpr_dev(dev)); RETURN_SELF }
+    inline Map& Map::block_instance_origin(const Device& dev)
+        { mpr_map_block_instance_origin(_obj, mpr_dev(dev)); RETURN_SELF }
 
     inline Device Signal::device() const
         { return Device(mpr_sig_get_dev(_obj)); }

@@ -12,55 +12,55 @@
 typedef struct {
     const char *key;
     int len;
-    mpr_type store_type;
     mpr_type protocol_type;
 } static_prop_t;
 
 /* Warning! This table needs to be kept synchronised with mpr_prop enum
  * found in mpr_constants.h */
 const static_prop_t static_props[] = {
-    { 0,                0, 0,         0 },         /* MPR_PROP_UNKNOWN */
-    { "@bundle",        1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_BUNDLE */
-    { "@data",          1, MPR_PTR,   0  },        /* MPR_PROP_DATA */
-    { "@device",        1, MPR_DEV,   MPR_STR },   /* MPR_PROP_DEVICE */
-    { "@direction",     1, MPR_INT32, MPR_STR },   /* MPR_PROP_DIR */
-    { "@ephemeral",     1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_EPHEM */
-    { "@expr",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_EXPR */
-    { "@host",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_HOST */
-    { "@id",            1, MPR_INT64, MPR_INT64 }, /* MPR_PROP_ID */
-    { "@is_local",      1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_IS_LOCAL */
-    { "@jitter",        1, MPR_FLT,   MPR_FLT },   /* MPR_PROP_JITTER */
-    { "@length",        1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_LEN */
-    { "@lib_version",   1, MPR_STR,   MPR_STR },   /* MPR_PROP_LIBVER */
-    { "@linked",        0, MPR_DEV,   MPR_STR },   /* MPR_PROP_LINKED */
-    { "@max",           0, 'n',       'n' },       /* MPR_PROP_MAX */
-    { "@min",           0, 'n',       'n' },       /* MPR_PROP_MIN */
-    { "@muted",         1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_MUTED */
-    { "@name",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_NAME */
-    { "@num_inst",      1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_INST */
-    { "@num_maps",      2, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS */
-    { "@num_maps_in",   1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_IN */
-    { "@num_maps_out",  1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_OUT */
-    { "@num_sigs_in",   1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_SIGS_IN */
-    { "@num_sigs_out",  1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_SIGS_OUT */
-    { "@ordinal",       1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_ORDINAL */
-    { "@period",        1, MPR_FLT,   MPR_FLT },   /* MPR_PROP_PERIOD */
-    { "@port",          1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_PORT */
-    { "@process_loc",   1, MPR_INT32, MPR_STR },   /* MPR_PROP_PROCESS_LOC */
-    { "@protocol",      1, MPR_INT32, MPR_STR },   /* MPR_PROP_PROTOCOL */
-    { "@rate",          1, MPR_FLT,   MPR_FLT },   /* MPR_PROP_RATE */
-    { "@scope",         0, MPR_DEV,   MPR_STR },   /* MPR_PROP_SCOPE */
-    { "@signal",        0, MPR_SIG,   MPR_STR },   /* MPR_PROP_SIGNAL */
-    { "@slot",          0, MPR_INT32, MPR_INT32 }, /* MPR_PROP_SLOT */
-    { "@status",        1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_STATUS */
-    { "@steal",         1, MPR_INT32, MPR_STR },   /* MPR_PROP_STEAL_MODE */
-    { "@synced",        1, MPR_TIME,  MPR_TIME },  /* MPR_PROP_SYNCED */
-    { "@type",          1, MPR_TYPE,  MPR_TYPE },  /* MPR_PROP_TYPE */
-    { "@unit",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_UNIT */
-    { "@use_inst",      1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_USE_INST */
-    { "@version",       1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_VERSION */
-    { "@extra",         0, 'a', 'a' }, /* MPR_PROP_EXTRA (special case, does not
-                                           * represent a specific property name) */
+    { 0,                0, 0 },         /* MPR_PROP_UNKNOWN */
+    { "@allow_origin",  0, MPR_STR },   /* MPR_PROP_ALLOW_ORIGIN */
+    { "@block_origin",  0, MPR_STR },   /* MPR_PROP_BLOCK_ORIGIN */
+    { "@bundle",        1, MPR_INT32 }, /* MPR_PROP_BUNDLE */
+    { "@data",          1, 0  },        /* MPR_PROP_DATA */
+    { "@device",        1, MPR_STR },   /* MPR_PROP_DEVICE */
+    { "@direction",     1, MPR_STR },   /* MPR_PROP_DIR */
+    { "@ephemeral",     1, MPR_BOOL },  /* MPR_PROP_EPHEM */
+    { "@expr",          1, MPR_STR },   /* MPR_PROP_EXPR */
+    { "@host",          1, MPR_STR },   /* MPR_PROP_HOST */
+    { "@id",            1, MPR_INT64 }, /* MPR_PROP_ID */
+    { "@is_local",      1, MPR_BOOL },  /* MPR_PROP_IS_LOCAL */
+    { "@jitter",        1, MPR_FLT },   /* MPR_PROP_JITTER */
+    { "@length",        1, MPR_INT32 }, /* MPR_PROP_LEN */
+    { "@lib_version",   1, MPR_STR },   /* MPR_PROP_LIBVER */
+    { "@linked",        0, MPR_STR },   /* MPR_PROP_LINKED */
+    { "@max",           0, 'n' },       /* MPR_PROP_MAX */
+    { "@min",           0, 'n' },       /* MPR_PROP_MIN */
+    { "@muted",         1, MPR_BOOL },  /* MPR_PROP_MUTED */
+    { "@name",          1, MPR_STR },   /* MPR_PROP_NAME */
+    { "@num_inst",      1, MPR_INT32 }, /* MPR_PROP_NUM_INST */
+    { "@num_maps",      2, MPR_INT32 }, /* MPR_PROP_NUM_MAPS */
+    { "@num_maps_in",   1, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_IN */
+    { "@num_maps_out",  1, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_OUT */
+    { "@num_sigs_in",   1, MPR_INT32 }, /* MPR_PROP_NUM_SIGS_IN */
+    { "@num_sigs_out",  1, MPR_INT32 }, /* MPR_PROP_NUM_SIGS_OUT */
+    { "@ordinal",       1, MPR_INT32 }, /* MPR_PROP_ORDINAL */
+    { "@period",        1, MPR_FLT },   /* MPR_PROP_PERIOD */
+    { "@port",          1, MPR_INT32 }, /* MPR_PROP_PORT */
+    { "@process_loc",   1, MPR_STR },   /* MPR_PROP_PROCESS_LOC */
+    { "@protocol",      1, MPR_STR },   /* MPR_PROP_PROTOCOL */
+    { "@rate",          1, MPR_FLT },   /* MPR_PROP_RATE */
+    { "@signal",        0, MPR_STR },   /* MPR_PROP_SIGNAL */
+    { "@slot",          0, MPR_INT32 }, /* MPR_PROP_SLOT */
+    { "@status",        1, MPR_INT32 }, /* MPR_PROP_STATUS */
+    { "@steal",         1, MPR_STR },   /* MPR_PROP_STEAL_MODE */
+    { "@synced",        1, MPR_TIME },  /* MPR_PROP_SYNCED */
+    { "@type",          1, MPR_TYPE },  /* MPR_PROP_TYPE */
+    { "@unit",          1, MPR_STR },   /* MPR_PROP_UNIT */
+    { "@use_inst",      1, MPR_BOOL },  /* MPR_PROP_USE_INST */
+    { "@version",       1, MPR_INT32 }, /* MPR_PROP_VERSION */
+    { "@extra",         0, 'a' },       /* MPR_PROP_EXTRA (special case, does not
+                                         * represent a specific property name) */
 };
 
 const char* mpr_dir_strings[] =

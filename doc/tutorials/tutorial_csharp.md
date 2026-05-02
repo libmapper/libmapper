@@ -457,4 +457,4 @@ Object | Reserved keys
 All    | `data`, `description`, `id`, `is_local`, `name`, `status`, `version`
 Device | `host`, `libversion`, `num_maps`, `num_maps_in`, `num_maps_out`, `num_sigs_in`, `num_sigs_out`, `ordinal`, `port`, `signal`, `synced`
 Signal | `device`, `direction`, `ephemeral`, `jitter`, `length`, `max`, `maximum`, `min`, `minimum`, `num_inst`, `num_maps`, `num_maps_in`, `num_maps_out`, `period`, `rate`, `steal`, `type`, `unit`
-Maps   | `bundle`, `expr`, `muted`, `num_destinations`, `num_sources`, `process_loc`, `protocol`, `scope`, `signal`, `slot`, `use_inst`
+Maps   | `allow_origin`, `block_origin`, `bundle`, `expr`, `muted`, `num_destinations`, `num_sources`, `process_loc`, `protocol`, `signal`, `slot`, `use_inst`

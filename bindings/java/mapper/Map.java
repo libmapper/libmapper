@@ -33,9 +33,9 @@ public class Map extends mapper.Object
     /* refresh */
     public native Map refresh();
 
-    /* property: scopes */
-    public native Map addScope(mapper.Device dev);
-    public native Map removeScope(mapper.Device dev);
+    /* property: instance origin scopes */
+    public native Map allowInstanceOrigin(mapper.Device dev);
+    public native Map blockInstanceOrigin(mapper.Device dev);
 
     /* property: ready */
     public native boolean ready();

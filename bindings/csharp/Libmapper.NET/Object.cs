@@ -288,7 +288,8 @@ public abstract class Object
                     {
                         case (int)Property.Device:
                         case (int)Property.Linked:
-                        case (int)Property.Scope:
+                        case (int)Property.AllowOrigin:
+                        case (int)Property.BlockOrigin:
                             return new Mapper.List<Device>((IntPtr)value, Mapper.Type.Device);
                         case (int)Property.Signal:
                             return new Mapper.List<Signal>((IntPtr)value, Mapper.Type.Signal);

@@ -1778,26 +1778,26 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_refresh
     return obj;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Map_addScope
+JNIEXPORT jobject JNICALL Java_mapper_Map_allowInstanceOrigin
   (JNIEnv *env, jobject obj, jobject jdev)
 {
     mpr_map map = (mpr_map)get_mpr_obj_from_jobject(env, obj);
     if (map) {
         mpr_dev dev = (mpr_dev)get_mpr_obj_from_jobject(env, jdev);
         if (dev)
-            mpr_map_add_scope(map, dev);
+            mpr_map_allow_instance_origin(map, dev);
     }
     return obj;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Map_removeScope
+JNIEXPORT jobject JNICALL Java_mapper_Map_blockInstanceOrigin
   (JNIEnv *env, jobject obj, jobject jdev)
 {
     mpr_map map = (mpr_map)get_mpr_obj_from_jobject(env, obj);
     if (map) {
         mpr_dev dev = (mpr_dev)get_mpr_obj_from_jobject(env, jdev);
         if (dev)
-            mpr_map_remove_scope(map, dev);
+            mpr_map_block_instance_origin(map, dev);
     }
     return obj;
 }

@@ -301,7 +301,7 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "bypass");
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
-    lo_message_add_string(lom, "@scope");
+    lo_message_add_string(lom, "@allow_origin");
     lo_message_add_string(lom, "testgraph__.2");
 
     if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
@@ -1193,12 +1193,12 @@ int main(int argc, char **argv)
 
     /*********/
 
-    /* skipping scope query – not currently working! */
+    /* skipping allow/block origin query – not currently working! */
     goto done;
 
-    eprintf("\n--- map scopes ---\n");
+    eprintf("\n--- map instance origin scope ---\n");
 
-    eprintf("\nFind maps with scope 'testgraph__.2':\n");
+    eprintf("\nFind maps allowing origin 'testgraph__.2':\n");
 
     devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph__.2", MPR_OP_EQ);
@@ -1209,7 +1209,7 @@ int main(int argc, char **argv)
     }
 
     maplist = mpr_graph_get_list(graph, MPR_MAP);
-    maplist = mpr_list_filter(maplist, MPR_PROP_SCOPE, NULL, 1, MPR_PTR, dev, MPR_OP_EQ | MPR_OP_ANY);
+    maplist = mpr_list_filter(maplist, MPR_PROP_ALLOW_ORIGIN, NULL, 1, MPR_PTR, dev, MPR_OP_EQ | MPR_OP_ANY);
     mpr_list_free(devlist);
 
     count=0;

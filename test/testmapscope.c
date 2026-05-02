@@ -171,75 +171,80 @@ void ctrlc(int signal)
     done = 1;
 }
 
-int check_map_scopes(mpr_map map, int num_scopes, mpr_dev *scopes) {
+int check_map_scopes(mpr_map map, int expect_len, mpr_type expect_type,
+                     mpr_dev *expect_devs, const char *expect_str) {
     const void *val;
     mpr_type type;
     int len;
     mpr_list list;
 
-    if (verbose) {
-        mpr_list src_sigs = mpr_map_get_sigs(map, MPR_LOC_SRC);
-        mpr_list dst_sigs = mpr_map_get_sigs(map, MPR_LOC_DST);
-        mpr_dev src_dev = mpr_sig_get_dev((mpr_sig)*src_sigs);
-        mpr_dev dst_dev = mpr_sig_get_dev((mpr_sig)*dst_sigs);
-        printf("Checking map %s:%s -> %s:%s\n",
-               mpr_obj_get_prop_as_str((mpr_obj)src_dev, MPR_PROP_NAME, NULL),
-               mpr_obj_get_prop_as_str((mpr_obj)*src_sigs, MPR_PROP_NAME, NULL),
-               mpr_obj_get_prop_as_str((mpr_obj)dst_dev, MPR_PROP_NAME, NULL),
-               mpr_obj_get_prop_as_str((mpr_obj)*dst_sigs, MPR_PROP_NAME, NULL));
-        mpr_list_free(src_sigs);
-        mpr_list_free(dst_sigs);
-    }
-
-    if (!mpr_obj_get_prop_by_idx(map, MPR_PROP_SCOPE, NULL, &len, &type, &val, NULL)) {
-        eprintf("Error: map scope property not found\n");
+    if (!mpr_obj_get_prop_by_idx(map, MPR_PROP_ALLOW_ORIGIN, NULL, &len, &type, &val, NULL)) {
+        eprintf("Error: map ALLOW_ORIGIN property not found\n");
         return 1;
     }
-    if (len != 1 || type != MPR_LIST) {
-        eprintf("Error: map scope property has len %d and type %d\n", len, type);
+    if (len != 1 || type != expect_type) {
+        eprintf("Error: map ALLOW_ORIGIN property has len %d and type %c (expected %d and %c)\n",
+                len, type, expect_len, expect_type);
         return 1;
     }
 
-    list = (mpr_list)val;
-    if (verbose) {
-        printf("  scopes: [");
-        mpr_list cpy = mpr_list_get_cpy(list);
-        while (cpy) {
-            printf("%s, ", mpr_obj_get_prop_as_str((mpr_obj)*cpy, MPR_PROP_NAME, NULL));
-            cpy = mpr_list_get_next(cpy);
-        }
-        printf("\b\b]\n");
-    }
-
-    len = mpr_list_get_size(list);
-    if (len != num_scopes) {
-        eprintf("Error: map has %d scopes (should be %d)\n", len, num_scopes);
-        return 1;
-    }
-
-    while (list) {
-        mpr_dev scope = (mpr_dev)*list;
-        int i, found = 0;
-        for (i = 0; i < num_scopes; i++) {
-            if (   mpr_obj_get_prop_as_int64((mpr_obj)scope, MPR_PROP_ID, NULL)
-                == mpr_obj_get_prop_as_int64((mpr_obj)scopes[i], MPR_PROP_ID, NULL)) {
-                found = 1;
-                break;
-            }
-        }
-        if (!found) {
-            if (verbose) {
-                printf("Error: couldn't find scope '%s' in [",
-                       mpr_obj_get_prop_as_str(scope, MPR_PROP_NAME, NULL));
-                for (i = 0; i < num_scopes; i++)
-                    printf("%s, ", mpr_obj_get_prop_as_str((mpr_obj)scopes[i], MPR_PROP_NAME, NULL));
+    if (MPR_LIST == type) {
+        list = (mpr_list)val;
+        if (verbose) {
+            printf("  allowed origins: [");
+            mpr_list cpy = mpr_list_get_cpy(list);
+            if (cpy) {
+                while (cpy) {
+                    printf("%s, ", mpr_obj_get_prop_as_str((mpr_obj)*cpy, MPR_PROP_NAME, NULL));
+                    cpy = mpr_list_get_next(cpy);
+                }
                 printf("\b\b]\n");
             }
-            mpr_list_free(list);
+            else
+                printf("]\n");
+        }
+
+        len = mpr_list_get_size(list);
+        if (len != expect_len) {
+            eprintf("Error: map has %d allowed origins (should be %d)\n", len, expect_len);
             return 1;
         }
-        list = mpr_list_get_next(list);
-        ++i;
+
+        while (list) {
+            mpr_dev origin = (mpr_dev)*list;
+            int i, found = 0;
+            for (i = 0; i < len; i++) {
+                if (   mpr_obj_get_prop_as_int64((mpr_obj)origin, MPR_PROP_ID, NULL)
+                    == mpr_obj_get_prop_as_int64((mpr_obj)expect_devs[i], MPR_PROP_ID, NULL)) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) {
+                if (verbose) {
+                    printf("Error: couldn't find origin device '%s' in [",
+                           mpr_obj_get_prop_as_str(origin, MPR_PROP_NAME, NULL));
+                    for (i = 0; i < len; i++)
+                        printf("%s, ", mpr_obj_get_prop_as_str((mpr_obj)expect_devs[i],
+                                                               MPR_PROP_NAME, NULL));
+                    printf("\b\b]\n");
+                }
+                mpr_list_free(list);
+                return 1;
+            }
+            list = mpr_list_get_next(list);
+            ++i;
+        }
+    }
+    else if (MPR_STR == type) {
+        if (1 != len) {
+            eprintf("Error: map has %d allowed origins (expected 1)\n", len);
+            return 1;
+        }
+        if (strcmp((const char*)val, expect_str)) {
+            eprintf("Error: map has allowed origin '%s' (expected '%s')\n", (const char*)val, expect_str);
+            return 1;
+        }
     }
     return 0;
 }
@@ -247,23 +252,23 @@ int check_map_scopes(mpr_map map, int num_scopes, mpr_dev *scopes) {
 int check_scopes(int mode)
 {
     if (verbose) {
-        printf("checking ");
+        printf("Checking ");
         mpr_obj_print(maps[0], 0);
     }
     switch (mode) {
         case 0:
-            /* map[0] should have scope [devs[0]] */
-            if (check_map_scopes(maps[0], 1, &devs[0]))
+            /* map[0] should have allowed origin 'all' */
+            if (check_map_scopes(maps[0], 1, MPR_STR, devs, "all"))
                 return 1;
             break;
         case 1:
-            /* map[0] should have scope [devs[0]] */
-            if (check_map_scopes(maps[0], 1, &devs[0]))
+            /* map[0] should have empty allowed origin list */
+            if (check_map_scopes(maps[0], 0, MPR_LIST, NULL, NULL))
                 return 1;
             break;
         case 2:
-            /* map[0] should have empty scope */
-            if (check_map_scopes(maps[0], 0, NULL))
+            /* map[0] should have allowed origins [devs[1], devs[2]] */
+            if (check_map_scopes(maps[0], 2, MPR_LIST, &devs[1], NULL))
                 return 1;
             break;
         default:
@@ -271,23 +276,23 @@ int check_scopes(int mode)
     }
 
     if (verbose) {
-        printf("checking ");
+        printf("Checking ");
         mpr_obj_print(maps[1], 0);
     }
     switch (mode) {
         case 0:
-            /* map[1] should have scope [devs[1]] */
-            if (check_map_scopes(maps[1], 1, &devs[1]))
+            /* map[1] should have empty allowed origin list */
+            if (check_map_scopes(maps[1], 0, MPR_LIST, NULL, NULL))
                 return 1;
             break;
         case 1:
-            /* map[1] should have scope [devs[0], devs[1]] */
-            if (check_map_scopes(maps[1], 2, devs))
+            /* map[1] should have allowed origins [devs[0], devs[1]] */
+            if (check_map_scopes(maps[1], 2, MPR_LIST, devs, NULL))
                 return 1;
             break;
         case 2:
-            /* map[1] should have scope [devs[1]] */
-            if (check_map_scopes(maps[1], 2, devs))
+            /* map[1] should have allowed origin [devs[0]] */
+            if (check_map_scopes(maps[1], 1, MPR_LIST, devs, NULL))
                 return 1;
             break;
         default:
@@ -367,38 +372,50 @@ int main(int argc, char **argv)
         goto done;
     }
 
+    eprintf("Test 1:\n");
+    eprintf("  Blocking all origins from map 1\n");
+    mpr_map_block_instance_origin(maps[1], NULL);
+    mpr_obj_push((mpr_obj)maps[1]);
+    wait_ready(3);
+
     if (check_scopes(0)) {
-        eprintf("Error\n");
         result = 1;
         goto done;
     }
 
     if (loop()) {
-        eprintf("Test aborted\n");
+        eprintf("  Test aborted\n");
         result = 1;
         goto done;
     }
 
     if (received[1] != sent[0]) {
-        eprintf("Error: %s received %d messages but should have received %d\n",
+        eprintf("  Error: %s received %d messages but should have received %d\n",
                 mpr_obj_get_prop_as_str((mpr_obj)devs[1], MPR_PROP_NAME, NULL), received[1], sent[0]);
         result = 1;
         goto done;
     }
     if (received[2]) {
-        eprintf("Error: %s received %d messages but should have received 0\n",
+        eprintf("  Error: %s received %d messages but should have received 0\n",
                 mpr_obj_get_prop_as_str((mpr_obj)devs[2], MPR_PROP_NAME, NULL), received[2]);
         result = 1;
         goto done;
     }
 
-    eprintf("Adding scope\n");
-    mpr_map_add_scope(maps[1], devs[0]);
+    eprintf("Test 2:\n");
+    eprintf("  Blocking all origins from map 0\n");
+    mpr_map_block_instance_origin(maps[0], NULL);
+    mpr_obj_push((mpr_obj)maps[0]);
+
+    eprintf("  Allowing origins ['%s', '%s'] on map 1\n",
+            mpr_obj_get_prop_as_str((mpr_obj)devs[0], MPR_PROP_NAME, NULL),
+            mpr_obj_get_prop_as_str((mpr_obj)devs[1], MPR_PROP_NAME, NULL));
+    mpr_map_allow_instance_origin(maps[1], devs[0]);
+    mpr_map_allow_instance_origin(maps[1], devs[1]);
     mpr_obj_push((mpr_obj)maps[1]);
     wait_ready(3);
 
     if (check_scopes(1)) {
-        eprintf("Error\n");
         result = 1;
         goto done;
     }
@@ -407,53 +424,62 @@ int main(int argc, char **argv)
         sent[i] = received[i] = 0;
 
     if (loop()) {
-        eprintf("Test aborted\n");
-        result = 1;
-        goto done;
-    }
-
-    if (received[1] != sent[0]) {
-        eprintf("Error: %s received %d messages but should have received %d\n",
-                mpr_obj_get_prop_as_str((mpr_obj)devs[1], MPR_PROP_NAME, NULL), received[1], sent[0]);
-        result = 1;
-        goto done;
-    }
-    if (received[2] != sent[0]) {
-        eprintf("Error: %s received %d messages but should have received %d\n",
-                mpr_obj_get_prop_as_str((mpr_obj)devs[2], MPR_PROP_NAME, NULL), received[2], sent[0]);
-        result = 1;
-        goto done;
-    }
-
-    eprintf("Removing scope\n");
-    mpr_map_remove_scope(maps[0], devs[0]);
-    mpr_obj_push((mpr_obj)maps[0]);
-    wait_ready(3);
-
-    if (check_scopes(2)) {
-        eprintf("Error\n");
-        result = 1;
-        goto done;
-    }
-
-    for (i = 0; i < 3; i++)
-        sent[i] = received[i] = 0;
-
-    if (loop()) {
-        eprintf("Test aborted\n");
+        eprintf("  Test aborted\n");
         result = 1;
         goto done;
     }
 
     if (received[1]) {
-        eprintf("Error: %s received %d messages but should have received 0\n",
+        eprintf("  Error: %s received %d messages but should have received 0\n",
                 mpr_obj_get_prop_as_str((mpr_obj)devs[1], MPR_PROP_NAME, NULL), received[1]);
         result = 1;
         goto done;
     }
     if (received[2]) {
-        eprintf("Error: %s received %d messages but should have received 0\n",
+        eprintf("  Error: %s received %d messages but should have received 0\n",
                 mpr_obj_get_prop_as_str((mpr_obj)devs[2], MPR_PROP_NAME, NULL), received[2]);
+        result = 1;
+        goto done;
+    }
+
+    eprintf("Test 3:\n");
+    eprintf("  Allowing origins ['%s', '%s'] on map 0\n",
+            mpr_obj_get_prop_as_str((mpr_obj)devs[1], MPR_PROP_NAME, NULL),
+            mpr_obj_get_prop_as_str((mpr_obj)devs[2], MPR_PROP_NAME, NULL));
+    mpr_map_allow_instance_origin(maps[0], devs[1]);
+    mpr_map_allow_instance_origin(maps[0], devs[2]);
+    mpr_obj_push((mpr_obj)maps[0]);
+
+    eprintf("  Blocking origin '%s' on map 1\n",
+            mpr_obj_get_prop_as_str((mpr_obj)devs[0], MPR_PROP_NAME, NULL));
+    mpr_map_block_instance_origin(maps[1], devs[1]);
+    mpr_obj_push((mpr_obj)maps[1]);
+
+    wait_ready(3);
+
+    if (check_scopes(2)) {
+        result = 1;
+        goto done;
+    }
+
+    for (i = 0; i < 3; i++)
+        sent[i] = received[i] = 0;
+
+    if (loop()) {
+        eprintf("  Test aborted\n");
+        result = 1;
+        goto done;
+    }
+
+    if (received[1]) {
+        eprintf("  Error: %s received %d messages but should have received %d\n",
+                mpr_obj_get_prop_as_str((mpr_obj)devs[1], MPR_PROP_NAME, NULL), received[1], sent[0]);
+        result = 1;
+        goto done;
+    }
+    if (received[2]) {
+        eprintf("  Error: %s received %d messages but should have received %d\n",
+                mpr_obj_get_prop_as_str((mpr_obj)devs[2], MPR_PROP_NAME, NULL), received[2], sent[0]);
         result = 1;
         goto done;
     }

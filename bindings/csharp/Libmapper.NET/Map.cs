@@ -124,12 +124,20 @@ public class Map : Mapper.Object
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
     private static extern int mpr_map_get_is_ready(IntPtr map);
 
+    /// <summary>
+    ///     Set a property for this map
+    /// </summary>
+    /// <returns>The same map instance to allow for chaining</returns>
     public new Map SetProperty<TProperty, TValue>(TProperty property, TValue value, bool publish)
     {
         base.SetProperty(property, value, publish);
         return this;
     }
 
+    /// <summary>
+    ///     Set a property for this map
+    /// </summary>
+    /// <returns>The same map instance to allow for chaining</returns>
     public new Map SetProperty<TProperty, TValue>(TProperty property, TValue value)
     {
         base.SetProperty(property, value, true);
@@ -139,7 +147,7 @@ public class Map : Mapper.Object
     /// <summary>
     ///     Push changes to this map out to the distributed graph
     /// </summary>
-    /// <returns>The same map to allow for chaining</returns>
+    /// <returns>The same map instance to allow for chaining</returns>
     public new Map Push()
     {
         base.Push();
@@ -152,7 +160,7 @@ public class Map : Mapper.Object
     /// <summary>
     ///     Re-create stale map if necessary.
     /// </summary>
-    /// <returns>The same instance to allow for chaining</returns>
+    /// <returns>The same map instance to allow for chaining</returns>
     public Map Refresh()
     {
         mpr_map_refresh(NativePtr);
@@ -198,30 +206,30 @@ public class Map : Mapper.Object
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern int mpr_map_add_scope(IntPtr map, IntPtr dev);
+    private static extern int mpr_map_allow_instance_origin(IntPtr map, IntPtr dev);
 
     /// <summary>
-    ///     Add a scope to this map.
+    ///     Add an instance origin scope to this map.
     /// </summary>
-    /// <param name="device">The device to add as a scope for this map</param>
-    /// <returns>The same instance to allow for chaining</returns>
-    public Map AddScope(Device device)
+    /// <param name="device">The device to add as an instance origin scope for this map</param>
+    /// <returns>The same map instance to allow for chaining</returns>
+    public Map AllowInstanceOrigin(Device device)
     {
-        mpr_map_add_scope(NativePtr, device.NativePtr);
+        mpr_map_allow_instance_origin(NativePtr, device.NativePtr);
         return this;
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern int mpr_map_remove_scope(IntPtr map, IntPtr dev);
+    private static extern int mpr_map_block_instance_origin(IntPtr map, IntPtr dev);
 
     /// <summary>
-    ///     Remove a scope from this map.
+    ///     Remove a signal instance origin scope from this map.
     /// </summary>
-    /// <param name="device">The device to remove as a scope from this map</param>
-    /// <returns>The same instance to allow for chaining</returns>
-    public Map RemoveScope(Device device)
+    /// <param name="device">The device to remove as a signal instance origin scope from this map</param>
+    /// <returns>The same map instance to allow for chaining</returns>
+    public Map BlockInstanceOrigin(Device device)
     {
-        mpr_map_remove_scope(NativePtr, device.NativePtr);
+        mpr_map_block_instance_origin(NativePtr, device.NativePtr);
         return this;
     }
 }

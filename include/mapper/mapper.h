@@ -544,23 +544,23 @@ int mpr_map_get_is_ready(mpr_map map);
  *  \param map          The map to operate on. */
 void mpr_map_refresh(mpr_map map);
 
-/*! Add a scope to this map. Map scopes configure the propagation of signal instance updates across
- *  the map. Changes to remote maps will not take effect until synchronized with the distributed
- *  graph using `mpr_obj_push()`.
+/*! Add an instance origin scope to this map. Map instance origin scope configures the propagation
+ *  of signal instance updates across the map. Changes to remote maps will not take effect until
+ *  synchronized with the distributed graph using `mpr_obj_push()`.
  *  \param map          The map to modify.
- *  \param device       Device to add as a scope for this map. After taking effect, this setting
- *                      will cause instance updates originating at this device to be propagated
+ *  \param device       Device to allow as a scope for this map. After taking effect, this setting
+ *                      will allow instance updates originating at this device to be propagated
  *                      across the map. */
-void mpr_map_add_scope(mpr_map map, mpr_dev device);
+void mpr_map_allow_instance_origin(mpr_map map, mpr_dev device);
 
-/*! Remove a scope from this map. Map scopes configure the propagation of signal instance updates
- *  across the map. Changes to remote maps will not take effect until synchronized with the
- *  distributed graph using `mpr_obj_push()`.
+/*! Remove an instance origin scope from this map. Map instance origin scope configures the
+ *  propagation of signal instance updates across the map. Changes to remote maps will not take
+ *  effect until synchronized with the distributed graph using `mpr_obj_push()`.
  *  \param map          The map to modify.
- *  \param device       Device to remove as a scope for this map. After taking effect, this setting
- *                      will cause instance updates originating at this device to be blocked from
- *                      propagating across the map. */
-void mpr_map_remove_scope(mpr_map map, mpr_dev device);
+ *  \param device       Device to block as an instance origin scope for this map. After taking
+ *                      effect, this setting will cause instance updates originating at this device
+ *                      to be blocked from propagating across the map. */
+void mpr_map_block_instance_origin(mpr_map map, mpr_dev device);
 
 /** @} */ /* end of group Maps */
 

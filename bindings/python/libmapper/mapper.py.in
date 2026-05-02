@@ -100,46 +100,47 @@ class Property(Enum):
     """Symbolic representation of recognized properties."""
 
     UNKNOWN          = 0x0000
-    BUNDLE           = 0x0100
+    ALLOW_ORIGIN     = 0x0100
+    BLOCK_ORIGIN     = 0x0200
+    BUNDLE           = 0x0300
     # 'DATA' DELIBERATELY OMITTED
-    DEVICE           = 0x0300
-    DIRECTION        = 0x0400
-    EPHEMERAL        = 0x0500
-    EXPRESSION       = 0x0600
-    HOST             = 0x0700
-    ID               = 0x0800
-    IS_LOCAL         = 0x0900
-    JITTER           = 0x0A00
-    LENGTH           = 0x0B00
-    LIBVERSION       = 0x0C00
-    LINKED           = 0x0D00
-    MAX              = 0x0E00
-    MIN              = 0x0F00
-    MUTED            = 0x1000
-    NAME             = 0x1100
-    NUM_INSTANCES    = 0x1200
-    NUM_MAPS         = 0x1300
-    NUM_MAPS_IN      = 0x1400
-    NUM_MAPS_OUT     = 0x1500
-    NUM_SIGNALS_IN   = 0x1600
-    NUM_SIGNALS_OUT  = 0x1700
-    ORDINAL          = 0x1800
-    PERIOD           = 0x1900
-    PORT             = 0x1A00
-    PROCESS_LOCATION = 0x1B00
-    PROTOCOL         = 0x1C00
-    RATE             = 0x1D00
-    SCOPE            = 0x1E00
-    SIGNAL           = 0x1F00
+    DEVICE           = 0x0500
+    DIRECTION        = 0x0600
+    EPHEMERAL        = 0x0700
+    EXPRESSION       = 0x0800
+    HOST             = 0x0900
+    ID               = 0x0A00
+    IS_LOCAL         = 0x0B00
+    JITTER           = 0x0C00
+    LENGTH           = 0x0D00
+    LIBVERSION       = 0x0E00
+    LINKED           = 0x0F00
+    MAX              = 0x1000
+    MIN              = 0x1100
+    MUTED            = 0x1200
+    NAME             = 0x1300
+    NUM_INSTANCES    = 0x1400
+    NUM_MAPS         = 0x1500
+    NUM_MAPS_IN      = 0x1600
+    NUM_MAPS_OUT     = 0x1700
+    NUM_SIGNALS_IN   = 0x1800
+    NUM_SIGNALS_OUT  = 0x1900
+    ORDINAL          = 0x1A00
+    PERIOD           = 0x1B00
+    PORT             = 0x1C00
+    PROCESS_LOCATION = 0x1D00
+    PROTOCOL         = 0x1E00
+    RATE             = 0x1F00
+    SIGNAL           = 0x2000
     # SLOT DELIBERATELY OMITTED
-    STATUS           = 0x2100
-    STEALING         = 0x2200
-    SYNCED           = 0x2300
-    TYPE             = 0x2400
-    UNIT             = 0x2500
-    USE_INSTANCES    = 0x2600
-    VERSION          = 0x2700
-    EXTRA            = 0x2800
+    STATUS           = 0x2200
+    STEALING         = 0x2300
+    SYNCED           = 0x2400
+    TYPE             = 0x2500
+    UNIT             = 0x2600
+    USE_INSTANCES    = 0x2700
+    VERSION          = 0x2800
+    EXTRA            = 0x2900
 
     def __repr__(self):
         return 'libmapper.Property.' + self.name
@@ -1716,50 +1717,50 @@ class Map(Object):
         return 0 != mpr.mpr_map_get_is_ready(self._obj)
     ready = property(get_is_ready)
 
-    def add_scope(self, device):
+    def allow_instance_origin(self, device):
         """
-        Add a map scope
+        Add a map instance origin scope
 
         Note:
             Changes to remote maps will not take effect until synchronized with the distributed
             graph using `push()`
 
         Args:
-            device (libmapper.Device): Device to add as a scope for this map. After taking effect,
-                this setting will cause instance updates originating at this device to be propagated
-                across the map.
+            device (libmapper.Device): Device to add as an insance origin scope for this map. After
+                taking effect, this setting will allow instance updates originating at this device
+                to be propagated across the map.
 
         Returns:
             self
         """
 
         if isinstance(device, Device):
-            mpr.mpr_map_add_scope.argtypes = [c_void_p, c_void_p]
-            mpr.mpr_map_add_scope.restype = None
-            mpr.mpr_map_add_scope(self._obj, device._obj)
+            mpr.mpr_map_allow_instance_origin.argtypes = [c_void_p, c_void_p]
+            mpr.mpr_map_allow_instance_origin.restype = None
+            mpr.mpr_map_allow_instance_origin(self._obj, device._obj)
         return self
 
-    def remove_scope(self, device):
+    def block_instance_origin(self, device):
         """
-        Remove a map scope
+        Block a map instance origin scope
 
         Note:
             Changes to remote maps will not take effect until synchronized with the distributed
             graph using `push()`
 
         Args:
-            device (libmapper.Device): Device to remove as a scope for this map. After taking
-                effect, this setting will cause instance updates originating at this device to be
-                blocked from propagating across the map.
+            device (libmapper.Device): Device to remove as an instance origin scope for this map.
+                After taking effect, this setting will cause instance updates originating at this
+                device to be blocked from propagating across the map.
 
         Returns:
             self
         """
 
         if isinstance(device, Device):
-            mpr.mpr_map_remove_scope.argtypes = [c_void_p, c_void_p]
-            mpr.mpr_map_remove_scope.restype = None
-            mpr.mpr_map_remove_scope(self._obj, device._obj)
+            mpr.mpr_map_block_instance_origin.argtypes = [c_void_p, c_void_p]
+            mpr.mpr_map_block_instance_origin.restype = None
+            mpr.mpr_map_block_instance_origin(self._obj, device._obj)
         return self
 
 class Graph(Object):
