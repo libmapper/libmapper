@@ -524,8 +524,74 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
+    /* Test setting 'max' property to a different type and vector length. */
+    eprintf("Test 17: changing type and vector length for property 'max'... ");
+    mpr_obj_set_prop(sig, MPR_PROP_MAX, NULL, 2, MPR_INT32, &int_array, 1);
+    mpr_obj_get_prop_by_idx(sig, MPR_PROP_MAX, NULL, &length, &type, &value, &public);
+
+    eprintf("\t checking type: %s ... ", type_name(type));
+    if (type != MPR_INT32) {
+        eprintf("ERROR (expected %s)\n", type_name(MPR_INT32));
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking length: %d ... ", length);
+    if (length != 2) {
+        eprintf("ERROR (expected %d)\n", 2);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking value: [%i,%i] ... ", ((int*)value)[0], ((int*)value)[1]);
+    for (i = 0; i < 2; i++) {
+        if (((int*)value)[i] != int_array[i]) {
+            eprintf("ERROR (expected %i at index %d)\n", int_array[i], i);
+            result = 1;
+            goto cleanup;
+        }
+    }
+    eprintf("OK\n");
+
+    /* Test setting 'max' property to a different type and vector length. */
+    eprintf("Test 18: changing type and vector length for property 'max'... ");
+    mpr_obj_set_prop(sig, MPR_PROP_MAX, NULL, 3, MPR_FLT, &flt_array, 1);
+    mpr_obj_get_prop_by_idx(sig, MPR_PROP_MAX, NULL, &length, &type, &value, &public);
+
+    eprintf("\t checking type: %s ... ", type_name(type));
+    if (type != MPR_FLT) {
+        eprintf("ERROR (expected %s)\n", type_name(MPR_FLT));
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking length: %d ... ", length);
+    if (length != 3) {
+        eprintf("ERROR (expected %d)\n", 3);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking value: [%f,%f] ... ", ((float*)value)[0], ((float*)value)[1]);
+    for (i = 0; i < 3; i++) {
+        if (((float*)value)[i] != flt_array[i]) {
+            eprintf("ERROR (expected %f at index %d)\n", flt_array[i], i);
+            result = 1;
+            goto cleanup;
+        }
+    }
+    eprintf("OK\n");
+
     /* Test that removing maximum causes it to _not_ be listed. */
-    eprintf("Test 17: removing optional property 'max'... ");
+    eprintf("Test 19: removing optional property 'max'... ");
     mpr_obj_remove_prop(sig, MPR_PROP_MAX, NULL);
     seen = check_keys(sig);
     if (seen & SEEN_MAX)
@@ -547,7 +613,7 @@ int main(int argc, char **argv)
         eprintf("not found... OK\n");
 
     /* Test adding and retrieving an integer vector property. */
-    eprintf("Test 19: adding an extra integer vector property 'test'... ");
+    eprintf("Test 20: adding an extra integer vector property 'test'... ");
     mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 5, MPR_INT32, &int_array, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -560,7 +626,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 20: retrieving vector property 'test': ");
+    eprintf("Test 21: retrieving vector property 'test': ");
     if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &value, &public)) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -608,7 +674,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test rewriting 'test' as float vector property. */
-    eprintf("Test 21: rewriting 'test' as vector float property... ");
+    eprintf("Test 22: rewriting 'test' as vector float property... ");
     mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 5, MPR_FLT, &flt_array, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -621,7 +687,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 22: retrieving property 'test'... ");
+    eprintf("Test 23: retrieving property 'test'... ");
     if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &value, &public)) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -669,7 +735,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test rewriting property 'test' as string vector property. */
-    eprintf("Test 23: rewriting 'test' as vector string property... ");
+    eprintf("Test 24: rewriting 'test' as vector string property... ");
     mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_STR, str_array, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -682,7 +748,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 24: retrieving property 'test'... ");
+    eprintf("Test 25: retrieving property 'test'... ");
     if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &value, &public)) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -729,7 +795,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test rewriting property 'test' as void* property. */
-    eprintf("Test 25: rewriting 'test' as void* property... ");
+    eprintf("Test 26: rewriting 'test' as void* property... ");
     mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_PTR, ptr_value, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -742,7 +808,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 26: retrieving property 'test'... ");
+    eprintf("Test 27: retrieving property 'test'... ");
     if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &value, &public)) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -787,7 +853,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 27: retrieving property 'test' using ptr getter... ");
+    eprintf("Test 28: retrieving property 'test' using ptr getter... ");
     value = mpr_obj_get_prop_as_ptr(sig, MPR_PROP_EXTRA, "test");
     if (!value) {
         eprintf("not found... ERROR\n");
@@ -807,7 +873,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test rewriting property 'test' as void* property to MPR_PROP_DATA. */
-    eprintf("Test 28: writing MPR_PROP_DATA as void* property... ");
+    eprintf("Test 29: writing MPR_PROP_DATA as void* property... ");
     /* MPR_PROP_DATA should always be private, even if user code tries to set it to public */
     /* Try setting it to public=1 to test */
     mpr_obj_set_prop(dev, MPR_PROP_DATA, NULL, 1, MPR_PTR, ptr_value, 1);
@@ -821,7 +887,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 29: retrieving property MPR_PROP_DATA... ");
+    eprintf("Test 30: retrieving property MPR_PROP_DATA... ");
     if (!mpr_obj_get_prop_by_idx(dev, MPR_PROP_DATA, NULL, &length, &type, &value, &public)) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -866,7 +932,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 30: retrieving property MPR_PROP_DATA using ptr getter... ");
+    eprintf("Test 31: retrieving property MPR_PROP_DATA using ptr getter... ");
     value = mpr_obj_get_prop_as_ptr(dev, MPR_PROP_DATA, NULL);
     if (!value) {
         eprintf("not found... ERROR\n");
@@ -886,7 +952,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test rewriting property 'test' as void* vector property. */
-    eprintf("Test 31: rewriting 'test' as vector void* property... ");
+    eprintf("Test 32: rewriting 'test' as vector void* property... ");
     mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_PTR, ptr_array, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -899,7 +965,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 32: retrieving property 'test'... ");
+    eprintf("Test 33: retrieving property 'test'... ");
     if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &value, &public)) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -946,7 +1012,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test rewriting property 'test' as mpr_obj property. */
-    eprintf("Test 33: rewriting 'test' as mpr_obj property... ");
+    eprintf("Test 34: rewriting 'test' as mpr_obj property... ");
     mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_OBJ, sig, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -959,7 +1025,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 34: retrieving property 'test'... ");
+    eprintf("Test 35: retrieving property 'test'... ");
     if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &value, &public)) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -1004,7 +1070,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 35: retrieving property 'test' using object getter... ");
+    eprintf("Test 36: retrieving property 'test' using object getter... ");
     read_obj = mpr_obj_get_prop_as_obj(sig, MPR_PROP_EXTRA, "test");
     if (!read_obj) {
         eprintf("not found... ERROR\n");
@@ -1023,7 +1089,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 36: retrieving property 'signal'... ");
+    eprintf("Test 37: retrieving property 'signal'... ");
     if (!mpr_obj_get_prop_by_key((mpr_obj)dev, "signal", &length, &type, &value, &public)) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -1083,7 +1149,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 37: retrieving property 'signal' using list getter... ");
+    eprintf("Test 38: retrieving property 'signal' using list getter... ");
     read_list = mpr_obj_get_prop_as_list((mpr_obj)dev, MPR_PROP_SIG, NULL);
     if (!read_list) {
         eprintf("not found... ERROR\n");
@@ -1113,7 +1179,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 38: trying to remove static property 'length'... ");
+    eprintf("Test 39: trying to remove static property 'length'... ");
     if (mpr_obj_remove_prop((mpr_obj)sig, MPR_PROP_LEN, NULL)) {
         eprintf("removed... ERROR\n");
         result = 1;
@@ -1128,7 +1194,7 @@ int main(int argc, char **argv)
     /* this shouldn't do anything for a private property */
     mpr_obj_push((mpr_obj)remote_dev);
 
-    eprintf("Test 39: trying to retrieve a private property to a remote object... ");
+    eprintf("Test 40: trying to retrieve a private property to a remote object... ");
     if (!mpr_obj_get_prop_by_key((mpr_obj)remote_dev, "secret", &length, &type, &value, &public)) {
         eprintf("ERROR\n");
         result = 1;
@@ -1177,7 +1243,7 @@ int main(int argc, char **argv)
     mpr_dev_poll(dev, 100);
 
     /* Check that private properties are not synced across the graph */
-    eprintf("test 40: checking that private properties are not synced local -> remote ");
+    eprintf("test 41: checking that private properties are not synced local -> remote ");
     seen = check_keys(remote_dev);
     if (seen & (SEEN_DATA)) {
         eprintf("ERROR\n");
@@ -1187,7 +1253,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("test 41: checking that private properties are not synced remote -> local ");
+    eprintf("test 42: checking that private properties are not synced remote -> local ");
     seen = check_keys(dev);
     if (seen & (SEEN_SECRET)) {
         eprintf("ERROR\n");
@@ -1198,7 +1264,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Try removing a private property from a remote object. */
-    eprintf("Test 42: removing private property 'secret'... ");
+    eprintf("Test 43: removing private property 'secret'... ");
     mpr_obj_remove_prop(remote_dev, MPR_PROP_EXTRA, "secret");
     seen = check_keys(remote_dev);
     if (seen & (SEEN_SECRET)) {
@@ -1209,7 +1275,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 43: retrieving mpr_time property 'synced'... ");
+    eprintf("Test 44: retrieving mpr_time property 'synced'... ");
     if (!mpr_obj_get_prop_by_idx(remote_dev, MPR_PROP_SYNCED, NULL, &length, &type, &value, &public)) {
         eprintf("ERROR (not found)\n");
         result = 1;
@@ -1219,7 +1285,7 @@ int main(int argc, char **argv)
         eprintf("%g... OK\n", mpr_time_as_dbl(*(mpr_time*)value));
     }
 
-    eprintf("Test 44: setting read-only mpr_time property 'synced'... ");
+    eprintf("Test 45: setting read-only mpr_time property 'synced'... ");
     if (mpr_obj_set_prop(remote_dev, MPR_PROP_SYNCED, NULL, 1, MPR_FLT, &flt_value, 1)) {
         eprintf("ERROR (succeeded)\n");
         result = 1;
@@ -1230,7 +1296,7 @@ int main(int argc, char **argv)
 
     /* Check typed getters for mpr_time properties */
     dbl_value = mpr_obj_get_prop_as_dbl(remote_dev, MPR_PROP_SYNCED, NULL);
-    eprintf("Test 45: double typed getter for mpr_time: %g... ", dbl_value);
+    eprintf("Test 46: double typed getter for mpr_time: %g... ", dbl_value);
     if (dbl_value != mpr_time_as_dbl(*(mpr_time*)value)) {
         eprintf("ERROR (expected %g)\n", mpr_time_as_dbl(*(mpr_time*)value));
         result = 1;
@@ -1240,7 +1306,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     flt_value = mpr_obj_get_prop_as_flt(remote_dev, MPR_PROP_SYNCED, NULL);
-    eprintf("Test 46: float typed getter for mpr_time: %g... ", flt_value);
+    eprintf("Test 47: float typed getter for mpr_time: %g... ", flt_value);
     if (flt_value != (float)mpr_time_as_dbl(*(mpr_time*)value)) {
         eprintf("ERROR (expected %g)\n", (float)mpr_time_as_dbl(*(mpr_time*)value));
         result = 1;
@@ -1250,7 +1316,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     int_value = mpr_obj_get_prop_as_int32(remote_dev, MPR_PROP_SYNCED, NULL);
-    eprintf("Test 47: int typed getter for mpr_time: %u... ", int_value);
+    eprintf("Test 48: int typed getter for mpr_time: %u... ", int_value);
     if (int_value != ((mpr_time*)value)->sec) {
         eprintf("ERROR (expected %d)\n", ((mpr_time*)value)->sec);
         result = 1;
