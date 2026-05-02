@@ -32,8 +32,8 @@ static void evalue_print(evalue val, mpr_type type, int len, int prefix)
                 printf(STR, val[i].T);      \
             break;
         TYPED_CASE(MPR_INT32, "%d, ", i)
-        TYPED_CASE(MPR_FLT, "%g, ", f)
-        TYPED_CASE(MPR_DBL, "%g, ", d)
+        TYPED_CASE(MPR_FLT,   "%f, ", f)
+        TYPED_CASE(MPR_DBL,   "%f, ", d)
 #undef TYPED_CASE
         default:
             break;
