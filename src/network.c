@@ -1020,7 +1020,7 @@ MPR_INLINE static int mpr_min(int a, int b)
 
 static int mpr_net_poll_internal(mpr_net net, int block_ms)
 {
-    int i, count = 0, left_ms = 0, elapsed_ms, admin_elapsed_ms = 0;
+    int i, count = 0, left_ms = 0, elapsed_ms = 0, admin_elapsed_ms = 0;
     double then;
 
     if (++net->polling > 1) {
@@ -1040,16 +1040,23 @@ static int mpr_net_poll_internal(mpr_net net, int block_ms)
      * In all cases we will also process timed outputs if they are due
      */
 
-    if (block_ms && block_ms > 0) {
-        /* set timeout to a minimum of 100ms or the next device timeout */
-        left_ms = mpr_min(block_ms, 100);
-        for (i = 0; i < net->num_devs; i++) {
-            left_ms = mpr_min(left_ms, mpr_local_dev_update_maps(net->devs[i]));
-        }
-    }
-
     do {
         register int recvd = 0;
+
+        left_ms = 100;
+        for (i = 0; i < net->num_devs; i++) {
+            /* reduce the time if devices need to be updated within left_ms window */
+            left_ms = mpr_min(left_ms, mpr_local_dev_update_maps(net->devs[i]));
+        }
+        if (block_ms > 0) {
+            /* set timeout to a minimum of remaining block time or 100ms */
+            elapsed_ms = (mpr_get_current_time() - then) * 1000.;
+            left_ms = mpr_min(left_ms, block_ms - elapsed_ms);
+            if (left_ms < 0)
+                left_ms = 0;
+        }
+        else
+            left_ms = 0;
 
         if (lo_servers_recv_noblock(net->servers, net->server_status, net->num_servers, left_ms)) {
             int idx = NUM_NET_SERVERS;
@@ -1067,24 +1074,17 @@ static int mpr_net_poll_internal(mpr_net net, int block_ms)
             }
             recvd = 1;
         }
-        left_ms = 100;
-        for (i = 0; i < net->num_devs; i++) {
-            left_ms = mpr_min(left_ms, mpr_local_dev_update_maps(net->devs[i]));
 
-        }
+        if (!recvd && block_ms < 0)
+            break;
 
         /* Only run mpr_net_housekeeping() again if more than 100ms have elapsed. */
         elapsed_ms = (mpr_get_current_time() - then) * 1000;
-        if ((elapsed_ms - admin_elapsed_ms) > 100) {
+        if ((elapsed_ms - admin_elapsed_ms) > 100 && (block_ms - elapsed_ms) > 50) {
             mpr_graph_housekeeping(net->graph);
             mpr_net_housekeeping(net, 0);
             admin_elapsed_ms = elapsed_ms;
         }
-
-        if (block_ms > 0)
-            left_ms = mpr_min(left_ms, block_ms - elapsed_ms);
-        else if (!recvd)
-            break;
     } while (block_ms < 0 || elapsed_ms < block_ms);
 
     for (i = 0; i < net->num_devs; i++) {
