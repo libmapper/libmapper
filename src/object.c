@@ -415,7 +415,7 @@ void mpr_obj_print(mpr_obj o, int include_props)
         return;
     }
 
-    num_props = mpr_obj_get_num_props(o, 0);
+    num_props = mpr_tbl_get_num_records(o->props.synced);
     for (i = 0; i < num_props; i++) {
         p = mpr_tbl_get_record_by_idx(o->props.synced, i, &key, &len, &type, &val, 0);
         die_unless(val != 0 || MPR_LIST == type, "returned zero value\n");
