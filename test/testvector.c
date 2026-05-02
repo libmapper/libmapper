@@ -158,9 +158,9 @@ int setup_maps(void)
     for (i = 0; i < vec_len; i++) {
         float sRange = (float)sMax[i] - (float)sMin[i];
         if (sRange) {
-            M[i] = ((float)dMax[i] - (float)dMin[i]) / sRange;
-            B[i] = (  (float)dMin[i] * (float)sMax[i]
-                    - (float)dMax[i] * (float)sMin[i]) / sRange;
+            M[i] = ((float)dMax[i % 2] - (float)dMin[0]) / sRange;
+            B[i] = (  (float)dMin[0] * (float)sMax[i]
+                    - (float)dMax[i % 2] * (float)sMin[i]) / sRange;
         }
         else {
             M[i] = 0;
@@ -292,17 +292,32 @@ int main(int argc, char **argv)
         do {
             sMax[i] = rand() % 100;
         } while (sMax[i] == sMin[i]);
-        if (i == 0)
-            dMin[i] = rand() % 100;
-        else
-            dMin[i] = dMin[0];
-        if (i < 2) {
-            do {
-                dMax[i] = rand() % 100;
-            } while (dMax[i] == dMin[i]);
-        }
-        else
-            dMax[i] = dMax[i-2];
+        dMin[i] = rand() % 100;
+        do {
+            dMax[i] = rand() % 100;
+        } while (dMax[i] == dMin[i]);
+    }
+
+    if (verbose) {
+        printf("using src range: ");
+        printf("[");
+        for (i = 0; i < vec_len; i++)
+            printf("%f, ", sMin[i]);
+        printf("\b\b] -> ");
+        printf("[");
+        for (i = 0; i < vec_len; i++)
+            printf("%f, ", sMax[i]);
+        printf("\b\b]\n");
+
+        printf("using dst range: ");
+        printf("[");
+        for (i = 0; i < vec_len; i++)
+            printf("%f, ", dMin[i]);
+        printf("\b\b] -> ");
+        printf("[");
+        for (i = 0; i < vec_len; i++)
+            printf("%f, ", dMax[i]);
+        printf("\b\b]\n");
     }
 
     signal(SIGINT, ctrlc);

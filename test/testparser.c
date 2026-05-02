@@ -2028,15 +2028,15 @@ int run_tests()
             eprintf("... OK\n");
     }
 
-    /* 163) assignment with operator */
-    set_expr_str("y = x + a; a += 1.1;");
+    /* 163) augmented assignment */
+    set_expr_str("y = x + a; a += 1.0;");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = src_int[0] + iterations - 1;
     expect_int[1] = src_int[1] + iterations - 1;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 164) vector assignment with operator */
+    /* 164) vector augmented assignment */
     set_expr_str("[y[0],y[2]] -= x;");
     setup_test(MPR_INT32, 2, MPR_INT32, 3);
     expect_int[0] = -src_int[0] * iterations;

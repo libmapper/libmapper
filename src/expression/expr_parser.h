@@ -389,6 +389,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                             vars[num_var].vec_len = tok.gen.vec_len = 1;
                             vars[num_var].datatype = tok.gen.datatype = MPR_INT32;
                             tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
+                            vars[num_var].flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
                             if (vars[num_var].name[0] == 'a')
                                 is_const = 0;
                         }
@@ -1568,23 +1569,45 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 if ((op_top = estack_peek(op, ESTACK_TOP))) {
                     var_idx = op_top->var.idx;
                     if (var_idx < N_USER_VARS) {
-                        if (!vars[var_idx].vec_len) {
-                            int temp = out->num_tokens - 1, num_idx = NUM_VAR_IDXS(op_top->gen.flags);
-                            etoken t;
-                            for (i = 0; i < num_idx && temp > 0; i++)
-                                temp -= estack_get_substack_len(out, temp);
-                            t = estack_peek(out, temp);
+                        /* adjust type and vector length if necessary */
+                        int temp = out->num_tokens - 1, num_idx = NUM_VAR_IDXS(op_top->gen.flags);
+                        etoken t;
+                        for (i = 0; i < num_idx && temp > 0; i++)
+                            temp -= estack_get_substack_len(out, temp);
+                        t = estack_peek(out, temp);
+                        if (   !(vars[var_idx].flags & VEC_LEN_LOCKED)
+                            &&  (vars[var_idx].vec_len < t->gen.vec_len)) {
                             vars[var_idx].vec_len = t->gen.vec_len;
-                            if (   !(vars[var_idx].flags & TYPE_LOCKED)
-                                && vars[var_idx].datatype > t->gen.datatype) {
-                                vars[var_idx].datatype = t->gen.datatype;
+                        }
+                        if ( !(vars[var_idx].flags & TYPE_LOCKED)
+                            && vars[var_idx].datatype > t->gen.datatype) {
+                            int i = out->num_tokens;
+                            vars[var_idx].datatype = t->gen.datatype;
+                            /* upgrade earlier load of assign tokens referencing this variable */
+                            while (--i >= 0) {
+                                etoken t2 = estack_peek(out, i);
+                                if (   (TOK_VAR == t2->toktype)
+                                    && (t2->var.idx == var_idx)
+                                    && !t2->gen.casttype) {
+                                    t2->gen.casttype = t2->gen.datatype;
+                                    t2->gen.datatype = vars[var_idx].datatype;
+                                }
+                                else if (   (TOK_ASSIGN & t2->toktype)
+                                         && (t2->var.idx == var_idx)) {
+                                    int num_tokens = out->num_tokens;
+                                    t2->gen.datatype = vars[var_idx].datatype;
+                                    out->num_tokens = i + 1;
+                                    {FAIL_IF(!estack_check_type(out, vars, 1), "Malformed expression (21)");}
+                                    out->num_tokens = num_tokens;
+                                }
                             }
                         }
                         /* update and lock vector length of assigned variable */
-                        if (!(op_top->gen.flags & VEC_LEN_LOCKED))
+                        if (   !(op_top->gen.flags & VAR_VEC_IDX)
+                            && !(op_top->var.vec_idx)) {
                             op_top->gen.vec_len = vars[var_idx].vec_len;
+                        }
                         op_top->gen.datatype = vars[var_idx].datatype;
-                        op_top->gen.flags |= VEC_LEN_LOCKED;
                     }
                     /* pop assignment operators to output */
                     while (op->num_tokens && (op_top = estack_peek(op, ESTACK_TOP))) {
