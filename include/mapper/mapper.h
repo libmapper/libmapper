@@ -570,8 +570,8 @@ void mpr_map_block_instance_origin(mpr_map map, mpr_dev device);
 
 /*! @defgroup lists Lists
 
-     @{ Lists provide a data structure for retrieving multiple Objects (Devices, Signals, or Maps)
-        as a result of a query. */
+     @{ Lists provide a data structure for lazy retrieval of multiple Objects (Devices, Signals, or
+        Maps) as a result of a query. */
 
 /*! Filter a list of objects using the given property.
  *  \param list         The list of objects to filter.
@@ -624,6 +624,13 @@ mpr_list mpr_list_get_next(mpr_list list);
  *  \param list         The object list to copy.
  *  \return             A copy of the initial list.  Use `mpr_list_get_next()` to iterate. */
 mpr_list mpr_list_get_cpy(mpr_list list);
+
+/*! Compare two lists, returning zero if they are equal or a value different from zero
+ *  representing which is greater if they do not.
+ *  \param lhs          A previously allocated list to compare.
+ *  \param rhs          A previously allocated list to compare.
+ *  \return             `<0` if `lhs < rhs`; `0` if `lhs == rhs`; `>0` if `lhs > rhs`. */
+int mpr_list_cmp(mpr_list lhs, mpr_list rhs);
 
 /*! Given an object list returned from a previous object query,
  *  indicate that we are done iterating.
@@ -776,22 +783,22 @@ mpr_obj mpr_graph_get_obj(mpr_graph graph, mpr_id id, mpr_type type);
  @{ libmapper primarily uses NTP timetags for communication and synchronization. */
 
 /*! Add a time to another given time.
- *  \param augend       A previously allocated time to augment.
+ *  \param augend       A previously allocated time to modify.
  *  \param addend       A time to add. */
 void mpr_time_add(mpr_time *augend, mpr_time addend);
 
 /*! Add a double-precision floating point value to another given time.
- *  \param augend       A previously allocated time to augment.
+ *  \param augend       A previously allocated time to modify.
  *  \param addend       A value in seconds to add. */
 void mpr_time_add_dbl(mpr_time *augend, double addend);
 
 /*! Subtract a time from another given time.
- *  \param minuend      A previously allocated time to augment.
+ *  \param minuend      A previously allocated time to modify.
  *  \param subtrahend   A time to add to subtract. */
 void mpr_time_sub(mpr_time *minuend, mpr_time subtrahend);
 
 /*! Add a double-precision floating point value to another given time.
- *  \param time         A previously allocated time to multiply.
+ *  \param time         A previously allocated time to modify.
  *  \param multiplicand A value in seconds. */
 void mpr_time_mul(mpr_time *time, double multiplicand);
 
@@ -800,20 +807,21 @@ void mpr_time_mul(mpr_time *time, double multiplicand);
  *  \return             Value of the time as a double-precision float. */
 double mpr_time_as_dbl(mpr_time time);
 
-/*! Set value of a `mpr_time` from a double-precision floating point value.
- *  \param time         A previously-allocated time to set.
+/*! Set the value of a `mpr_time` from a double-precision floating point value.
+ *  \param time         A previously allocated time to set.
  *  \param value        The value in seconds to set. */
 void mpr_time_set_dbl(mpr_time *time, double value);
 
-/*! Copy value of a `mpr_time`.
+/*! Set the value of a `mpr_time` from a source `mpr_time`. The current time can be set by passing
+ *  the constant `MPR_NOW` as the second argument.
  *  \param timel        The target time for copying.
  *  \param timer        The source time. */
 void mpr_time_set(mpr_time *timel, mpr_time timer);
 
-/*! Compare two timetags, returning zero if they all match or a value different from zero
+/*! Compare two timetags, returning zero if they are equal or a value different from zero
  *  representing which is greater if they do not.
- *  \param time1        A previously allocated time to augment.
- *  \param time2        A time to add.
+ *  \param time1        A previously allocated time to compare.
+ *  \param time2        A previously allocated time to compare.
  *  \return             `<0` if `time1 < time2`; `0` if `time1 == time2`; `>0` if `time1 > time2`. */
 int mpr_time_cmp(mpr_time time1, mpr_time time2);
 

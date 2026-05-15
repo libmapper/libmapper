@@ -852,6 +852,24 @@ mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2)
                                              "vvi", &lh1, &lh2, OP_DIFFERENCE));
 }
 
+int mpr_list_cmp(mpr_list lhs, mpr_list rhs)
+{
+    mpr_list_header_t *lhs_lh, *rhs_lh;
+    if (lhs == rhs)
+        return 0;
+    else if (!rhs)
+        return 1;
+    else if (!lhs)
+        return -1;
+
+    lhs_lh = mpr_list_header_by_self(lhs);
+    rhs_lh = mpr_list_header_by_self(rhs);
+
+    if (lhs_lh->query_ctx->size == rhs_lh->query_ctx->size)
+        return memcmp(lhs_lh, rhs_lh, lhs_lh->query_ctx->size);
+    return lhs_lh->query_ctx->size > rhs_lh->query_ctx->size ? 1 : -1;
+}
+
 int mpr_list_get_size(mpr_list list)
 {
     int count = 1;
