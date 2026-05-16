@@ -150,6 +150,13 @@ void mpr_time_set(mpr_time *l, mpr_time r)
 int mpr_time_cmp(mpr_time l, mpr_time r)
 {
     register int res;
+
+    /* handle MPR_NOW arguments */
+    if (l.sec == 0 && l.frac == 1)
+        lo_timetag_now((lo_timetag*)&l);
+    if (r.sec == 0 && r.frac == 1)
+        lo_timetag_now((lo_timetag*)&r);
+
     if (l.sec == r.sec)
         res = (l.frac > r.frac) - (l.frac < r.frac);
     else
