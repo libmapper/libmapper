@@ -120,7 +120,7 @@ void mpr_value_realloc(mpr_value v, unsigned int vlen, mpr_type type, unsigned i
     for (i = 0; i < v->num_inst; i++) {
         b = &v->inst[i];
         tmp.samps = malloc(samp_size * mlen);
-        tmp.times = malloc(sizeof(mpr_time) * mlen);
+        tmp.times = calloc(1, sizeof(mpr_time) * mlen);
 
         if (b->pos < 0) {
             /* no value to copy */
