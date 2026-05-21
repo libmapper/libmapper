@@ -377,26 +377,26 @@ tests: all
 
 memtests: all
 	echo Running Valgrind tests with separate device graphs
-	for i in $(test_all_ordered); do echo Running $$i; LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/$$i -qtf; done
+	for i in $(test_all_ordered); do echo Running $$i; LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/$$i -qtf; done
 	echo Running testinstance with ephemeral destination instances
-	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/testinstance -qtf
+	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/testinstance -qtf
 	echo Running testinstance with persistent destination instances
-	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/testinstance -qtfp
+	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/testinstance -qtfp
 	echo Running testinstance_no_cb with ephemeral destination instances
-	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/testinstance_no_cb -qtf
+	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/testinstance_no_cb -qtf
 	echo Running testinstance_no_cb with persistent destination instances
-	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/testinstance_no_cb -qtfp
+	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/testinstance_no_cb -qtfp
 	echo Running Valgrind tests with shared device graphs
-	for i in $(test_all_ordered); do echo Running $$i; LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/$$i -qtfs; done
+	for i in $(test_all_ordered); do echo Running $$i; LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/$$i -qtfs; done
 	echo Running testinstance with ephemeral destination instances
-	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/testinstance -qtfs
+	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/testinstance -qtfs
 	echo Running testinstance with persistent destination instances
-	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/testinstance -qtfps
+	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/testinstance -qtfps
 	echo Running testinstance_no_cb with ephemeral destination instances
-	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/testinstance_no_cb -qtfs
+	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/testinstance_no_cb -qtfs
 	echo Running testinstance_no_cb with persistent destination instances
-	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/testinstance_no_cb -qtfps
+	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/testinstance_no_cb -qtfps
 	echo Running testparser with 200 iterations
-	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind --leak-check=full ./.libs/testparser -qtf --iterations 200
+	LD_PRELOAD=/usr/local/lib/libmapper.so valgrind -q --leak-check=full ./.libs/testparser -qtf --iterations 200
 
 endif
