@@ -34,8 +34,8 @@ public:                                                                     \
     template <typename... Values>                                           \
     CLASS_NAME& set_local_property(const Values... vals)                    \
         { Object::set_local_property(vals...); RETURN_SELF }                \
-    template <typename T>                                                   \
-    CLASS_NAME& remove_property(const T prop)                               \
+    template <typename P>                                                   \
+    CLASS_NAME& remove_property(const P prop)                               \
         { Object::remove_property(prop); RETURN_SELF }                      \
     const CLASS_NAME& push() const                                          \
         { Object::push(); RETURN_SELF }                                     \
@@ -343,16 +343,28 @@ namespace mapper {
 
         /* Copy constructor */
         List(const List& orig)
-            { _list = mpr_list_get_cpy(orig._list); }
+            : List(mpr_list_get_cpy(orig._list)) {}
+
+        friend void swap(List& first, List& second)
+        {
+            using std::swap;
+            swap(first._list, second._list);
+        }
+
+        /* Copy assignment operator */
+        List& operator=(List orig) noexcept
+        {
+            swap(*this, orig);
+            return *this;
+        }
+
         /* Move constructor */
         List(List&& orig) noexcept
             { _list = orig._list; orig._list = NULL; }
-        /* Copy assignment operator */
-        List& operator=(const List& orig) noexcept
-            { _list = mpr_list_get_cpy(orig._list); return *this; }
+
         /* Move assignment operator */
         List& operator=(List&& orig) noexcept
-            { _list = orig._list; orig._list = NULL; return *this; }
+            { std::swap(_list, orig._list); return *this; }
 
         ~List()
             { mpr_list_free(_list); }
@@ -360,9 +372,9 @@ namespace mapper {
         operator mpr_list() { return _list; }
 
         bool operator==(const List& rhs)
-            { return (_list == rhs._list); }
+            { return (0 == mpr_list_cmp(_list, rhs._list)); }
         bool operator!=(const List& rhs)
-            { return (_list != rhs._list); }
+            { return (0 != mpr_list_cmp(_list, rhs._list)); }
         List& operator++()
             { if (_list) _list = mpr_list_get_next(_list); RETURN_SELF; }
         List operator++(int)
@@ -451,6 +463,12 @@ namespace mapper {
          *  \return         Self. */
         template <typename... Values>
         List& set_property(const Values... vals);
+
+        /*! Remove properties from each Object in the List.
+         *  \param prop     The Property to remove.
+         *  \return         Self. */
+        template <typename P>
+        List& remove_property(const P prop);
 
         T operator*()
             { return _list ? T(*_list) : T(NULL); }
@@ -1406,13 +1424,13 @@ namespace mapper {
         /* The increment operator will actually decrement from num_inst toward 0 to support
          * instance release within iterators. */
         List& operator++()
-            {
-                if (--_idx < 0)
-                    _sig = NULL;
-                else if (_sig && !mpr_sig_get_inst_id(_sig, _idx, _status, NULL))
-                    _sig = NULL;
-                RETURN_SELF;
-            }
+        {
+            if (--_idx < 0)
+                _sig = NULL;
+            else if (_sig && !mpr_sig_get_inst_id(_sig, _idx, _status, NULL))
+                _sig = NULL;
+            RETURN_SELF;
+        }
         List operator++(int)
             { List tmp(*this); operator++(); return tmp; }
         List& begin()
@@ -1429,75 +1447,33 @@ namespace mapper {
          *  TODO: consider adding support, but only STATUS and DATA make sense here since all other
          *  properties are shared by all instances of this signal
          */
-//        template <typename P, typename V>
-//        List& filter(P&& property, V&& value, Operator op)
-//            { ... }
+
+        List& filter() = delete;
 
         /* Combination functions are not currently supported for lists of signal instances */
-//        /*! Add items found in List rhs to this List (without duplication).
-//         *  \param rhs          A second List.
-//         *  \return             Self. */
-//        List& join(const List& rhs)
-//            { RETURN_SELF; }
-//
-//        /*! Remove items NOT found in List rhs from this List
-//         *  \param rhs          A second List.
-//         *  \return             Self. */
-//        List& intersect(const List& rhs)
-//            { RETURN_SELF; }
-//
-//        /*! Remove items found in List rhs from this List
-//         *  \param rhs          A second list.
-//         *  \return             Self. */
-//        List& subtract(const List& rhs)
-//            { RETURN_SELF; }
-//
-//        /*! Add items found in List rhs to this List (without duplication).
-//         *  \param rhs          A second List.
-//         *  \return             A new List containing the results. */
-//        List operator+(const List& rhs) const
-//        {
-//            return List(*this);
-//        }
-//
-//        /*! Remove items NOT found in List rhs from this List
-//         *  \param rhs          A second List.
-//         *  \return             A new List containing the results. */
-//        List operator*(const List& rhs) const
-//        { return List(*this);
-//        }
-//
-//        /*! Remove items found in List rhs from this List
-//         *  \param rhs          A second List.
-//         *  \return             A new List containing the results. */
-//        List operator-(const List& rhs) const
-//        {
-//            return List(*this);
-//        }
-//
-//        /*! Add items found in List rhs to this List (without duplication).
-//         *  \param rhs          A second List.
-//         *  \return             Self. */
-//        List& operator+=(const List& rhs)
-//            { RETURN_SELF; }
-//
-//        /*! Remove items NOT found in List rhs from this List
-//         *  \param rhs          A second List.
-//         *  \return             Self. */
-//        List& operator*=(const List& rhs)
-//            { RETURN_SELF; }
-//
-//        /*! Remove items found in List rhs from this List
-//         *  \param rhs          A second List.
-//         *  \return             Self. */
-//        List& operator-=(const List& rhs)
-//            { RETURN_SELF; }
-//
-//        /*! Set properties for each Object in the List.
-//         *  \param vals     The Properties to add of modify.
-//         *  \return         Self. */
-//        template <typename... Values>
-//        List& set_property(const Values... vals);
+        List& join(const List& rhs) = delete;
+        List& intersect(const List& rhs) = delete;
+        List& subtract(const List& rhs) = delete;
+        List& operator+(const List& rhs) = delete;
+        List& operator*(const List& rhs) = delete;
+        List& operator-(const List& rhs) = delete;
+        List& operator+=(const List& rhs) = delete;
+        List& operator*=(const List& rhs) = delete;
+        List& operator-=(const List& rhs) = delete;
+
+        /*! Set properties for each Signal Instance in the List. Currently only the DATA property
+         *  is supported on a per-instance basis.
+         *  \param vals     The Properties to add of modify.
+         *  \return         Self. */
+        template <typename... Values>
+        List& set_property(const Values... vals);
+
+        /*! Remove properties from each Signal Instance in the List. Currently only the DATA
+         *  property is supported on a per-instance basis.
+         *  \param prop     The Property to remove.
+         *  \return         Self. */
+        template <typename P>
+        List& remove_property(const P prop);
 
         Signal::Instance operator*()
         {
@@ -1549,6 +1525,30 @@ namespace mapper {
                 _idx = mpr_sig_get_num_inst(_sig, _status) - 1;
             if (_idx < 0)
                 _sig = NULL;
+        }
+
+        List& remove_property(Property prop)
+        {
+            if (Property::DATA == prop) {
+                int i = 0;
+                mpr_id id;
+                while (mpr_sig_get_inst_id(_sig, i++, _status, &id)) {
+                    mpr_sig_set_inst_data(_sig, id, NULL);
+                }
+            }
+            RETURN_SELF;
+        }
+
+        List& remove_property(const str_type &key)
+        {
+            if (key && 0 == strcmp(key, "data")) {
+                int i = 0;
+                mpr_id id;
+                while (mpr_sig_get_inst_id(_sig, i++, _status, &id)) {
+                    mpr_sig_set_inst_data(_sig, id, NULL);
+                }
+            }
+            RETURN_SELF;
         }
 
     private:
@@ -2213,6 +2213,7 @@ namespace mapper {
         friend class Object;
         friend class List<Device>;
         friend class List<Signal>;
+        friend class List<Signal::Instance>;
         friend class List<Map>;
         mpr_obj parent = NULL;
 
@@ -2496,6 +2497,8 @@ namespace mapper {
             { _set(static_cast<int>(proto)); }
         void _set(Signal::Stealing stl)
             { _set(static_cast<int>(stl)); }
+        void _set(Object::Status stl)
+            { _set(static_cast<int>(stl)); }
     };
 
     template <typename... Values>
@@ -2576,8 +2579,8 @@ namespace mapper {
     inline PropVal Object::property(Property prop) const
         { return property(static_cast<mpr_prop>(prop)); }
 
-    template <typename T>
-    inline PropVal Object::operator [] (const T prop) const
+    template <typename P>
+    inline PropVal Object::operator [] (const P prop) const
         { return property(prop); }
 
     template <class T>
@@ -2626,6 +2629,49 @@ namespace mapper {
         }
         RETURN_SELF;
     }
+
+    template <class T>
+    template <typename P>
+    inline List<T>& List<T>::remove_property(const P prop)
+    {
+        mpr_list cpy = mpr_list_get_cpy(_list);
+        while (cpy) {
+            Object(*cpy).remove_property(prop);
+            cpy = mpr_list_get_next(cpy);
+        }
+        RETURN_SELF;
+    }
+
+    /* specialization for Signal Instance Lists */
+    template <typename... Values>
+    inline List<Signal::Instance>& List<Signal::Instance>::set_property(const Values... vals)
+    {
+        PropVal p(vals...);
+        if (!p)
+            RETURN_SELF;
+        printf("trying to set instance prop %d:%s\n", p.prop, p.key ?: "NULL");
+        if (p.prop == MPR_PROP_DATA || (p.key && !strcmp(p.key, "data"))) {
+            if (MPR_PTR == p.type || 1 == p.len) {
+                mpr_id id;
+                int i = 0;
+                while(mpr_sig_get_inst_id(_sig, i++, _status, &id)) {
+                    mpr_sig_set_inst_data(_sig, id, p.val.ptr);
+                }
+            }
+            else {
+                printf("DATA property must be a pointer type.\n");
+                RETURN_SELF;
+            }
+        }
+        else {
+            printf("Signal Instances do not support setting arbitrary properties.\n");
+        }
+        RETURN_SELF;
+    }
+
+//    template <typename P>
+//    inline List<Signal::Instance>& List<Signal::Instance>::remove_property(const P prop)
+//        { return List<Signal::Instance>::remove_property(prop); }
 
     inline Graph Object::graph() const
         { return Graph(mpr_obj_get_graph(_obj)); }

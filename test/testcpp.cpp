@@ -368,11 +368,14 @@ int main(int argc, char ** argv)
         out << "  {" << p.key << ": " << p << "}\t" << (p.publish ? "public" : "local") << std::endl;
     }
 
-    out << "try printing all device signals:" << std::endl;
+    out << "try setting a property for all device signals:" << std::endl;
     List<Signal> qsig = dev.signals(Direction::INCOMING);
+    qsig.set_property("label", "foo");
+
+    out << "try printing all device signals:" << std::endl;
     qsig.begin();
     for (; qsig != qsig.end(); ++qsig) {
-        out << "  input: " << *qsig << std::endl;
+        out << "  input: " << *qsig << ", label: " << (*qsig)["label"] << std::endl;
     }
 
     Graph graph;
