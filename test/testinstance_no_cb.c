@@ -144,11 +144,11 @@ test_config test_configs[] = {
 
     /* singleton convergent ––> singleton */
     { 23, SNGL, SNGL, SNGL, SNGL, MPR_LOC_SRC, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   0 },
-    { 24, SNGL, SNGL, SNGL, SNGL, MPR_LOC_DST, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   0 },
+    { 24, SNGL, SNGL, SNGL, SNGL, MPR_LOC_DST, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   1 },
 
     /* singleton convergent ==> singleton */
     { 25, SNGL, SNGL, SNGL, INST, MPR_LOC_SRC, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   0 },
-    { 26, SNGL, SNGL, SNGL, INST, MPR_LOC_DST, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   0 },
+    { 26, SNGL, SNGL, SNGL, INST, MPR_LOC_DST, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   1 },
 
     /* singleton convergent ––> instanced */
     { 27, SNGL, SNGL, INST, SNGL, MPR_LOC_SRC, NO_ACTION, NULL,  2.0,  2.0,  2.0,  2.0,  0.0,   1 },

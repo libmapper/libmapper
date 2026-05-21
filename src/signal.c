@@ -754,7 +754,7 @@ void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const cha
     link(STATUS,       MPR_INT32, &sig->obj.status,   MPR_TBL_MOD_NONE | MPR_TBL_ACC_LOC);
     link(STEAL_MODE,   MPR_INT32, &sig->steal_mode,   mod);
     link(TYPE,         MPR_TYPE,  &sig->type,         is_local ? (MPR_TBL_SET | MPR_TBL_MOD_NONE) : MPR_TBL_MOD_REM);
-    link(USE_INST,     MPR_BOOL,  &sig->use_inst,     MPR_TBL_MOD_NONE);
+    link(USE_INST,     MPR_BOOL,  &sig->use_inst,     is_local ? (MPR_TBL_SET | MPR_TBL_MOD_NONE) : MPR_TBL_MOD_REM);
     link(VERSION,      MPR_INT32, &sig->obj.version,  MPR_TBL_MOD_NONE);
 #undef link
 
@@ -1553,7 +1553,6 @@ void mpr_local_sig_release_inst_by_origin(mpr_local_sig lsig, mpr_dev origin)
             && id_map && (id_map->GID & 0xFFFFFFFF00000000) == id) {
             /* decrement the id_map's global refcount */
             mpr_dev_GID_decref(lsig->dev, lsig->group, id_map);
-
             mpr_sig_call_handler(lsig, MPR_STATUS_REL_UPSTRM, si->id, si->idx);
         }
     }
