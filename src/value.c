@@ -507,8 +507,8 @@ void mpr_value_add_to_msg(mpr_value v, unsigned int inst_idx, lo_message msg)
 
 void mpr_value_link_to_tbl(mpr_value val, mpr_tbl tbl)
 {
-    mpr_tbl_link_value(tbl, MPR_PROP_PERIOD, 1, MPR_FLT, &val->period, MOD_NONE | PROP_SET);
-    mpr_tbl_link_value(tbl, MPR_PROP_JITTER, 1, MPR_FLT, &val->jitter, MOD_NONE | PROP_SET);
+    mpr_tbl_link_value(tbl, MPR_PROP_PERIOD, 1, MPR_FLT, &val->period, MPR_TBL_MOD_NONE | MPR_TBL_SET);
+    mpr_tbl_link_value(tbl, MPR_PROP_JITTER, 1, MPR_FLT, &val->jitter, MPR_TBL_MOD_NONE | MPR_TBL_SET);
     mpr_tbl_sort(tbl);
 }
 

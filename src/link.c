@@ -96,9 +96,11 @@ void mpr_link_init(mpr_link link, mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 
     if (!link->obj.props.synced) {
         mpr_tbl t = link->obj.props.synced = mpr_tbl_new();
-        mpr_tbl_add_record(t, MPR_PROP_DEV, NULL, 2, MPR_DEV, &link->devs, MOD_NONE | LOCAL_ACCESS);
-        mpr_tbl_add_record(t, MPR_PROP_ID, NULL, 1, MPR_INT64, &link->obj.id, MOD_NONE);
-        mpr_tbl_add_record(t, MPR_PROP_NUM_MAPS, NULL, 1, MPR_INT32, &link->num_maps, MOD_NONE | INDIRECT);
+        mpr_tbl_add_record(t, MPR_PROP_DEV, NULL, 2, MPR_DEV, &link->devs,
+                           MPR_TBL_MOD_NONE | MPR_TBL_ACC_LOC);
+        mpr_tbl_add_record(t, MPR_PROP_ID, NULL, 1, MPR_INT64, &link->obj.id, MPR_TBL_MOD_NONE);
+        mpr_tbl_add_record(t, MPR_PROP_NUM_MAPS, NULL, 1, MPR_INT32, &link->num_maps,
+                           MPR_TBL_MOD_NONE | MPR_TBL_INDIRECT);
     }
     if (!link->obj.props.staged)
         link->obj.props.staged = mpr_tbl_new();
@@ -142,7 +144,7 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port, int data_
     if (!link->is_local_only) {
         char str[16];
         mpr_tbl tbl = mpr_obj_get_prop_tbl((mpr_obj)link->devs[LINK_REMOTE_DEV]);
-        mpr_tbl_add_record(tbl, MPR_PROP_PORT, NULL, 1, MPR_INT32, &data_port, MOD_REMOTE);
+        mpr_tbl_add_record(tbl, MPR_PROP_PORT, NULL, 1, MPR_INT32, &data_port, MPR_TBL_MOD_REM);
         sprintf(str, "%d", data_port);
         link->addr.data.udp = lo_address_new(host, str);
         link->addr.data.tcp = lo_address_new_with_proto(LO_TCP, host, str);

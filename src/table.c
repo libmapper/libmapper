@@ -21,8 +21,8 @@ typedef struct _mpr_tbl_record {
     void **val;
     int len;
     mpr_prop prop;
+    uint16_t flags;
     mpr_type type;
-    char flags;
 } mpr_tbl_record_t;
 
 /*! Used to hold look-up tables. */
@@ -55,6 +55,11 @@ static int compare_rec(const void *l, const void *r)
     return idx_l - idx_r;
 }
 
+void mpr_tbl_sort(mpr_tbl t)
+{
+    qsort(t->rec, t->count, sizeof(mpr_tbl_record_t), compare_rec);
+}
+
 mpr_tbl mpr_tbl_new(void)
 {
     mpr_tbl t = (mpr_tbl)calloc(1, sizeof(mpr_tbl_t));
@@ -65,27 +70,22 @@ mpr_tbl mpr_tbl_new(void)
     return t;
 }
 
-void mpr_tbl_sort(mpr_tbl t)
-{
-    qsort(t->rec, t->count, sizeof(mpr_tbl_record_t), compare_rec);
-}
-
 void mpr_tbl_clear(mpr_tbl t)
 {
-    int i, j, free_vals = 1;
+    int i, j;
     for (i = 0; i < t->count; i++) {
         mpr_tbl_record rec = &t->rec[i];
-        if (!(rec->flags & PROP_OWNED))
-            continue;
         if (rec->key)
             free((char*)rec->key);
-        if (free_vals && rec->val) {
-            void *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
-            if (val) {
+        if (rec->val) {
+            void *val = (rec->flags & MPR_TBL_INDIRECT) ? *rec->val : rec->val;
+            if (val && (rec->flags & MPR_TBL_OWNED)) {
                 switch (rec->type) {
                     case MPR_OBJ:
                     case MPR_PTR:
                     case MPR_VAL:
+                        if (rec->len > 1)
+                            free(val);
                         /* do nothing */
                         break;
                     case MPR_LIST:
@@ -102,7 +102,7 @@ void mpr_tbl_clear(mpr_tbl t)
                         free(val);
                 }
             }
-            if (rec->flags & INDIRECT)
+            if (rec->flags & MPR_TBL_INDIRECT)
                 *rec->val = 0;
         }
     }
@@ -130,9 +130,14 @@ static mpr_tbl_record add_record_internal(mpr_tbl t, mpr_prop prop, const char *
         t->rec = realloc(t->rec, t->alloced * sizeof(mpr_tbl_record_t));
     }
     rec = &t->rec[t->count-1];
-    if (MPR_PROP_EXTRA == prop)
-        flags |= MOD_ANY;
-    rec->key = key ? strdup(key) : 0;
+    if (MPR_PROP_EXTRA == prop) {
+        flags |= MPR_TBL_MOD_ANY;
+        rec->key = key ? strdup(key) : NULL;
+    }
+    else {
+        /* don't bother storing keys that are in the property table */
+        rec->key = NULL;
+    }
     rec->prop = prop;
     rec->len = len;
     rec->type = type;
@@ -147,9 +152,11 @@ int mpr_tbl_get_num_records(mpr_tbl t)
     mpr_tbl_record rec;
     for (i = 0; i < t->count; i++) {
         rec = &t->rec[i];
+        if (rec->flags & MPR_TBL_HIDDEN)
+            continue;
         if (!rec->val)
             continue;
-        if ((rec->flags & INDIRECT) && !(*rec->val))
+        if ((rec->flags & MPR_TBL_INDIRECT) && !(*rec->val))
             continue;
         ++count;
     }
@@ -174,7 +181,7 @@ mpr_prop mpr_tbl_get_record_by_key(mpr_tbl t, const char *key, int *len, mpr_typ
     mpr_prop prop = mpr_prop_from_str(key);
     mpr_tbl_record rec = mpr_tbl_get_record(t, prop, key);
 
-    if (!rec || rec->prop & PROP_REMOVE)
+    if (!rec || (rec->prop & PROP_REMOVE) || (rec->flags & MPR_TBL_HIDDEN))
         found = 0;
     if (len) {
         if (found)
@@ -195,7 +202,7 @@ mpr_prop mpr_tbl_get_record_by_key(mpr_tbl t, const char *key, int *len, mpr_typ
                 *val = mpr_value_get_value((mpr_value)rec->val, 0, 0);
             }
             else
-                *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
+                *val = (rec->flags & MPR_TBL_INDIRECT) ? *rec->val : rec->val;
             if (MPR_LIST == rec->type)
                 *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
         }
@@ -203,7 +210,7 @@ mpr_prop mpr_tbl_get_record_by_key(mpr_tbl t, const char *key, int *len, mpr_typ
             *val = NULL;
     }
     if (pub)
-        *pub = found && !(rec->flags & LOCAL_ACCESS);
+        *pub = found && !(rec->flags & MPR_TBL_ACC_LOC);
 
     return found ? MASK_PROP_BITFLAGS(rec->prop) : MPR_PROP_UNKNOWN;
 }
@@ -224,7 +231,9 @@ mpr_prop mpr_tbl_get_record_by_idx(mpr_tbl t, int prop, const char **key, int *l
         if (prop < t->count && t->count > 0) {
             for (i = 0; i < t->count; i++) {
                 rec = &t->rec[i];
-                if (!rec->val || ((rec->flags & INDIRECT) && !(*rec->val)))
+                if (   !rec->val
+                    || (rec->flags & MPR_TBL_HIDDEN)
+                    || ((rec->flags & MPR_TBL_INDIRECT) && !(*rec->val)))
                     continue;
                 if (j == prop)
                     break;
@@ -235,10 +244,14 @@ mpr_prop mpr_tbl_get_record_by_idx(mpr_tbl t, int prop, const char **key, int *l
         }
     }
 
-    if (!rec)
+    if (!rec || (rec->flags & MPR_TBL_HIDDEN))
         found = 0;
-    if (key)
-        *key = found ? (rec->key ? rec->key : mpr_prop_as_str(rec->prop, 1)) : NULL;
+    if (key) {
+        if (found)
+            *key = rec->key ? rec->key : mpr_prop_as_str(rec->prop, 1);
+        else
+            *key = NULL;
+    }
     if (len) {
         if (found)
             *len = (MPR_VAL == rec->type) ? mpr_value_get_vlen((mpr_value)rec->val) : rec->len;
@@ -253,7 +266,7 @@ mpr_prop mpr_tbl_get_record_by_idx(mpr_tbl t, int prop, const char **key, int *l
     }
     if (val) {
         if (found) {
-            *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
+            *val = (rec->flags & MPR_TBL_INDIRECT) ? *rec->val : rec->val;
             if (MPR_LIST == rec->type)
                 *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
             else if (MPR_VAL == rec->type) {
@@ -265,7 +278,7 @@ mpr_prop mpr_tbl_get_record_by_idx(mpr_tbl t, int prop, const char **key, int *l
             *val = NULL;
     }
     if (pub)
-        *pub = found && !(rec->flags & LOCAL_ACCESS);
+        *pub = found && !(rec->flags & MPR_TBL_ACC_LOC);
 
     return found ? MASK_PROP_BITFLAGS(rec->prop) : MPR_PROP_UNKNOWN;
 }
@@ -275,7 +288,7 @@ int mpr_tbl_get_record_is_writable(mpr_tbl t, mpr_prop prop)
     if (MPR_PROP_EXTRA == prop)
         return 1;
     mpr_tbl_record rec = mpr_tbl_get_record(t, prop, NULL);
-    return rec ? (rec->flags & MOD_ANY) : 1;
+    return rec ? (rec->flags & MPR_TBL_MOD_ANY) : 1;
 }
 
 int mpr_tbl_remove_record(mpr_tbl t, mpr_prop prop, const char *key, int flags)
@@ -284,7 +297,7 @@ int mpr_tbl_remove_record(mpr_tbl t, mpr_prop prop, const char *key, int flags)
 
     do {
         mpr_tbl_record rec = mpr_tbl_get_record(t, prop, key);
-        RETURN_ARG_UNLESS(rec && (flags & rec->flags & MOD_ANY) && rec->val, ret);
+        RETURN_ARG_UNLESS(rec && (flags & rec->flags & MPR_TBL_MOD_ANY) && rec->val, ret);
         prop = MASK_PROP_BITFLAGS(prop);
         if (   prop != MPR_PROP_EXTRA
             && prop != MPR_PROP_LINKED
@@ -292,10 +305,11 @@ int mpr_tbl_remove_record(mpr_tbl t, mpr_prop prop, const char *key, int flags)
             && prop != MPR_PROP_BLOCK_ORIGIN
             && prop != MPR_PROP_MAX
             && prop != MPR_PROP_MIN) {
-            if (rec->flags & INDIRECT) {
+            if (rec->flags & MPR_TBL_INDIRECT) {
                 /* set value to null rather than removing */
                 if (rec->val && *rec->val && rec->type != MPR_PTR) {
-                    free(*rec->val);
+                    if (rec->flags & MPR_TBL_OWNED)
+                        free(*rec->val);
                     *rec->val = 0;
                 }
                 rec->prop |= PROP_REMOVE;
@@ -309,15 +323,17 @@ int mpr_tbl_remove_record(mpr_tbl t, mpr_prop prop, const char *key, int flags)
         }
 
         if (rec->val && rec->type != MPR_PTR && rec->type != MPR_VAL) {
-            if ((MPR_STR == rec->type) && rec->len > 1) {
-                char **vals = (char**)rec->val;
-                for (i = 0; i < rec->len; i++)
-                    FUNC_IF(free, vals[i]);
+            if (rec->flags & MPR_TBL_OWNED) {
+                if ((MPR_STR == rec->type) && rec->len > 1) {
+                    char **vals = (char**)rec->val;
+                    for (i = 0; i < rec->len; i++)
+                        FUNC_IF(free, vals[i]);
+                }
+                if (MPR_LIST == rec->type)
+                    mpr_list_free((mpr_list)rec->val);
+                else
+                    free(rec->val);
             }
-            if (MPR_LIST == rec->type)
-                mpr_list_free((mpr_list)rec->val);
-            else
-                free(rec->val);
             rec->val = 0;
         }
         rec->prop |= PROP_REMOVE;
@@ -348,11 +364,15 @@ void mpr_tbl_clear_empty_records(mpr_tbl t)
  * instead, which does not crash. */
 static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, const void *val)
 {
-    int i, updated = 0;
+    int updated = 0, compare_len = len;
     void *old_val, *new_val, *coerced = 0;
-    mpr_prop prop_masked = MASK_PROP_BITFLAGS(rec->prop);
+    mpr_prop masked = MASK_PROP_BITFLAGS(rec->prop);
 
-    RETURN_ARG_UNLESS(len && (rec->val || !(rec->flags & INDIRECT)), 0);
+    RETURN_ARG_UNLESS(len && (rec->val || !(rec->flags & MPR_TBL_INDIRECT)), 0);
+
+    TRACE_RETURN_UNLESS(MPR_LIST != type || 1 == len, 0,
+                        "arrays of mpr_list are not currently supported\n");
+
     if (MPR_VAL == type) {
         assert(1 == len);
         if (rec->val == val)
@@ -360,7 +380,7 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, 
         rec->val = (void*)val;
         rec->type = MPR_VAL;
         rec->len = 1;
-        rec->flags |= PROP_SET;
+        rec->flags |= MPR_TBL_SET;
         return 1;
     }
     else if (MPR_VAL == rec->type) {
@@ -374,97 +394,141 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, 
         return -1 != status;
     }
 
-    old_val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
+    old_val = (rec->flags & MPR_TBL_INDIRECT) ? *rec->val : rec->val;
     new_val = old_val;
-    if (old_val && (type != rec->type || len != rec->len)) {
-        if (   rec->flags & INDIRECT
-            || (   MPR_PROP_EXTRA != prop_masked
-                && MPR_PROP_MAX != prop_masked
-                && MPR_PROP_MIN != prop_masked
-                && MPR_PROP_ALLOW_ORIGIN != prop_masked
-                && MPR_PROP_BLOCK_ORIGIN != prop_masked)) {
+
+    if (!old_val) {
+        compare_len = 0;
+        updated = 1;
+    }
+    else if (type != rec->type || len != rec->len) {
+        /* type, len, or both have changed */
+        // Do we really need to include ALLOW/BLOCK_ORIGIN in this exclusion?
+        // only the staged table uses strings for this property, otherwise linked MPR_LIST should be fine
+        if (   rec->flags & MPR_TBL_INDIRECT
+            || (MPR_PROP_EXTRA != masked && MPR_PROP_MAX != masked && MPR_PROP_MIN != masked
+                && MPR_PROP_ALLOW_ORIGIN != masked && MPR_PROP_BLOCK_ORIGIN != masked)) {
+            /* try to coerce vew value into old type and length */
             coerced = calloc(1, mpr_type_get_size(rec->type) * rec->len);
             if (-1 == mpr_set_coerced(len, type, val, rec->len, rec->type, coerced)) {
                 trace("could not coerce %c%d -> %c%d\n", type, len, rec->type, rec->len);
                 free(coerced);
                 return 0;
             }
-            trace("coerced %c%d -> %c%d\n", type, len, rec->type, rec->len);
             val = coerced;
             type = rec->type;
-            len = rec->len;
+            len = compare_len = rec->len;
         }
-        else {
-            /* free old values */
-            if (MPR_STR == rec->type && rec->len > 1) {
-                for (i = 0; i < rec->len; i++)
-                    free(((char**)old_val)[i]);
-            }
-            if (MPR_LIST == rec->type)
-                mpr_list_free((mpr_list)old_val);
-            else if (rec->len > 1 || (MPR_PTR != rec->type && MPR_GRAPH < rec->type))
-                free(old_val);
-            old_val = 0;
+        else if (type != rec->type) {
+            /* direct comparison is not possible */
+            compare_len = 0;
             updated = 1;
         }
+        else if (rec->len < len) {
+            compare_len = rec->len;
+        }
     }
+
+    /* careful here: the stage_scope() function in map.c incrementally builds string lists, so
+     * the new value could include the old values */
+
     switch (type) {
         case MPR_STR:
-            if (1 == len) {
-                if (old_val) {
-                    if (strcmp((char*)old_val, (char*)val)) {
-                        free((char*)old_val);
-                        old_val = 0;
-                        updated = 1;
-                    }
-                    else
-                        goto done;
+            if (old_val && MPR_STR == rec->type && len == rec->len) {
+                /* compare to check if value has changed */
+                if (1 == len) {
+                    DONE_IF(0 == strcmp((char*)old_val, (char*)val));
                 }
-                new_val = val ? (void*)strdup((char*)val) : 0;
+                else {
+                    int i;
+                    const char **s1 = (const char**)old_val;
+                    const char **s2 = (const char**)val;
+                    for (i = 0; i < len; i++) {
+                        if (strcmp(s1[i], s2[i]))
+                            break;
+                    }
+                    DONE_IF(i >= len);
+                }
+            }
+            if (1 == len) {
+                new_val = val ? (void*)strdup((char*)val) : NULL;
             }
             else {
+                int i;
                 const char **from = (const char**)val;
-                char **to;
-                if (!old_val)
-                    new_val = calloc(1, sizeof(char*) * len);
-                to = (char**)new_val;
-                for (i = 0; i < len; i++) {
-                    if (!to[i] || strcmp(from[i], to[i])) {
-                        int n = strlen(from[i]);
-                        to[i] = realloc(to[i], n+1);
-                        memcpy(to[i], from[i], n+1);
-                        updated = 1;
-                    }
-                }
+                char **to = new_val = malloc(sizeof(char*) * len);
+                for (i = 0; i < len; i++)
+                    to[i] = strdup(from[i]);
             }
+            updated = 1;
             break;
-        case MPR_PTR:
-        case MPR_OBJ:
         case MPR_LIST:
-            if (1 == len && (!old_val || old_val != val)) {
+            DONE_IF(1 != len);
+            DONE_IF(MPR_LIST == rec->type && 0 == mpr_list_cmp((mpr_list)old_val, (mpr_list)val));
+            new_val = mpr_list_get_cpy((mpr_list)val);
+            updated = 1;
+            break;
+        case MPR_OBJ:
+        case MPR_PTR:
+            if (1 == len) {
+                if (rec->type == type && 1 == rec->len) {
+                    DONE_IF((void*)val == old_val);
+                    new_val = (void*)val;
+                    old_val = NULL;
+                    updated = 1;
+                    break;
+                }
                 new_val = (void*)val;
                 updated = 1;
                 break;
             }
-        default: {
-            if (!old_val) {
+            /* continue */
+        default:
+            if (old_val && rec->type == type && rec->len == len) {
+                DONE_IF(0 == memcmp(old_val, val, mpr_type_get_size(type) * len));
+                /* copy in place */
+                memcpy(new_val, val, mpr_type_get_size(type) * len);
+                old_val = NULL;
+            }
+            else {
                 new_val = malloc(mpr_type_get_size(type) * len);
                 memcpy(new_val, val, mpr_type_get_size(type) * len);
-                updated = 1;
             }
-            else if ((updated = memcmp(old_val, val, mpr_type_get_size(type) * len)))
-                memcpy(new_val, val, mpr_type_get_size(type) * len);
+            updated = 1;
+    }
+
+    /* free previous value if necessary */
+    if (old_val && (rec->flags & MPR_TBL_OWNED)) {
+        switch (rec->type) {
+            case MPR_LIST:
+                mpr_list_free((mpr_list)old_val);
+                break;
+            case MPR_STR:
+                if (rec->len > 1) {
+                    int i;
+                    for (i = 0; i < rec->len; i++)
+                        free(((char**)old_val)[i]);
+                }
+                free(old_val);
+                break;
+            default:
+                // what are we freeing here with length==1? just strings?
+                if (rec->len > 1 || (MPR_PTR != rec->type && MPR_GRAPH < rec->type)) {
+                    free(old_val);
+                }
         }
     }
-    if (rec->flags & INDIRECT)
+
+    if (rec->flags & MPR_TBL_INDIRECT)
         *rec->val = new_val;
     else
         rec->val = new_val;
+
     rec->len = len;
     rec->type = type;
-    rec->flags |= PROP_SET;
 
 done:
+    rec->flags |= MPR_TBL_SET;
     FUNC_IF(free, coerced);
     return updated != 0;
 }
@@ -475,7 +539,7 @@ static int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
     int updated = 0;
     mpr_tbl_record rec = mpr_tbl_get_record(t, prop, key);
     if (rec) {
-        if (!(rec->flags & MOD_ANY)) {
+        if (!(rec->flags & MPR_TBL_MOD_ANY)) {
             trace("Property [%d] '%s' is not writable.\n", MASK_PROP_BITFLAGS(rec->prop),
                   rec->key ? rec->key : mpr_prop_as_str(MASK_PROP_BITFLAGS(rec->prop), 1));
             return 0;
@@ -488,10 +552,14 @@ static int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
         else
             rec->prop &= ~PROP_REMOVE;
         updated = t->dirty = update_elements(rec, len, type, val);
+        if (MPR_PROP_EXTRA == prop) {
+            /* also update the flags */
+            rec->flags = flags | MPR_TBL_OWNED;
+        }
     }
     else {
         /* Need to add a new entry. */
-        if (!(rec = add_record_internal(t, prop, key, 0, type, 0, flags | PROP_OWNED)))
+        if (!(rec = add_record_internal(t, prop, key, 0, type, 0, flags | MPR_TBL_OWNED)))
             return 0;
         if (val)
             update_elements(rec, len, type, val);
@@ -507,7 +575,7 @@ static int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
 int mpr_tbl_add_record(mpr_tbl t, int prop, const char *key, int len,
                        mpr_type type, const void *args, int flags)
 {
-    if (!args && !(flags & MOD_REMOTE))
+    if (!args && !(flags & MPR_TBL_MOD_REM))
         return mpr_tbl_remove_record(t, prop, key, flags);
     return set_internal(t, prop, key, len, type, args, flags);
 }
@@ -523,9 +591,11 @@ void mpr_tbl_link_value(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *
 {
     mpr_tbl_record rec = mpr_tbl_get_record(t, prop, NULL);
     if (rec) {
-        assert(len == rec->len && type == rec->type);
-        if (rec->val && rec->flags & PROP_OWNED) {
-            void *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
+        assert(len == rec->len && type == rec->type && flags == rec->flags);
+        if (len == rec->len && type == rec->type && val == rec->val)
+            return;
+        if (rec->val && rec->flags & MPR_TBL_OWNED) {
+            void *val = (rec->flags & MPR_TBL_INDIRECT) ? *rec->val : rec->val;
             if (MPR_LIST == rec->type)
                 mpr_list_free(val);
             else
@@ -612,15 +682,15 @@ int mpr_tbl_add_record_from_msg_atom(mpr_tbl t, mpr_msg_atom atom, int flags)
 
     rec = mpr_tbl_get_record(t, prop, key);
     if (rec) {
-        if (rec->flags & LOCAL_ACCESS)
-            return 0;
+        RETURN_ARG_UNLESS(!(rec->flags & MPR_TBL_ACC_LOC), 0);
+        RETURN_ARG_UNLESS(rec->flags & MPR_TBL_MOD_ANY, 0);
         updated = t->dirty = update_elements_osc(rec, len, mpr_msg_atom_get_types(atom),
                                                  mpr_msg_atom_get_values(atom));
     }
     else {
         /* Need to add a new entry. */
         const mpr_type *types = mpr_msg_atom_get_types(atom);
-        if (!(rec = add_record_internal(t, prop, key, 0, types[0], 0, flags | PROP_OWNED)))
+        if (!(rec = add_record_internal(t, prop, key, 0, types[0], 0, flags | MPR_TBL_OWNED)))
             return 0;
         rec->val = 0;
         update_elements_osc(rec, len, types, mpr_msg_atom_get_values(atom));
@@ -677,22 +747,22 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
     char temp[256];
     int len = 0, indirect, masked;
     void *val;
-    mpr_list list = NULL;
-    RETURN_UNLESS(!(rec->flags & LOCAL_ACCESS));
-    RETURN_UNLESS(rec->flags & PROP_SET);
 
-    indirect = rec->flags & INDIRECT;
+    /* do not add record if it is hidden or local-access only */
+    RETURN_UNLESS(!(rec->flags & (MPR_TBL_ACC_LOC)));
+
+    /* do not add record if the value is not set */
+    RETURN_UNLESS(rec->flags & MPR_TBL_SET);
+
+    indirect = rec->flags & MPR_TBL_INDIRECT;
     masked = MASK_PROP_BITFLAGS(rec->prop);
     val = rec->val ? (indirect ? *rec->val : rec->val) : NULL;
 
-    if (MPR_LIST == rec->type) {
-        /* use a copy of the list */
-        list = mpr_list_get_cpy((mpr_list)val);
-        list = mpr_list_start(list);
-    }
+    if (rec->flags & MPR_TBL_HIDDEN && MPR_LIST != rec->type)
+        return;
 
-    DONE_UNLESS(val || masked == MPR_PROP_EXTRA);
-    DONE_UNLESS(masked != MPR_PROP_DEV && masked != MPR_PROP_SIG && masked != MPR_PROP_SLOT);
+    RETURN_UNLESS(val || masked == MPR_PROP_EXTRA);
+    RETURN_UNLESS(masked != MPR_PROP_DEV && masked != MPR_PROP_SIG && masked != MPR_PROP_SLOT);
 
     if (rec->prop & PROP_ADD) {
         snprintf(temp, 256, "+");
@@ -713,7 +783,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
 
     if (masked < 0 || masked > MPR_PROP_EXTRA) {
         trace("skipping malformed property.\n");
-        goto done;
+        return;
     }
     if (masked == MPR_PROP_EXTRA) {
         snprintf(temp + len, 256 - len, "@%s", rec->key);
@@ -727,7 +797,9 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
         /* can use static string */
         lo_message_add_string(msg, mpr_prop_as_str(masked, 0));
     }
-    DONE_UNLESS(val && rec->len);
+
+    RETURN_UNLESS(val && rec->len);
+
     /* add value */
     switch (masked) {
         case MPR_PROP_DIR: {
@@ -762,18 +834,22 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
         case MPR_PROP_SLOT:
             /* do nothing */
             break;
-        case MPR_PROP_LINKED:
         case MPR_PROP_ALLOW_ORIGIN:
-        case MPR_PROP_BLOCK_ORIGIN: {
+        case MPR_PROP_BLOCK_ORIGIN:
+        case MPR_PROP_LINKED: {
             if (MPR_LIST == rec->type) {
-                if (!list) {
-                    lo_message_add_string(msg, "none");
-                    break;
+                if (rec->flags & MPR_TBL_HIDDEN) {
+                    lo_message_add_string(msg, "all");
                 }
-                while (list) {
-                    const char *key = mpr_obj_get_prop_as_str((mpr_obj)*list, MPR_PROP_NAME, NULL);
-                    lo_message_add_string(msg, key);
-                    list = mpr_list_get_next(list);
+                else {
+                    mpr_list list = mpr_list_start(mpr_list_get_cpy((mpr_list)val));
+                    if (!list)
+                        lo_message_add_string(msg, "none");
+                    while (list) {
+                        const char *key = mpr_obj_get_prop_as_str((mpr_obj)*list, MPR_PROP_NAME, NULL);
+                        lo_message_add_string(msg, key);
+                        list = mpr_list_get_next(list);
+                    }
                 }
                 break;
             }
@@ -783,9 +859,6 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
             _add_typed_val(msg, rec->len, rec->type, indirect ? *rec->val : rec->val);
             break;
     }
-  done:
-    if (list)
-        mpr_list_free(list);
 }
 
 void mpr_tbl_add_to_msg(mpr_tbl tbl, mpr_tbl new, lo_message msg)
@@ -818,13 +891,13 @@ void mpr_tbl_set_is_dirty(mpr_tbl tbl, int dirty)
 int mpr_tbl_get_prop_is_set(mpr_tbl tbl, mpr_prop prop)
 {
     mpr_tbl_record rec = mpr_tbl_get_record(tbl, prop, NULL);
-    return rec && (rec->flags & PROP_SET);
+    return rec && (rec->flags & MPR_TBL_SET);
 }
 
 void mpr_tbl_set_prop_is_set(mpr_tbl tbl, mpr_prop prop)
 {
     mpr_tbl_record rec = mpr_tbl_get_record(tbl, prop, NULL);
-    rec->flags |= PROP_SET;
+    rec->flags |= MPR_TBL_SET;
 }
 
 #ifdef DEBUG
@@ -869,20 +942,22 @@ void mpr_tbl_print_record(mpr_tbl_record rec)
         printf("(%s) ", mpr_prop_as_str(rec->prop, 1));
     if (rec->prop & PROP_REMOVE)
         printf("[REMOVED]");
-    else if (rec->flags & (INDIRECT | PROP_OWNED)) {
+    else if (rec->flags & (MPR_TBL_HIDDEN | MPR_TBL_INDIRECT | MPR_TBL_OWNED)) {
         printf("[");
-        if (rec->flags & INDIRECT)
-            printf("INDIRECT%s", rec->flags & PROP_OWNED ? ", " : "");
-        if (rec->flags & PROP_OWNED)
-            printf("OWNED");
-        printf("]");
+        if (rec->flags & MPR_TBL_HIDDEN)
+            printf("HIDDEN, ");
+        if (rec->flags & MPR_TBL_INDIRECT)
+            printf("INDIRECT, ");
+        if (rec->flags & MPR_TBL_OWNED)
+            printf("OWNED, ");
+        printf("\b\b]");
     }
     printf(": %s[%d] : ", type_name(rec->type), rec->len);
-    if ((rec->flags & INDIRECT) && !rec->val) {
+    if ((rec->flags & MPR_TBL_INDIRECT) && !rec->val) {
         printf("<NULL>");
         return;
     }
-    val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
+    val = (rec->flags & MPR_TBL_INDIRECT) ? *rec->val : rec->val;
     switch (rec->type) {
         case MPR_VAL: {
             int len = mpr_value_get_vlen((mpr_value)val);
@@ -892,9 +967,6 @@ void mpr_tbl_print_record(mpr_tbl_record rec)
             mpr_prop_print(len, type, val);
             break;
         }
-        case MPR_LIST:
-            /* do not break */
-            val = mpr_list_start(mpr_list_get_cpy((mpr_list)val));
         default:
             mpr_prop_print(rec->len, rec->type, val);
     }

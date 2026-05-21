@@ -268,7 +268,7 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
     /* MPR_PROP_DATA and MPR_PROP_SYNCED always refer to a local property even if obj is remote */
     if (!o->props.staged || !publish || p == MPR_PROP_DATA || p == MPR_PROP_SYNCED) {
         tbl = o->props.synced;
-        flags = MOD_LOCAL;
+        flags = MPR_TBL_MOD_LOC;
     }
     else {
         /* Check if the synced property is writable before trying to edit staged table */
@@ -282,13 +282,13 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
             && o->is_local
             && MPR_PROP_EXTRA == p) {
             /* we will update the private record in synced table and make it public */
-            mpr_tbl_set_record_flags(o->props.synced, MPR_PROP_EXTRA, s, 0, LOCAL_ACCESS);
+            mpr_tbl_set_record_flags(o->props.synced, MPR_PROP_EXTRA, s, 0, MPR_TBL_ACC_LOC);
         }
         tbl = o->props.staged;
-        flags = MOD_REMOTE;
+        flags = MPR_TBL_MOD_REM;
     }
-    if (!publish)
-        flags |= LOCAL_ACCESS;
+    if (!publish || p == MPR_PROP_DATA || p == MPR_PROP_SYNCED || MPR_PTR == type)
+        flags |= MPR_TBL_ACC_LOC;
     updated = mpr_tbl_add_record(tbl, p, s, len, type, val, flags);
     if (updated && o->is_local && (tbl == o->props.staged))
         mpr_obj_incr_version(o);
@@ -300,7 +300,7 @@ int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
     int updated = 0, public = 0;
 
     if (MPR_PROP_DATA == p || o->is_local)
-        updated = mpr_tbl_remove_record(o->props.synced, p, s, MOD_LOCAL);
+        updated = mpr_tbl_remove_record(o->props.synced, p, s, MPR_TBL_MOD_LOC);
     else if (MPR_PROP_UNKNOWN == p || MPR_PROP_EXTRA == p) {
         if (s)
             p = mpr_tbl_get_record_by_key(o->props.synced, s, NULL, NULL, NULL, &public);
@@ -309,9 +309,9 @@ int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
         if (MPR_PROP_UNKNOWN == p)
             return 0;
         if (public)
-            updated = mpr_tbl_add_record(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, MOD_REMOTE);
+            updated = mpr_tbl_add_record(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, MPR_TBL_MOD_REM);
         else
-            updated = mpr_tbl_remove_record(o->props.synced, p, s, MOD_LOCAL);
+            updated = mpr_tbl_remove_record(o->props.synced, p, s, MPR_TBL_MOD_LOC);
     }
     else
         trace("Cannot remove static property [%d] '%s'\n", p, s ? s : mpr_prop_as_str(p, 1));
@@ -418,6 +418,7 @@ void mpr_obj_print(mpr_obj o, int include_props)
     num_props = mpr_tbl_get_num_records(o->props.synced);
     for (i = 0; i < num_props; i++) {
         p = mpr_tbl_get_record_by_idx(o->props.synced, i, &key, &len, &type, &val, 0);
+        die_unless(p != 0, "returned unknown property\n");
         die_unless(val != 0 || MPR_LIST == type, "returned zero value\n");
 
         /* already printed this */

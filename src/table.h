@@ -11,16 +11,17 @@ typedef struct _mpr_tbl_record *mpr_tbl_record;
 #define MPR_VAL 'V' /* 0x56 */
 
 /* bit flags for tracking permissions for modifying properties */
-#define MOD_NONE        0x00    /* 00000000 */
-#define MOD_LOCAL       0x01    /* 00000001 */
-#define MOD_REMOTE      0x02    /* 00000010 */
-#define MOD_ANY         0x03    /* 00000011 */
-#define LOCAL_ACCESS    0x04    /* 00000100 */
-#define MUTABLE_TYPE    0x08    /* 00001000 */
-#define MUTABLE_LENGTH  0x10    /* 00010000 */
-#define INDIRECT        0x20    /* 00100000 */
-#define PROP_OWNED      0x40    /* 01000000 */
-#define PROP_SET        0x80    /* 10000000 */
+#define MPR_TBL_MOD_NONE    0x0000    /* 0000000000000000 */
+#define MPR_TBL_MOD_LOC     0x0001    /* 0000000000000001 */
+#define MPR_TBL_MOD_REM     0x0002    /* 0000000000000010 */
+#define MPR_TBL_MOD_ANY     0x0003    /* 0000000000000011 */
+#define MPR_TBL_ACC_LOC     0x0004    /* 0000000000000100 */
+#define MPR_TBL_MUT_TYPE    0x0008    /* 0000000000001000 */
+#define MPR_TBL_MUT_LEN     0x0010    /* 0000000000010000 */
+#define MPR_TBL_INDIRECT    0x0020    /* 0000000000100000 */
+#define MPR_TBL_OWNED       0x0040    /* 0000000001000000 */
+#define MPR_TBL_SET         0x0080    /* 0000000010000000 */
+#define MPR_TBL_HIDDEN      0x0100    /* 0000000100000000 */
 
 /*! Create a new string table. */
 mpr_tbl mpr_tbl_new(void);

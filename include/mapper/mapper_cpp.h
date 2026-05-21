@@ -840,7 +840,7 @@ namespace mapper {
          *                  setting will allow instance updates originating at this device to be
          *                  propagated across the Map.
          *  \return         Self. */
-        inline Map& allow_instance_origin(const Device& dev);
+        inline Map& allow_origin(const Device& dev);
 
         /*! Remove an instance origin scope from this Map. Map instance origin scope configures the
          *  propagation of signal instance updates across the map. Changes to remote maps will not
@@ -849,7 +849,7 @@ namespace mapper {
          *                  effect, this setting will cause instance updates originating at this
          *                  device to be blocked from propagating across the Map.
          *  \return         Self. */
-        inline Map& block_instance_origin(const Device& dev);
+        inline Map& block_origin(const Device& dev);
 
         /*! Get the index of the Map endpoint matching a specific Signal.
          *  \param sig      The Signal to look for.
@@ -2641,11 +2641,11 @@ namespace mapper {
     inline signal_type::signal_type(const Signal& sig)
         { _sig = (mpr_sig)sig; }
 
-    inline Map& Map::allow_instance_origin(const Device& dev)
-        { mpr_map_allow_instance_origin(_obj, mpr_dev(dev)); RETURN_SELF }
+    inline Map& Map::allow_origin(const Device& dev)
+        { mpr_map_allow_origin(_obj, mpr_dev(dev)); RETURN_SELF }
 
-    inline Map& Map::block_instance_origin(const Device& dev)
-        { mpr_map_block_instance_origin(_obj, mpr_dev(dev)); RETURN_SELF }
+    inline Map& Map::block_origin(const Device& dev)
+        { mpr_map_block_origin(_obj, mpr_dev(dev)); RETURN_SELF }
 
     inline Device Signal::device() const
         { return Device(mpr_sig_get_dev(_obj)); }

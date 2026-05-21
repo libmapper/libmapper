@@ -171,61 +171,59 @@ void ctrlc(int signal)
     done = 1;
 }
 
-int check_map_scopes(mpr_map map, int expect_len, mpr_type expect_type,
-                     mpr_dev *expect_devs, const char *expect_str) {
+int check_map_scopes(mpr_map map, mpr_prop prop, int origin_len, mpr_dev *origin_devs) {
     const void *val;
     mpr_type type;
     int len;
     mpr_list list;
+    const char *prop_name = (MPR_PROP_ALLOW_ORIGIN == prop) ? "ALLOW" : "BLOCK";
 
-    if (!mpr_obj_get_prop_by_idx(map, MPR_PROP_ALLOW_ORIGIN, NULL, &len, &type, &val, NULL)) {
-        eprintf("Error: map ALLOW_ORIGIN property not found\n");
-        return 1;
-    }
-    if (len != 1 || type != expect_type) {
-        eprintf("Error: map ALLOW_ORIGIN property has len %d and type %c (expected %d and %c)\n",
-                len, type, expect_len, expect_type);
-        return 1;
-    }
-
-    if (MPR_LIST == type) {
+    prop = mpr_obj_get_prop_by_idx(map, prop, NULL, &len, &type, &val, NULL);
+    if (prop) {
+        if (origin_len < 0) {
+            eprintf("Error: %s property should be hidden but was found\n", prop_name);
+            return 1;
+        }
+        if (1 != len || MPR_LIST != type) {
+            eprintf("Error: %s property has len %d and type %c (expected 1 and MPR_LIST)\n",
+                    prop_name, len, type);
+            return 1;
+        }
         list = (mpr_list)val;
+        len = mpr_list_get_size(list);
+        if (origin_len != len) {
+            eprintf("Error: %s origin list has %d entries but should have %d\n",
+                    prop_name, len, origin_len);
+            return 1;
+        }
         if (verbose) {
-            printf("  allowed origins: [");
-            mpr_list cpy = mpr_list_get_cpy(list);
+            printf("  %s origins: [", prop_name);
+            mpr_list cpy = mpr_list_get_cpy((mpr_list)val);
             if (cpy) {
                 while (cpy) {
                     printf("%s, ", mpr_obj_get_prop_as_str((mpr_obj)*cpy, MPR_PROP_NAME, NULL));
                     cpy = mpr_list_get_next(cpy);
                 }
-                printf("\b\b]\n");
+                printf("\b\b");
             }
-            else
-                printf("]\n");
+            printf("]\n");
         }
-
-        len = mpr_list_get_size(list);
-        if (len != expect_len) {
-            eprintf("Error: map has %d allowed origins (should be %d)\n", len, expect_len);
-            return 1;
-        }
-
         while (list) {
             mpr_dev origin = (mpr_dev)*list;
             int i, found = 0;
             for (i = 0; i < len; i++) {
                 if (   mpr_obj_get_prop_as_int64((mpr_obj)origin, MPR_PROP_ID, NULL)
-                    == mpr_obj_get_prop_as_int64((mpr_obj)expect_devs[i], MPR_PROP_ID, NULL)) {
+                    == mpr_obj_get_prop_as_int64((mpr_obj)origin_devs[i], MPR_PROP_ID, NULL)) {
                     found = 1;
                     break;
                 }
             }
             if (!found) {
                 if (verbose) {
-                    printf("Error: couldn't find origin device '%s' in [",
+                    printf("Error: couldn't find %s origin device '%s' in [", prop_name,
                            mpr_obj_get_prop_as_str(origin, MPR_PROP_NAME, NULL));
                     for (i = 0; i < len; i++)
-                        printf("%s, ", mpr_obj_get_prop_as_str((mpr_obj)expect_devs[i],
+                        printf("%s, ", mpr_obj_get_prop_as_str((mpr_obj)origin_devs[i],
                                                                MPR_PROP_NAME, NULL));
                     printf("\b\b]\n");
                 }
@@ -236,63 +234,79 @@ int check_map_scopes(mpr_map map, int expect_len, mpr_type expect_type,
             ++i;
         }
     }
-    else if (MPR_STR == type) {
-        if (1 != len) {
-            eprintf("Error: map has %d allowed origins (expected 1)\n", len);
-            return 1;
-        }
-        if (strcmp((const char*)val, expect_str)) {
-            eprintf("Error: map has allowed origin '%s' (expected '%s')\n", (const char*)val, expect_str);
-            return 1;
-        }
+    else if (origin_len >= 0) {
+        eprintf("Error: %s property was hidden but should be visible\n", prop_name);
+        return 1;
     }
     return 0;
 }
 
 int check_scopes(int mode)
 {
+    /* maps[0] */
     if (verbose) {
-        printf("Checking ");
+        printf("Checking maps[0]: ");
         mpr_obj_print(maps[0], 0);
     }
     switch (mode) {
         case 0:
-            /* map[0] should have allowed origin 'all' */
-            if (check_map_scopes(maps[0], 1, MPR_STR, devs, "all"))
+            /* all origins allowed (default) */
+            /* maps[0] should have hidden allow_origin property */
+            if (check_map_scopes(maps[0], MPR_PROP_ALLOW_ORIGIN, -1, NULL))
+                return 1;
+            /* maps[0] should have empty block_origin list */
+            if (check_map_scopes(maps[0], MPR_PROP_BLOCK_ORIGIN, 0, NULL))
                 return 1;
             break;
         case 1:
-            /* map[0] should have empty allowed origin list */
-            if (check_map_scopes(maps[0], 0, MPR_LIST, NULL, NULL))
+            /* maps[0] should have empty allow_origin list */
+            if (check_map_scopes(maps[0], MPR_PROP_ALLOW_ORIGIN, 0, NULL))
+                return 1;
+            /* maps[0] should have hidden block_origin property */
+            if (check_map_scopes(maps[0], MPR_PROP_BLOCK_ORIGIN, -1, NULL))
                 return 1;
             break;
         case 2:
-            /* map[0] should have allowed origins [devs[1], devs[2]] */
-            if (check_map_scopes(maps[0], 2, MPR_LIST, &devs[1], NULL))
+            /* maps[0] should have 2 elements on allow_origin list */
+            if (check_map_scopes(maps[0], MPR_PROP_ALLOW_ORIGIN, 2, &devs[1]))
+                return 1;
+            /* maps[0] should have hidden block_origin property */
+            if (check_map_scopes(maps[0], MPR_PROP_BLOCK_ORIGIN, -1, NULL))
                 return 1;
             break;
         default:
             return 1;
     }
 
+    /* maps[1] */
     if (verbose) {
-        printf("Checking ");
+        printf("Checking maps[1]: ");
         mpr_obj_print(maps[1], 0);
     }
     switch (mode) {
         case 0:
-            /* map[1] should have empty allowed origin list */
-            if (check_map_scopes(maps[1], 0, MPR_LIST, NULL, NULL))
+            /* all origins blocked */
+            /* maps[1] should have empty allow_origin list */
+            if (check_map_scopes(maps[1], MPR_PROP_ALLOW_ORIGIN, 0, NULL))
+                return 1;
+            /* maps[1] should have hidden block_origin property */
+            if (check_map_scopes(maps[1], MPR_PROP_BLOCK_ORIGIN, -1, NULL))
                 return 1;
             break;
         case 1:
-            /* map[1] should have allowed origins [devs[0], devs[1]] */
-            if (check_map_scopes(maps[1], 2, MPR_LIST, devs, NULL))
+            /* maps[1] should have 2 elements in allow_origin list */
+            if (check_map_scopes(maps[1], MPR_PROP_ALLOW_ORIGIN, 2, devs))
+                return 1;
+            /* maps[1] should have hidden block_origin property */
+            if (check_map_scopes(maps[1], MPR_PROP_BLOCK_ORIGIN, -1, NULL))
                 return 1;
             break;
         case 2:
-            /* map[1] should have allowed origin [devs[0]] */
-            if (check_map_scopes(maps[1], 1, MPR_LIST, devs, NULL))
+            /* maps[1] should have 1 element in allow_origin list */
+            if (check_map_scopes(maps[1], MPR_PROP_ALLOW_ORIGIN, 1, &devs[1]))
+                return 1;
+            /* maps[1] should have hidden block_origin property */
+            if (check_map_scopes(maps[1], MPR_PROP_BLOCK_ORIGIN, -1, NULL))
                 return 1;
             break;
         default:
@@ -374,7 +388,7 @@ int main(int argc, char **argv)
 
     eprintf("Test 1:\n");
     eprintf("  Blocking all origins from map 1\n");
-    mpr_map_block_instance_origin(maps[1], NULL);
+    mpr_map_block_origin(maps[1], NULL);
     mpr_obj_push((mpr_obj)maps[1]);
     wait_ready(3);
 
@@ -402,16 +416,19 @@ int main(int argc, char **argv)
         goto done;
     }
 
+    if (!verbose)
+        printf("\n");
+
     eprintf("Test 2:\n");
     eprintf("  Blocking all origins from map 0\n");
-    mpr_map_block_instance_origin(maps[0], NULL);
+    mpr_map_block_origin(maps[0], NULL);
     mpr_obj_push((mpr_obj)maps[0]);
 
     eprintf("  Allowing origins ['%s', '%s'] on map 1\n",
             mpr_obj_get_prop_as_str((mpr_obj)devs[0], MPR_PROP_NAME, NULL),
             mpr_obj_get_prop_as_str((mpr_obj)devs[1], MPR_PROP_NAME, NULL));
-    mpr_map_allow_instance_origin(maps[1], devs[0]);
-    mpr_map_allow_instance_origin(maps[1], devs[1]);
+    mpr_map_allow_origin(maps[1], devs[0]);
+    mpr_map_allow_origin(maps[1], devs[1]);
     mpr_obj_push((mpr_obj)maps[1]);
     wait_ready(3);
 
@@ -442,17 +459,20 @@ int main(int argc, char **argv)
         goto done;
     }
 
+    if (!verbose)
+        printf("\n");
+
     eprintf("Test 3:\n");
     eprintf("  Allowing origins ['%s', '%s'] on map 0\n",
             mpr_obj_get_prop_as_str((mpr_obj)devs[1], MPR_PROP_NAME, NULL),
             mpr_obj_get_prop_as_str((mpr_obj)devs[2], MPR_PROP_NAME, NULL));
-    mpr_map_allow_instance_origin(maps[0], devs[1]);
-    mpr_map_allow_instance_origin(maps[0], devs[2]);
+    mpr_map_allow_origin(maps[0], devs[1]);
+    mpr_map_allow_origin(maps[0], devs[2]);
     mpr_obj_push((mpr_obj)maps[0]);
 
     eprintf("  Blocking origin '%s' on map 1\n",
             mpr_obj_get_prop_as_str((mpr_obj)devs[0], MPR_PROP_NAME, NULL));
-    mpr_map_block_instance_origin(maps[1], devs[1]);
+    mpr_map_block_origin(maps[1], devs[0]);
     mpr_obj_push((mpr_obj)maps[1]);
 
     wait_ready(3);

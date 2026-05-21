@@ -206,30 +206,30 @@ public class Map : Mapper.Object
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern int mpr_map_allow_instance_origin(IntPtr map, IntPtr dev);
+    private static extern int mpr_map_allow_origin(IntPtr map, IntPtr dev);
 
     /// <summary>
     ///     Add an instance origin scope to this map.
     /// </summary>
     /// <param name="device">The device to add as an instance origin scope for this map</param>
     /// <returns>The same map instance to allow for chaining</returns>
-    public Map AllowInstanceOrigin(Device device)
+    public Map AllowOrigin(Device device)
     {
-        mpr_map_allow_instance_origin(NativePtr, device.NativePtr);
+        mpr_map_allow_origin(NativePtr, device.NativePtr);
         return this;
     }
 
     [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    private static extern int mpr_map_block_instance_origin(IntPtr map, IntPtr dev);
+    private static extern int mpr_map_block_origin(IntPtr map, IntPtr dev);
 
     /// <summary>
     ///     Remove a signal instance origin scope from this map.
     /// </summary>
     /// <param name="device">The device to remove as a signal instance origin scope from this map</param>
     /// <returns>The same map instance to allow for chaining</returns>
-    public Map BlockInstanceOrigin(Device device)
+    public Map BlockOrigin(Device device)
     {
-        mpr_map_block_instance_origin(NativePtr, device.NativePtr);
+        mpr_map_block_origin(NativePtr, device.NativePtr);
         return this;
     }
 }

@@ -1717,7 +1717,7 @@ class Map(Object):
         return 0 != mpr.mpr_map_get_is_ready(self._obj)
     ready = property(get_is_ready)
 
-    def allow_instance_origin(self, device):
+    def allow_origin(self, device):
         """
         Add a map instance origin scope
 
@@ -1735,12 +1735,12 @@ class Map(Object):
         """
 
         if isinstance(device, Device):
-            mpr.mpr_map_allow_instance_origin.argtypes = [c_void_p, c_void_p]
-            mpr.mpr_map_allow_instance_origin.restype = None
-            mpr.mpr_map_allow_instance_origin(self._obj, device._obj)
+            mpr.mpr_map_allow_origin.argtypes = [c_void_p, c_void_p]
+            mpr.mpr_map_allow_origin.restype = None
+            mpr.mpr_map_allow_origin(self._obj, device._obj)
         return self
 
-    def block_instance_origin(self, device):
+    def block_origin(self, device):
         """
         Block a map instance origin scope
 
@@ -1758,9 +1758,9 @@ class Map(Object):
         """
 
         if isinstance(device, Device):
-            mpr.mpr_map_block_instance_origin.argtypes = [c_void_p, c_void_p]
-            mpr.mpr_map_block_instance_origin.restype = None
-            mpr.mpr_map_block_instance_origin(self._obj, device._obj)
+            mpr.mpr_map_block_origin.argtypes = [c_void_p, c_void_p]
+            mpr.mpr_map_block_origin.restype = None
+            mpr.mpr_map_block_origin(self._obj, device._obj)
         return self
 
 class Graph(Object):

@@ -34,8 +34,8 @@ public class Map extends mapper.Object
     public native Map refresh();
 
     /* property: instance origin scopes */
-    public native Map allowInstanceOrigin(mapper.Device dev);
-    public native Map blockInstanceOrigin(mapper.Device dev);
+    public native Map allowOrigin(mapper.Device dev);
+    public native Map blockOrigin(mapper.Device dev);
 
     /* property: ready */
     public native boolean ready();

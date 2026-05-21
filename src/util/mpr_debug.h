@@ -20,7 +20,7 @@ void print_subscription_flags(int flags);
 
 #define RETURN_UNLESS(condition) { if (!(condition)) { return; }}
 #define RETURN_ARG_UNLESS(condition, arg) { if (!(condition)) { return arg; }}
-#define DONE_UNLESS(condition) { if (!(condition)) { goto done; }}
+#define DONE_IF(condition) { if (condition) { goto done; }}
 #define FUNC_IF(func, arg) { if (arg) { func(arg); }}
 
 #if DEBUG

@@ -43,7 +43,6 @@ static int get_inst_by_ids(mpr_local_sig lsig, mpr_id *LID, mpr_id *GID);
     mpr_obj_t obj;              /* always first */                                      \
     char *path;                 /*! OSC path.  Must start with '/'. */                  \
     char *name;                 /*! The name of this signal (path+1). */                \
-    char *unit;                 /*!< The unit of this signal, or NULL for N/A. */       \
     int dir;                    /*!< `DIR_OUTGOING` / `DIR_INCOMING` / `DIR_BOTH` */    \
     int len;                    /*!< Length of the signal vector, or 1 for scalars. */  \
     int use_inst;               /*!< 1 if signal uses instances, 0 otherwise. */        \
@@ -714,7 +713,7 @@ void mpr_local_sig_add_to_net(mpr_local_sig sig, mpr_net net)
 void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const char *name, int len,
                   mpr_type type, const char *unit, const void *min, const void *max, int *num_inst)
 {
-    int str_len, mod = is_local ? MOD_ANY : MOD_NONE;
+    int str_len, mod = is_local ? MPR_TBL_MOD_LOC : MPR_TBL_MOD_REM;
     mpr_tbl tbl;
     RETURN_UNLESS(name);
 
@@ -729,7 +728,6 @@ void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const cha
     sig->len = len;
     sig->type = type;
     sig->dir = dir ? dir : MPR_DIR_OUT;
-    sig->unit = unit ? strdup(unit) : strdup("unknown");
     sig->ephemeral = 0;
     sig->steal_mode = MPR_STEAL_NONE;
 
@@ -740,32 +738,33 @@ void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const cha
 
     /* these properties need to be added in alphabetical order */
 #define link(PROP, TYPE, DATA, FLAGS) \
-    mpr_tbl_link_value(tbl, MPR_PROP_##PROP, 1, TYPE, DATA, FLAGS | PROP_SET);
-    link(DATA,         MPR_PTR,   &sig->obj.data,     MOD_LOCAL | INDIRECT | LOCAL_ACCESS);
-    link(DEV,          MPR_DEV,   &sig->dev,          MOD_NONE | INDIRECT | LOCAL_ACCESS);
-    link(DIR,          MPR_INT32, &sig->dir,          MOD_ANY);
+    mpr_tbl_link_value(tbl, MPR_PROP_##PROP, 1, TYPE, DATA, FLAGS | MPR_TBL_SET);
+    link(DATA,         MPR_PTR,   &sig->obj.data,     MPR_TBL_MOD_LOC | MPR_TBL_INDIRECT | MPR_TBL_ACC_LOC);
+    link(DEV,          MPR_DEV,   &sig->dev,          MPR_TBL_MOD_NONE | MPR_TBL_INDIRECT | MPR_TBL_ACC_LOC);
+    link(DIR,          MPR_INT32, &sig->dir,          mod);
     link(EPHEM,        MPR_BOOL,  &sig->ephemeral,    mod);
-    link(ID,           MPR_INT64, &sig->obj.id,       MOD_NONE);
-    link(LEN,          MPR_INT32, &sig->len,          MOD_NONE);
-    link(NAME,         MPR_STR,   &sig->name,         MOD_NONE | INDIRECT);
-    link(NUM_INST,     MPR_INT32, &sig->num_inst,     MOD_NONE);
-    link(NUM_MAPS_IN,  MPR_INT32, &sig->num_maps_in,  MOD_NONE);
-    link(NUM_MAPS_OUT, MPR_INT32, &sig->num_maps_out, MOD_NONE);
-    link(STATUS,       MPR_INT32, &sig->obj.status,   MOD_NONE | LOCAL_ACCESS);
-    link(STEAL_MODE,   MPR_INT32, &sig->steal_mode,   MOD_ANY);
-    link(TYPE,         MPR_TYPE,  &sig->type,         MOD_NONE);
-    link(UNIT,         MPR_STR,   &sig->unit,         mod | INDIRECT);
-    link(USE_INST,     MPR_BOOL,  &sig->use_inst,     MOD_NONE);
-    link(VERSION,      MPR_INT32, &sig->obj.version,  MOD_NONE);
+    link(ID,           MPR_INT64, &sig->obj.id,       MPR_TBL_MOD_NONE);
+    link(LEN,          MPR_INT32, &sig->len,          is_local ? (MPR_TBL_SET | MPR_TBL_MOD_NONE) : MPR_TBL_MOD_REM);
+    link(NAME,         MPR_STR,   &sig->name,         MPR_TBL_MOD_NONE | MPR_TBL_INDIRECT);
+    link(NUM_INST,     MPR_INT32, &sig->num_inst,     is_local ? (MPR_TBL_SET | MPR_TBL_MOD_NONE) : MPR_TBL_MOD_REM);
+    link(NUM_MAPS_IN,  MPR_INT32, &sig->num_maps_in,  MPR_TBL_MOD_NONE);
+    link(NUM_MAPS_OUT, MPR_INT32, &sig->num_maps_out, MPR_TBL_MOD_NONE);
+    link(STATUS,       MPR_INT32, &sig->obj.status,   MPR_TBL_MOD_NONE | MPR_TBL_ACC_LOC);
+    link(STEAL_MODE,   MPR_INT32, &sig->steal_mode,   mod);
+    link(TYPE,         MPR_TYPE,  &sig->type,         is_local ? (MPR_TBL_SET | MPR_TBL_MOD_NONE) : MPR_TBL_MOD_REM);
+    link(USE_INST,     MPR_BOOL,  &sig->use_inst,     MPR_TBL_MOD_NONE);
+    link(VERSION,      MPR_INT32, &sig->obj.version,  MPR_TBL_MOD_NONE);
 #undef link
 
     if (min)
-        mpr_tbl_add_record(tbl, MPR_PROP_MIN, NULL, len, type, min, MOD_LOCAL);
+        mpr_tbl_add_record(tbl, MPR_PROP_MIN, NULL, len, type, min, MPR_TBL_MOD_LOC);
     if (max)
-        mpr_tbl_add_record(tbl, MPR_PROP_MAX, NULL, len, type, max, MOD_LOCAL);
+        mpr_tbl_add_record(tbl, MPR_PROP_MAX, NULL, len, type, max, MPR_TBL_MOD_LOC);
+    if (unit)
+        mpr_tbl_add_record(tbl, MPR_PROP_UNIT, NULL, 1, MPR_STR, unit, MPR_TBL_MOD_LOC);
 
     mpr_tbl_add_record(tbl, MPR_PROP_IS_LOCAL, NULL, 1, MPR_BOOL, &sig->obj.is_local,
-                       LOCAL_ACCESS | MOD_NONE);
+                       MPR_TBL_ACC_LOC | MPR_TBL_MOD_NONE);
 
     if (sig->obj.is_local) {
         mpr_local_sig lsig = (mpr_local_sig)sig;
@@ -851,7 +850,6 @@ void mpr_sig_free_internal(mpr_sig sig)
 
     mpr_obj_free(&sig->obj);
     FUNC_IF(free, sig->path);
-    FUNC_IF(free, sig->unit);
 }
 
 /* TODO: consider using inst status to trigger callbacks here (if registered)
@@ -1875,7 +1873,7 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
                     dir = MPR_DIR_IN;
                 else
                     break;
-                updated += mpr_tbl_add_record(tbl, MPR_PROP_DIR, NULL, 1, MPR_INT32, &dir, MOD_REMOTE);
+                updated += mpr_tbl_add_record(tbl, MPR_PROP_DIR, NULL, 1, MPR_INT32, &dir, MPR_TBL_MOD_REM);
                 break;
             }
             case MPR_PROP_ID:
@@ -1899,11 +1897,11 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
                 else
                     break;
                 updated += mpr_tbl_add_record(tbl, MPR_PROP_STEAL_MODE, NULL, 1,
-                                              MPR_INT32, &stl, MOD_REMOTE);
+                                              MPR_INT32, &stl, MPR_TBL_MOD_REM);
                 break;
             }
             default:
-                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE);
+                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MPR_TBL_MOD_REM);
                 break;
         }
     }

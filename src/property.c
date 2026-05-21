@@ -18,7 +18,7 @@ typedef struct {
 /* Warning! This table needs to be kept synchronised with mpr_prop enum
  * found in mpr_constants.h */
 const static_prop_t static_props[] = {
-    { 0,                0, 0 },         /* MPR_PROP_UNKNOWN */
+    { "@unknown",       0, 0 },         /* MPR_PROP_UNKNOWN */
     { "@allow_origin",  0, MPR_STR },   /* MPR_PROP_ALLOW_ORIGIN */
     { "@block_origin",  0, MPR_STR },   /* MPR_PROP_BLOCK_ORIGIN */
     { "@bundle",        1, MPR_INT32 }, /* MPR_PROP_BUNDLE */
@@ -115,7 +115,7 @@ const char *mpr_prop_as_str(mpr_prop p, int skip_prefix)
 {
     const char *s;
     p = MASK_PROP_BITFLAGS(p);
-    die_unless(p > MPR_PROP_UNKNOWN && p <= MPR_PROP_EXTRA,
+    die_unless(p >= MPR_PROP_UNKNOWN && p <= MPR_PROP_EXTRA,
                "called mpr_prop_as_str() with bad index %d.\n", p);
     s = static_props[PROP_TO_INDEX(p)].key;
     return skip_prefix ? s + 1 : s;
@@ -339,12 +339,11 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             break;
         }
         case MPR_LIST: {
-            mpr_list list = (mpr_list)val;
-            if (!list || !*list || !(len = mpr_list_get_size(list))) {
+            /* use a copy and start at the beginning */
+            mpr_list list = mpr_list_start(mpr_list_get_cpy((mpr_list)val));
+            if (!list || !*list || !(len = mpr_list_get_size(list)))
                 printf("[], ");
-                break;
-            }
-            if (len > 1)
+            else if (len > 1)
                 printf("[");
             while (list) {
                 if (!*list)

@@ -844,9 +844,10 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
+    /* pointer-typed properties should always be private */
     eprintf("\t checking whether property is public: %d ...", public);
-    if (public != 1) {
-        eprintf("ERROR (expected %d)\n", 1);
+    if (public != 0) {
+        eprintf("ERROR (expected %d)\n", 0);
         result = 1;
         goto cleanup;
     }
@@ -1002,9 +1003,10 @@ int main(int argc, char **argv)
     }
     eprintf("OK\n");
 
+    /* pointer-typed properties should always be private */
     eprintf("\t checking whether property is public: %d ...", public);
-    if (public != 1) {
-        eprintf("ERROR (expected %d)\n", 1);
+    if (public != 0) {
+        eprintf("ERROR (expected %d)\n", 0);
         result = 1;
         goto cleanup;
     }

@@ -42,8 +42,6 @@
     mpr_obj_t obj;                  /* Must be first for type punning */        \
     mpr_dev *allow_origin;                                                      \
     mpr_dev *block_origin;                                                      \
-    mpr_list allow_origin_list;     /*!< Query for retrieving scope lists */    \
-    mpr_list block_origin_list;     /*!< Query for retrieving scope lists */    \
     char *expr_str;                                                             \
     int muted;                      /*!< 1 to mute mapping, 0 to unmute */      \
     int num_allow_origin;                                                       \
@@ -102,7 +100,7 @@ static int cmp_qry_scope(const void *ctx, mpr_dev d)
     int i, num_origin = allow ? m->num_allow_origin : m->num_block_origin;
     mpr_dev *origin = allow ? m->allow_origin : m->block_origin;
     for (i = 0; i < num_origin; i++) {
-        if (mpr_obj_get_id((mpr_obj)origin[i]) == mpr_obj_get_id((mpr_obj)d))
+        if (!origin[i] || mpr_obj_get_id((mpr_obj)origin[i]) == mpr_obj_get_id((mpr_obj)d))
             return 1;
     }
     return 0;
@@ -153,15 +151,6 @@ static void mpr_local_map_init(mpr_local_map map)
         mpr_obj_set_id((mpr_obj)map, id);
     }
 
-    /* default to allowing "all" instance origins */
-    map->num_allow_origin = 1;
-    map->allow_origin = (mpr_dev *) calloc(1, sizeof(mpr_dev));
-    mpr_tbl_add_record(map->obj.props.synced, MPR_PROP_ALLOW_ORIGIN, NULL, 1, MPR_STR, "all", 1);
-    map->num_block_origin = 0;
-    map->block_origin = NULL;
-    mpr_tbl_add_record(map->obj.props.synced, MPR_PROP_BLOCK_ORIGIN, NULL, 1,
-                       MPR_LIST, mpr_list_get_cpy(map->block_origin_list), 1);
-
     /* check if all sources belong to same remote device */
     map->one_src = 1;
     for (i = 1; i < map->num_src; i++) {
@@ -190,32 +179,34 @@ static void mpr_local_map_init(mpr_local_map map)
 static void relink_props(mpr_map m)
 {
     mpr_tbl t = m->obj.props.synced;
+    mpr_list qry;
+    int hidden = 0;
 
 #define link(PROP, TYPE, DATA, FLAGS) \
     mpr_tbl_link_value(t, MPR_PROP_##PROP, 1, TYPE, DATA, FLAGS);
-    link(BUNDLE,      MPR_INT32, &m->bundle,      MOD_ANY | PROP_SET);
-    link(DATA,        MPR_PTR,   &m->obj.data,    MOD_ANY | INDIRECT | LOCAL_ACCESS | PROP_SET);
-    link(EXPR,        MPR_STR,   &m->expr_str,    MOD_ANY | INDIRECT | PROP_SET);
-    link(ID,          MPR_INT64, &m->obj.id,      MOD_NONE | LOCAL_ACCESS | PROP_SET);
-    link(MUTED,       MPR_BOOL,  &m->muted,       MOD_ANY | PROP_SET);
-    link(NUM_SIGS_IN, MPR_INT32, &m->num_src,     MOD_NONE | PROP_SET);
-    link(PROCESS_LOC, MPR_INT32, &m->process_loc, MOD_ANY | PROP_SET);
-    /* do not mark value as set to enable initialization */
-    link(PROTOCOL,    MPR_INT32, &m->protocol,    MOD_REMOTE);
-    link(STATUS,      MPR_INT32, &m->obj.status,  MOD_NONE | LOCAL_ACCESS | PROP_SET);
-    /* do not mark value as set to enable initialization */
-    link(USE_INST,    MPR_BOOL,  &m->use_inst,    MOD_REMOTE);
-    link(VERSION,     MPR_INT32, &m->obj.version, MOD_REMOTE | PROP_SET);
-#undef link
 
-    if (m->num_allow_origin && m->allow_origin[0]) {
-        mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_ALLOW_ORIGIN, NULL,
-                           1, MPR_LIST, mpr_list_get_cpy(m->allow_origin_list), 1);
-    }
-    if (m->num_block_origin && m->block_origin[0]) {
-        mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_BLOCK_ORIGIN, NULL,
-                           1, MPR_LIST, mpr_list_get_cpy(m->block_origin_list), 1);
-    }
+    qry = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)cmp_qry_scope, "vi", &m, 1);
+    hidden = (m->num_allow_origin && (NULL == m->allow_origin[0])) ? MPR_TBL_HIDDEN : 0;
+    link(ALLOW_ORIGIN, MPR_LIST, qry, MPR_TBL_MOD_NONE | MPR_TBL_OWNED | MPR_TBL_SET | hidden);
+
+    qry = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)cmp_qry_scope, "vi", &m, 0);
+    hidden = (m->num_block_origin && (NULL == m->block_origin[0])) ? MPR_TBL_HIDDEN : 0;
+    link(BLOCK_ORIGIN, MPR_LIST, qry, MPR_TBL_MOD_NONE | MPR_TBL_OWNED | MPR_TBL_SET | hidden);
+
+    link(BUNDLE,      MPR_INT32, &m->bundle,      MPR_TBL_MOD_ANY | MPR_TBL_SET);
+    link(DATA,        MPR_PTR,   &m->obj.data,    MPR_TBL_MOD_ANY | MPR_TBL_INDIRECT | MPR_TBL_ACC_LOC | MPR_TBL_SET);
+    link(EXPR,        MPR_STR,   &m->expr_str,    MPR_TBL_MOD_ANY | MPR_TBL_INDIRECT | MPR_TBL_SET | MPR_TBL_OWNED);
+    link(ID,          MPR_INT64, &m->obj.id,      MPR_TBL_MOD_NONE | MPR_TBL_ACC_LOC | MPR_TBL_SET);
+    link(MUTED,       MPR_BOOL,  &m->muted,       MPR_TBL_MOD_ANY | MPR_TBL_SET);
+    link(NUM_SIGS_IN, MPR_INT32, &m->num_src,     MPR_TBL_MOD_NONE | MPR_TBL_SET);
+    link(PROCESS_LOC, MPR_INT32, &m->process_loc, MPR_TBL_MOD_ANY | MPR_TBL_SET);
+    /* do not mark value as set to enable initialization */
+    link(PROTOCOL,    MPR_INT32, &m->protocol,    MPR_TBL_MOD_REM);
+    link(STATUS,      MPR_INT32, &m->obj.status,  MPR_TBL_MOD_NONE | MPR_TBL_ACC_LOC | MPR_TBL_SET);
+    /* do not mark value as set to enable initialization */
+    link(USE_INST,    MPR_BOOL,  &m->use_inst,    MPR_TBL_MOD_REM);
+    link(VERSION,     MPR_INT32, &m->obj.version, MPR_TBL_MOD_REM | MPR_TBL_SET);
+#undef link
 }
 
 void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_local)
@@ -224,11 +215,6 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
     mpr_graph g = m->obj.graph;
     m->obj.props.synced = mpr_tbl_new();
     m->obj.props.staged = mpr_tbl_new();
-
-    m->allow_origin_list = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)cmp_qry_scope,
-                                               "vi", &m, 1);
-    m->block_origin_list = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)cmp_qry_scope,
-                                               "vi", &m, 0);
 
     m->num_src = num_src;
     m->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
@@ -250,10 +236,18 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
     m->dst = mpr_slot_new(m, dst, mpr_obj_get_is_local((mpr_obj)dst) ? MPR_DIR_IN : MPR_DIR_UNDEFINED,
                           is_local, 0);
 
+    /* default to allowing "all" instance origins */
+    m->num_allow_origin = 1;
+    m->allow_origin = (mpr_dev *) calloc(1, sizeof(mpr_dev));
+
+    /* default to blocking 0 instance origins */
+    m->num_block_origin = 0;
+    m->block_origin = NULL;
+
     relink_props(m);
 
     mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_IS_LOCAL, NULL, 1,
-                       MPR_BOOL, &is_local, LOCAL_ACCESS | MOD_NONE);
+                       MPR_BOOL, &is_local, MPR_TBL_ACC_LOC | MPR_TBL_MOD_NONE);
     m->obj.status = MPR_STATUS_NEW | MPR_STATUS_STAGED;
     m->protocol = MPR_PROTO_UDP;
 
@@ -565,16 +559,10 @@ void mpr_map_free(mpr_map map)
     free(map->src);
     mpr_slot_free(map->dst);
 
-    mpr_list_free(map->allow_origin_list);
-    mpr_list_free(map->block_origin_list);
-
-    if (map->num_allow_origin && map->allow_origin)
-        free(map->allow_origin);
-    if (map->num_block_origin && map->block_origin)
-        free(map->block_origin);
-
     mpr_obj_free(&map->obj);
-    FUNC_IF(free, map->expr_str);
+
+    FUNC_IF(free, map->allow_origin);
+    FUNC_IF(free, map->block_origin);
 }
 
 static int cmp_qry_sigs(const void *ctx, mpr_sig s)
@@ -631,9 +619,12 @@ static void stage_scope(mpr_map m, mpr_dev d, mpr_prop p)
     RETURN_UNLESS(m);
 
     mpr_tbl_get_record_by_idx(m->obj.props.staged, p, NULL, &len, &type, &val, NULL);
-    if (!d || 0 == len || MPR_STR != type) {
+    if (!d || MPR_STR != type) {
         const char *name = d ? mpr_dev_get_name(d) : "all";
         mpr_tbl_add_record(m->obj.props.staged, p, NULL, 1, MPR_STR, name, 1);
+    }
+    else if (1 == len && 0 == strcmp((const char*)val, "all")) {
+        /* already set to 'all', can ignore additions */
     }
     else {
         /* need to append this origin to the existing array */
@@ -641,36 +632,56 @@ static void stage_scope(mpr_map m, mpr_dev d, mpr_prop p)
         assert(MPR_STR == type);
         new_val = (const char**)alloca((len + 1) * sizeof(char*));
         if (1 == len) {
-            new_val[0] = strdup((char*)val);
+            new_val[0] = (char*)val;
         }
         else {
             int i;
             for (i = 0; i < len; i++) {
-                new_val[i] = strdup(((char **)val)[i]);
+                new_val[i] = ((char **)val)[i];
             }
         }
         new_val[len] = mpr_dev_get_name(d);
-        mpr_tbl_add_record(m->obj.props.staged, p, NULL, len + 1, MPR_STR, new_val, MOD_REMOTE);
+        mpr_tbl_add_record(m->obj.props.staged, p, NULL, len + 1, MPR_STR, new_val, MPR_TBL_MOD_REM);
     }
 }
 
 /* Here we do not edit the allow/block origin properties directly – instead we stage the
  * change with device name arguments and send to the distributed graph. */
-void mpr_map_allow_instance_origin(mpr_map m, mpr_dev d)
+void mpr_map_allow_origin(mpr_map m, mpr_dev d)
 {
     stage_scope(m, d, MPR_PROP_ALLOW_ORIGIN | PROP_ADD);
-    stage_scope(m, d, MPR_PROP_BLOCK_ORIGIN | PROP_REMOVE);
+    if (d) {
+        /* check if this device is on the block list */
+        int i;
+        for (i = 0; i < m->num_block_origin; i++) {
+            if (m->block_origin[i] == d)
+                stage_scope(m, d, MPR_PROP_BLOCK_ORIGIN | PROP_REMOVE);
+        }
+    }
+    else
+        stage_scope(m, d, MPR_PROP_BLOCK_ORIGIN | PROP_REMOVE);
 }
 
 /* Here we do not edit the allow/block origin properties directly – instead we stage the
  * change with device name arguments and send to the distributed graph. */
-void mpr_map_block_instance_origin(mpr_map m, mpr_dev d)
+void mpr_map_block_origin(mpr_map m, mpr_dev d)
 {
-    stage_scope(m, d, MPR_PROP_ALLOW_ORIGIN | PROP_REMOVE);
     stage_scope(m, d, MPR_PROP_BLOCK_ORIGIN | PROP_ADD);
+    if (d) {
+        /* check if this device is on the allow list */
+        int i;
+        for (i = 0; i < m->num_allow_origin; i++) {
+            if (m->allow_origin[i] == d)
+                stage_scope(m, d, MPR_PROP_ALLOW_ORIGIN | PROP_REMOVE);
+        }
+    }
+    else
+        stage_scope(m, d, MPR_PROP_ALLOW_ORIGIN | PROP_REMOVE);
 }
 
-/* this function should never be called with NULL device */
+/* This function is called by graph.c when a device is removed from the graph, since this means
+ * it can no longer be listed on the allow or block lists. This function should never be called
+ * with NULL device argument. */
 void mpr_map_remove_scope_internal(mpr_map m, mpr_dev dev)
 {
     int i;
@@ -689,109 +700,40 @@ void mpr_map_remove_scope_internal(mpr_map m, mpr_dev dev)
         m->allow_origin = realloc(m->allow_origin, m->num_allow_origin * sizeof(mpr_dev));
     }
 
-    /* also add this scope to the block list */
+    /* remove this scope from the block list */
     for (i = 0; i < m->num_block_origin; i++) {
         if (m->block_origin[i] == dev)
             break;
     }
-    if (i >= m->num_block_origin) {
-        /* not found - add scope */
-        if (1 == m->num_block_origin && NULL == m->block_origin) {
-            /* switch table property from MPR_STR 'all' to scope_list */
-            mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_BLOCK_ORIGIN, NULL, 1, MPR_LIST,
-                               mpr_list_get_cpy(m->block_origin_list), 1);
-        }
-
-        ++m->num_block_origin;
+    if (i < m->num_block_origin) {
+        /* found - remove origin at index i */
+        for (++i; i < m->num_block_origin - 1; i++)
+            m->block_origin[i] = m->block_origin[i + 1];
+        --m->num_block_origin;
         m->block_origin = realloc(m->block_origin, m->num_block_origin * sizeof(mpr_dev));
-        m->block_origin[m->num_block_origin - 1] = dev;
     }
-}
-
-static int add_scope(mpr_map m, mpr_prop p, const char *name)
-{
-    int updated = 0, *num_scope;
-    mpr_dev **scope;
-    mpr_list list;
-
-    RETURN_ARG_UNLESS(m && name, 0);
-
-    num_scope = (MPR_PROP_ALLOW_ORIGIN == p) ? &m->num_allow_origin : &m->num_block_origin;
-    scope = (MPR_PROP_ALLOW_ORIGIN == p) ? &m->allow_origin : &m->block_origin;
-    list = (MPR_PROP_ALLOW_ORIGIN == p) ? m->allow_origin_list : m->block_origin_list;
-
-    if (strcmp(name, "all")==0) {
-        if (1 == *num_scope && NULL == (*scope)[0]) {
-            /* already set to 'all' */
-        }
-        else {
-            *num_scope = 1;
-            if (*scope)
-                *scope = (mpr_dev*) realloc(*scope, sizeof(mpr_dev));
-            else
-                *scope = (mpr_dev*) malloc(sizeof(mpr_dev));
-            *scope[0] = NULL;
-            updated = 1;
-            mpr_tbl_add_record(m->obj.props.synced, p, NULL, 1, MPR_STR, "all", 1);
-        }
-    }
-    else if (strcmp(name, "none")==0) {
-        /* this should not occur */
-        assert(0);
-    }
-    else if (1 == *num_scope && NULL == (*scope)[0]) {
-        /* current value is 'all' */
-        (*scope)[0] = mpr_graph_add_dev(m->obj.graph, name, NULL, NULL, 1);
-        mpr_tbl_add_record(m->obj.props.synced, p, NULL, 1, MPR_LIST, mpr_list_get_cpy(list), 1);
-        updated = 1;
-    }
-    else {
-        int i;
-        mpr_id id;
-        mpr_dev d = mpr_graph_add_dev(m->obj.graph, name, NULL, NULL, 1);
-        TRACE_RETURN_UNLESS(d, 0, "error retrieving device '%s' from graph\n", name);
-        id = mpr_obj_get_id((mpr_obj)d);
-
-        /* check if scope is alread listed */
-        for (i = 0; i < *num_scope; i++) {
-            if (mpr_obj_get_id((mpr_obj)(*scope)[i]) == id)
-                break;
-        }
-        if (i >= *num_scope) {
-            /* not found, append to array */
-            ++(*num_scope);
-            if (*scope)
-                *scope = (mpr_dev*) realloc(*scope, *num_scope * sizeof(mpr_dev));
-            else
-                *scope = (mpr_dev*) malloc(*num_scope * sizeof(mpr_dev));
-            (*scope)[*num_scope - 1] = d;
-            mpr_tbl_add_record(m->obj.props.synced, p, NULL, 1, MPR_LIST, mpr_list_get_cpy(list), 1);
-            updated = 1;
-        }
-    }
-    return updated;
 }
 
 static int remove_scope(mpr_map m, mpr_prop p, const char *name)
 {
-    int updated = 0, *num_scope;
+    int updated = 0, *num_scope, allow = MPR_PROP_ALLOW_ORIGIN == p;
     mpr_dev d = NULL, **scope;
 
     RETURN_ARG_UNLESS(m && name, 0);
 
-    num_scope = (MPR_PROP_ALLOW_ORIGIN == p) ? &m->num_allow_origin : &m->num_block_origin;
-    scope = (MPR_PROP_ALLOW_ORIGIN == p) ? &m->allow_origin : &m->block_origin;
+    num_scope = allow ? &m->num_allow_origin : &m->num_block_origin;
+    scope = allow ? &m->allow_origin : &m->block_origin;
 
-    if (strcmp(name, "all")==0) {
-        if (0 == *num_scope) {
-            /* already set to 'none' / empty list */
-        }
-        else {
-            *num_scope = 0;
-            FUNC_IF(free, *scope);
-            *scope = NULL;
-            updated = 1;
-        }
+    if (0 == *num_scope) {
+        /* current value is 'none'/empty list... ignore update */
+    }
+    else if (strcmp(name, "all")==0) {
+        *num_scope = 0;
+        FUNC_IF(free, *scope);
+        *scope = NULL;
+        updated = 1;
+        /* unhide the property */
+        mpr_tbl_set_record_flags(m->obj.props.synced, p, NULL, 0, MPR_TBL_HIDDEN);
     }
     else if (strcmp(name, "none")==0) {
         /* this should not occur */
@@ -807,7 +749,7 @@ static int remove_scope(mpr_map m, mpr_prop p, const char *name)
         TRACE_RETURN_UNLESS(d, 0, "error retrieving device '%s' from graph\n", name);
         id = mpr_obj_get_id((mpr_obj)d);
 
-        /* check if scope is alread listed */
+        /* check if scope is already listed */
         for (i = 0; i < *num_scope; i++) {
             if (mpr_obj_get_id((mpr_obj)(*scope)[i]) == id)
                 break;
@@ -820,13 +762,76 @@ static int remove_scope(mpr_map m, mpr_prop p, const char *name)
             *scope = (mpr_dev*) realloc(*scope, *num_scope * sizeof(mpr_dev));
             updated = 1;
         }
+
+        /* unhide the property */
+        mpr_tbl_set_record_flags(m->obj.props.synced, p, NULL, 0, MPR_TBL_HIDDEN);
     }
     if (updated) {
-        mpr_list list = (MPR_PROP_ALLOW_ORIGIN == p) ? m->allow_origin_list : m->block_origin_list;
         if (d && m->obj.is_local && MPR_LOC_DST & ((mpr_local_map)m)->locality) {
             release_local_inst((mpr_local_map)m, d);
         }
-        mpr_tbl_add_record(m->obj.props.synced, p, NULL, 1, MPR_LIST, mpr_list_get_cpy(list), 1);
+    }
+    return updated;
+}
+
+static int add_scope(mpr_map m, mpr_prop p, const char *name)
+{
+    int updated = 0, *num_scope, allow = MPR_PROP_ALLOW_ORIGIN == p;
+    mpr_dev **scope;
+
+    RETURN_ARG_UNLESS(m && name, 0);
+
+    num_scope = allow ? &m->num_allow_origin : &m->num_block_origin;
+    scope = allow ? &m->allow_origin : &m->block_origin;
+
+    if (1 == *num_scope && NULL == (*scope)[0]) {
+        /* current value is 'all'... ignore update to this list but remove from complementary list */
+        if (strcmp(name, "all"))
+            remove_scope(m, p ^ (MPR_PROP_ALLOW_ORIGIN ^ MPR_PROP_BLOCK_ORIGIN), name);
+    }
+    else if (strcmp(name, "all")==0) {
+        *num_scope = 1;
+        if (*scope)
+            *scope = (mpr_dev*) realloc(*scope, sizeof(mpr_dev));
+        else
+            *scope = (mpr_dev*) malloc(sizeof(mpr_dev));
+        (*scope)[0] = NULL;
+        updated = 1;
+
+        /* hide the property */
+        mpr_tbl_set_record_flags(m->obj.props.synced, p, NULL, MPR_TBL_HIDDEN, 0);
+    }
+    else if (strcmp(name, "none")==0) {
+        /* this should not occur */
+        assert(0);
+    }
+    else {
+        int i;
+        mpr_id id;
+        mpr_dev d = mpr_graph_add_dev(m->obj.graph, name, NULL, NULL, 1);
+        TRACE_RETURN_UNLESS(d, 0, "error retrieving device '%s' from graph\n", name);
+        id = mpr_obj_get_id((mpr_obj)d);
+
+        /* check if scope is already listed */
+        for (i = 0; i < *num_scope; i++) {
+            if (mpr_obj_get_id((mpr_obj)(*scope)[i]) == id)
+                break;
+        }
+        if (i >= *num_scope) {
+            /* not found, append to array */
+            ++(*num_scope);
+            if (*scope)
+                *scope = (mpr_dev*) realloc(*scope, *num_scope * sizeof(mpr_dev));
+            else
+                *scope = (mpr_dev*) malloc(*num_scope * sizeof(mpr_dev));
+            (*scope)[*num_scope - 1] = d;
+            updated = 1;
+        }
+        /* unhide the property */
+        mpr_tbl_set_record_flags(m->obj.props.synced, p, NULL, 0, MPR_TBL_HIDDEN);
+
+        /* also remove the scope if it appears on the complementary list */
+        remove_scope(m, p ^ (MPR_PROP_ALLOW_ORIGIN ^ MPR_PROP_BLOCK_ORIGIN), name);
     }
     return updated;
 }
@@ -839,34 +844,35 @@ static int update_scope(mpr_map m, mpr_prop p, mpr_msg_atom a)
 
     RETURN_ARG_UNLESS(m && values && *values, 0);
 
-    num_scope = (MPR_PROP_ALLOW_ORIGIN == p) ? &m->num_allow_origin : &m->num_block_origin;
-    scope = (MPR_PROP_ALLOW_ORIGIN == p) ? &m->allow_origin : &m->block_origin;
-
     /* first check for 'all', 'none'
      * for safety check we will scan all elements */
     for (i = 0; i < num_values; i++) {
         if (strcmp(&values[0]->s, "all")==0) {
             return add_scope(m, p, "all");
         }
-        if (strcmp(&values[0]->s, "none")==0) {
+        else if (strcmp(&values[0]->s, "none")==0) {
             return remove_scope(m, p, "all");
         }
     }
 
+    num_scope = (MPR_PROP_ALLOW_ORIGIN == p) ? &m->num_allow_origin : &m->num_block_origin;
+    scope = (MPR_PROP_ALLOW_ORIGIN == p) ? &m->allow_origin : &m->block_origin;
+
     /* Remove old scopes that are missing */
-    if (1 != *num_scope || NULL != *scope[0]) {
+    if (1 != *num_scope || NULL != (*scope)[0]) {
         i = 0;
         while (i < *num_scope) {
             int j, found = 0;
             for (j = 0; j < num_values; j++) {
                 const char *name = mpr_path_skip_slash(&values[j]->s);
-                if (strcmp(name, mpr_dev_get_name(*scope[i])) == 0) {
+                if (strcmp(name, mpr_dev_get_name((*scope)[i])) == 0) {
                     found = 1;
                     break;
                 }
             }
-            if (!found && *scope[i])
-                updated += remove_scope(m, p, mpr_dev_get_name(*scope[i]));
+            if (!found && (*scope)[i]) {
+                updated += remove_scope(m, p, mpr_dev_get_name((*scope)[i]));
+            }
             else
                 ++i;
         }
@@ -874,6 +880,7 @@ static int update_scope(mpr_map m, mpr_prop p, mpr_msg_atom a)
     /* Add any new scopes */
     for (i = 0; i < num_values; i++)
         updated += add_scope(m, p, &values[i]->s);
+
     return updated;
 }
 
@@ -908,7 +915,6 @@ void mpr_map_clear_slot_msgs(mpr_local_map m)
  */
 
 /* combines receiving, timed update, and sending */
-// consider returning next timetag instead of passing by ref from device
 mpr_time mpr_map_process(mpr_local_map m, mpr_time t_now)
 {
     int i, status;
@@ -1215,7 +1221,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
         char tmp[128];
         snprintf(tmp, 128, "var@%s", var_name);
         mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXTRA, tmp, 1,
-                           MPR_VAL, vars[i], MOD_LOCAL | LOCAL_ACCESS);
+                           MPR_VAL, vars[i], MPR_TBL_MOD_LOC | MPR_TBL_ACC_LOC);
     }
 
     /* free old variables and replace with new */
@@ -1235,7 +1241,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
                     /* remove from map object's property table */
                     char tmp[128];
                     snprintf(tmp, 128, "var@%s", m->var_names[i]);
-                    mpr_tbl_remove_record(m->obj.props.synced, MPR_PROP_EXTRA, tmp, MOD_LOCAL);
+                    mpr_tbl_remove_record(m->obj.props.synced, MPR_PROP_EXTRA, tmp, MPR_TBL_MOD_LOC);
                     m->old_var_names[m->num_old_vars + i] = m->var_names[i];
                 }
                 else {
@@ -1324,7 +1330,7 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
         if (MPR_LOC_SRC == m->locality) {
             /* copy expression string but do not execute it */
             mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL,
-                               1, MPR_STR, expr_str, MOD_REMOTE);
+                               1, MPR_STR, expr_str, MPR_TBL_MOD_REM);
             mpr_expr_free(expr);
             return 1;
         }
@@ -1334,7 +1340,7 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
 
     if (m->expr_str == expr_str)
         return 0;
-    mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr_str, MOD_REMOTE);
+    mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr_str, MPR_TBL_MOD_REM);
     mpr_tbl_remove_record(m->obj.props.staged, MPR_PROP_EXPR, NULL, 0);
     return 0;
 }
@@ -1656,7 +1662,7 @@ static int set_expr(mpr_local_map m, const char *expr_str)
         /* don't need to compile */
         if (expr_str)
             mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL,
-                               1, MPR_STR, expr_str, MOD_REMOTE);
+                               1, MPR_STR, expr_str, MPR_TBL_MOD_REM);
         if (m->expr) {
             trace("freeing unused expression\n");
             mpr_expr_free(m->expr);
@@ -1753,7 +1759,7 @@ int mpr_local_map_update_status(mpr_local_map map)
     status &= mpr_slot_get_status(map->dst);
 
     if (status == METADATA_OK) {
-        mpr_tbl tbl = mpr_obj_get_prop_tbl((mpr_obj)map);
+        mpr_tbl tbl = map->obj.props.synced;
         mpr_sig sig;
         int use_inst;
 
@@ -1767,7 +1773,7 @@ int mpr_local_map_update_status(mpr_local_map map)
                                       &len, &type, &expr_str, NULL);
             if (expr_str) {
                 mpr_tbl_add_record(map->obj.props.synced, MPR_PROP_EXPR, NULL,
-                                   1, MPR_STR, expr_str, MOD_REMOTE);
+                                   1, MPR_STR, expr_str, MPR_TBL_MOD_REM);
             }
         }
         set_expr(map, map->expr_str);
@@ -1853,7 +1859,7 @@ static int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
     else if (expr_str) {
         /* map is not ready – just store extression string for now */
         updated += mpr_tbl_add_record(m->obj.props.synced, MPR_PROP_EXPR, NULL,
-                                      1, MPR_STR, expr_str, MOD_REMOTE);
+                                      1, MPR_STR, expr_str, MPR_TBL_MOD_REM);
     }
 
     if (orig_loc != m->process_loc)
@@ -1925,14 +1931,14 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                 break;
             case MPR_PROP_STATUS:
                 if (!m->obj.is_local)
-                    updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE);
+                    updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MPR_TBL_MOD_REM);
                 break;
             case MPR_PROP_PROCESS_LOC: {
                 if (!m->obj.is_local) {
                     mpr_loc loc = mpr_loc_from_str(&(vals[0])->s);
                     if (MPR_LOC_UNDEFINED != loc)
                         updated += mpr_tbl_add_record(tbl, MPR_PROP_PROCESS_LOC, NULL, 1,
-                                                      MPR_INT32, &loc, MOD_REMOTE);
+                                                      MPR_INT32, &loc, MPR_TBL_MOD_REM);
                 }
                 break;
             }
@@ -1940,7 +1946,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                 if (!m->obj.is_local) {
                     const char *expr_str = &(vals[0])->s;
                     updated += mpr_tbl_add_record(tbl, MPR_PROP_EXPR, NULL, 1, MPR_STR,
-                                                  expr_str, MOD_REMOTE);
+                                                  expr_str, MPR_TBL_MOD_REM);
                 }
                 break;
             }
@@ -1948,14 +1954,16 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
             case MPR_PROP_BLOCK_ORIGIN:
                 if (prop & PROP_ADD) {
                     for (j = 0; j < mpr_msg_atom_get_len(a); j++) {
-                        if (types && MPR_STR == types[j])
+                        if (types && MPR_STR == types[j]) {
                             updated += add_scope(m, MASK_PROP_BITFLAGS(prop), &(vals[j])->s);
+                        }
                     }
                 }
                 else if (prop & PROP_REMOVE) {
                     for (j = 0; j < mpr_msg_atom_get_len(a); j++) {
-                        if (types && MPR_STR == types[j])
+                        if (types && MPR_STR == types[j]) {
                             updated += remove_scope(m, MASK_PROP_BITFLAGS(prop), &(vals[j])->s);
+                        }
                     }
                 }
                 else if (types && mpr_type_get_is_str(types[0])) {
@@ -1969,7 +1977,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                 pro = mpr_proto_from_str(&(vals[0])->s);
                 if (pro != MPR_PROTO_UNDEFINED)
                     updated += mpr_tbl_add_record(tbl, MPR_PROP_PROTOCOL, NULL, 1, MPR_INT32, &pro,
-                                                  MOD_REMOTE);
+                                                  MPR_TBL_MOD_REM);
                 break;
             }
             case MPR_PROP_USE_INST: {
@@ -1993,14 +2001,14 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                     /* TODO: release map instances */
                 }
                 updated += mpr_tbl_add_record(tbl, MPR_PROP_USE_INST, NULL, 1, MPR_BOOL,
-                                              &use_inst, MOD_REMOTE);
+                                              &use_inst, MPR_TBL_MOD_REM);
                 break;
             }
             case MPR_PROP_EXTRA: {
                 const char *key = mpr_msg_atom_get_key(a);
                 if (0 == strncmp(key, "var@", 4)) {
                     /* expression user variable */
-                    if (mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE)) {
+                    if (mpr_tbl_add_record_from_msg_atom(tbl, a, MPR_TBL_MOD_REM)) {
                         ++updated;
                         if (m->obj.is_local && ((mpr_local_map)m)->expr) {
                             /* also inform expression since it may need to be reset */
@@ -2021,7 +2029,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
             case MPR_PROP_ID:
             case MPR_PROP_MUTED:
             case MPR_PROP_VERSION:
-                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE);
+                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MPR_TBL_MOD_REM);
                 break;
             default:
                 break;

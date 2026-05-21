@@ -143,30 +143,32 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
 
     /* these properties need to be added in alphabetical order */
 #define link(PROP, TYPE, DATA, FLAGS) \
-    mpr_tbl_link_value(tbl, MPR_PROP_##PROP, 1, TYPE, DATA, FLAGS | PROP_SET);
-    link(DATA,         MPR_PTR,   &dev->obj.data,     MOD_LOCAL | INDIRECT | LOCAL_ACCESS);
-    link(ID,           MPR_INT64, &dev->obj.id,       MOD_NONE);
+    mpr_tbl_link_value(tbl, MPR_PROP_##PROP, 1, TYPE, DATA, FLAGS | MPR_TBL_SET);
+    link(DATA,         MPR_PTR,   &dev->obj.data,     MPR_TBL_MOD_LOC | MPR_TBL_INDIRECT | MPR_TBL_ACC_LOC);
+    link(ID,           MPR_INT64, &dev->obj.id,       MPR_TBL_MOD_NONE);
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_DEV, (void*)cmp_qry_linked, "v", &dev);
-    link(LINKED,       MPR_LIST,  qry,                MOD_NONE | PROP_OWNED);
-    link(NAME,         MPR_STR,   &dev->name,         MOD_NONE | INDIRECT | LOCAL_ACCESS);
-    link(NUM_MAPS_IN,  MPR_INT32, &dev->num_maps_in,  MOD_NONE);
-    link(NUM_MAPS_OUT, MPR_INT32, &dev->num_maps_out, MOD_NONE);
-    link(NUM_SIGS_IN,  MPR_INT32, &dev->num_inputs,   MOD_NONE);
-    link(NUM_SIGS_OUT, MPR_INT32, &dev->num_outputs,  MOD_NONE);
-    link(ORDINAL,      MPR_INT32, &dev->ordinal,      MOD_NONE);
+    link(LINKED,       MPR_LIST,  qry,                MPR_TBL_MOD_NONE | MPR_TBL_OWNED);
+    link(NAME,         MPR_STR,   &dev->name,         MPR_TBL_MOD_NONE | MPR_TBL_INDIRECT
+                                                      | MPR_TBL_ACC_LOC | MPR_TBL_OWNED);
+    link(NUM_MAPS_IN,  MPR_INT32, &dev->num_maps_in,  MPR_TBL_MOD_NONE);
+    link(NUM_MAPS_OUT, MPR_INT32, &dev->num_maps_out, MPR_TBL_MOD_NONE);
+    link(NUM_SIGS_IN,  MPR_INT32, &dev->num_inputs,   MPR_TBL_MOD_NONE);
+    link(NUM_SIGS_OUT, MPR_INT32, &dev->num_outputs,  MPR_TBL_MOD_NONE);
+    link(ORDINAL,      MPR_INT32, &dev->ordinal,      MPR_TBL_MOD_NONE);
     if (!is_local) {
+        // why only local devs??
         qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)cmp_qry_sigs,
                                   "hi", dev->obj.id, MPR_DIR_ANY);
-        link(SIG,      MPR_LIST,  qry,                MOD_NONE | PROP_OWNED);
+        link(SIG,      MPR_LIST,  qry,                MPR_TBL_MOD_NONE | MPR_TBL_OWNED);
     }
-    link(STATUS,       MPR_INT32, &dev->obj.status,   MOD_NONE | LOCAL_ACCESS);
-    link(SYNCED,       MPR_TIME,  &dev->synced,       MOD_NONE | LOCAL_ACCESS);
-    link(VERSION,      MPR_INT32, &dev->obj.version,  MOD_NONE);
+    link(STATUS,       MPR_INT32, &dev->obj.status,   MPR_TBL_MOD_NONE | MPR_TBL_ACC_LOC);
+    link(SYNCED,       MPR_TIME,  &dev->synced,       MPR_TBL_MOD_NONE | MPR_TBL_ACC_LOC);
+    link(VERSION,      MPR_INT32, &dev->obj.version,  MPR_TBL_MOD_NONE);
 #undef link
 
     if (is_local)
-        mpr_tbl_add_record(tbl, MPR_PROP_LIBVER, NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
-    mpr_tbl_add_record(tbl, MPR_PROP_IS_LOCAL, NULL, 1, MPR_BOOL, &is_local, LOCAL_ACCESS | MOD_NONE);
+        mpr_tbl_add_record(tbl, MPR_PROP_LIBVER, NULL, 1, MPR_STR, PACKAGE_VERSION, MPR_TBL_MOD_NONE);
+    mpr_tbl_add_record(tbl, MPR_PROP_IS_LOCAL, NULL, 1, MPR_BOOL, &is_local, MPR_TBL_ACC_LOC | MPR_TBL_MOD_NONE);
 }
 
 /*! Allocate and initialize a device. This function is called to create a new
@@ -179,6 +181,8 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph graph)
     if (name_prefix[0] == '/')
         ++name_prefix;
     TRACE_RETURN_UNLESS(!strchr(name_prefix, '/'), NULL, "error: character '/' "
+                        "is not permitted in device name.\n");
+    TRACE_RETURN_UNLESS(!strchr(name_prefix, ' '), NULL, "error: character ' ' "
                         "is not permitted in device name.\n");
     if (graph) {
         g = graph;
@@ -299,7 +303,6 @@ void mpr_dev_free(mpr_dev dev)
 void mpr_dev_free_mem(mpr_dev dev)
 {
     FUNC_IF(free, dev->linked);
-    FUNC_IF(free, dev->name);
 }
 
 static void on_registered(mpr_local_dev dev)
@@ -319,11 +322,13 @@ static void on_registered(mpr_local_dev dev)
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)cmp_qry_sigs,
                               "hi", dev->obj.id, MPR_DIR_ANY);
     mpr_tbl_add_record(dev->obj.props.synced, MPR_PROP_SIG, NULL,
-                       1, MPR_LIST, qry, MOD_NONE | PROP_OWNED);
+                       1, MPR_LIST, qry, MPR_TBL_MOD_NONE | MPR_TBL_OWNED);
+    /* the table makes a copy so we can free this query */
+    mpr_list_free(qry);
     dev->registered = 1;
     dev->ordinal = dev->ordinal_allocator.val;
 
-    snprintf(dev->name + dev->prefix_len + 1, dev->prefix_len + 6, "%d", dev->ordinal);
+    snprintf(dev->name + dev->prefix_len + 1, 5, "%d", dev->ordinal);
     name = strdup(dev->name);
     free(dev->name);
     dev->name = name;
@@ -1069,7 +1074,8 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg msg)
                 break;
             }
             default:
-                updated += mpr_tbl_add_record_from_msg_atom(dev->obj.props.synced, atom, MOD_REMOTE);
+                updated += mpr_tbl_add_record_from_msg_atom(dev->obj.props.synced, atom,
+                                                            MPR_TBL_MOD_REM);
                 break;
         }
     }

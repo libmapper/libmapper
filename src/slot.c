@@ -63,6 +63,11 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
     slot->id = -1;
 
     if (is_local) {
+#ifdef DEBUG
+        printf("allocating value memory for slot ");
+        mpr_prop_print(1, MPR_SIG, slot->sig);
+        printf("\n");
+#endif
         mpr_local_slot lslot = (mpr_local_slot)slot;
         lslot->val = mpr_value_new(mpr_sig_get_len(sig), mpr_sig_get_type(sig), 1, slot->num_inst);
 
@@ -122,8 +127,8 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     a = mpr_msg_get_prop(msg, MPR_PROP_LEN | mask);
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
-        mpr_msg_atom_set_prop(a, prop * ~mask);
-        if (mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE))
+        mpr_msg_atom_set_prop(a, prop & ~mask);
+        if (mpr_tbl_add_record_from_msg_atom(tbl, a, MPR_TBL_MOD_REM))
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
@@ -132,7 +137,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
         mpr_msg_atom_set_prop(a, prop & ~mask);
-        if (mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE))
+        if (mpr_tbl_add_record_from_msg_atom(tbl, a, MPR_TBL_MOD_REM))
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
@@ -144,7 +149,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
             int dir = mpr_dir_from_str(str);
             if (dir)
                 updated += mpr_tbl_add_record(tbl, MPR_PROP_DIR, NULL, 1,
-                                              MPR_INT32, &dir, MOD_REMOTE);
+                                              MPR_INT32, &dir, MPR_TBL_MOD_REM);
         }
         num_inst = mpr_msg_get_prop_as_int32(msg, MPR_PROP_NUM_INST | mask);
         if (!((mpr_local_slot)slot)->val || (num_inst && num_inst != slot->num_inst)) {
@@ -371,10 +376,11 @@ int mpr_slot_get_status(mpr_local_slot slot)
 #ifdef DEBUG
     printf("sig: ");
     mpr_prop_print(1, MPR_SIG, slot->sig);
-    printf(", dev: %s, sig: %s, link: %s\n",
-           status & MPR_SLOT_DEV_KNOWN ? "Y" : "N",
-           status & MPR_SLOT_SIG_KNOWN ? "Y" : "N",
-           status & MPR_SLOT_LINK_KNOWN ? "Y" : "N");
+    printf(", dev: %s, sig: %s (%c%d), link: %s\n",
+           status & MPR_SLOT_DEV_KNOWN ? "OK" : "--",
+           status & MPR_SLOT_SIG_KNOWN ? "OK" : "--",
+           mpr_sig_get_type(sig) ? mpr_sig_get_type(sig) : '-', mpr_sig_get_len(sig),
+           status & MPR_SLOT_LINK_KNOWN ? "OK" : "--");
 #endif
     return status;
 }

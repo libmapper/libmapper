@@ -281,8 +281,8 @@ mpr_graph mpr_graph_new(int subscribe_flags)
     /* TODO: consider whether graph objects should sync properties over the network. */
     tbl = g->obj.props.synced = mpr_tbl_new();
     mpr_tbl_link_value(tbl, MPR_PROP_DATA, 1, MPR_PTR, &g->obj.data,
-                       MOD_LOCAL | INDIRECT | LOCAL_ACCESS | PROP_SET);
-    mpr_tbl_add_record(tbl, MPR_PROP_LIBVER, NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
+                       MPR_TBL_MOD_LOC | MPR_TBL_INDIRECT | MPR_TBL_ACC_LOC | MPR_TBL_SET);
+    mpr_tbl_add_record(tbl, MPR_PROP_LIBVER, NULL, 1, MPR_STR, PACKAGE_VERSION, MPR_TBL_MOD_NONE);
     /* TODO: add object queries as properties. */
 
     g->expr_eval_buff = mpr_expr_new_eval_buffer(NULL);
@@ -607,8 +607,6 @@ mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name)
 mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, mpr_msg msg)
 {
     mpr_sig sig = 0;
-    int rc = 0, updated = 0;
-
     mpr_dev dev = mpr_graph_get_dev_by_name(g, dev_name);
     if (dev) {
         sig = mpr_dev_get_sig_by_name(dev, name);
@@ -618,31 +616,27 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
     else
         dev = mpr_graph_add_dev(g, dev_name, NULL, NULL, 1);
 
-    if (!sig) {
+    if (sig) {
+        int updated = mpr_sig_set_from_msg(sig, msg);
+#ifdef DEBUG
+        trace_graph(g, "updated %d props for signal ", updated);
+        mpr_prop_print(1, MPR_SIG, sig);
+        printf("\n");
+#endif
+        if (updated)
+            mpr_graph_call_cbs(g, (mpr_obj)sig, MPR_SIG, MPR_STATUS_MODIFIED);
+    }
+    else if ((sig = (mpr_sig)mpr_list_add_item((void**)&g->sigs, mpr_sig_get_struct_size(0), 0))) {
         int num_inst = 1;
-        sig = (mpr_sig)mpr_list_add_item((void**)&g->sigs, mpr_sig_get_struct_size(0), 0);
         mpr_obj_init((mpr_obj)sig, g, MPR_SIG);
         mpr_sig_init(sig, dev, 0, MPR_DIR_UNDEFINED, name, 0, 0, 0, 0, 0, &num_inst);
-        rc = 1;
+        mpr_sig_set_from_msg(sig, msg);
 #ifdef DEBUG
         trace_graph(g, "added signal ");
         mpr_prop_print(1, MPR_SIG, sig);
         printf("\n");
 #endif
-    }
-
-    if (sig) {
-        updated = mpr_sig_set_from_msg(sig, msg);
-#ifdef DEBUG
-        if (!rc) {
-            trace_graph(g, "updated %d props for signal ", updated);
-            mpr_prop_print(1, MPR_SIG, sig);
-            printf("\n");
-        }
-#endif
-
-        if (rc || updated)
-            mpr_graph_call_cbs(g, (mpr_obj)sig, MPR_SIG, rc ? MPR_STATUS_NEW : MPR_STATUS_MODIFIED);
+        mpr_graph_call_cbs(g, (mpr_obj)sig, MPR_SIG, MPR_STATUS_NEW);
     }
     return sig;
 }
