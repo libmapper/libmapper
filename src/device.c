@@ -808,7 +808,7 @@ void mpr_local_dev_probe_name(mpr_local_dev dev, int start_ordinal, mpr_net net)
     for (i = 0; i < 8; i++)
         dev->ordinal_allocator.hints[i] = 0;
 
-    snprintf(dev->name + dev->prefix_len + 1, dev->prefix_len + 6, "%d", dev->ordinal_allocator.val);
+    snprintf(dev->name + dev->prefix_len + 1, 5, "%d", dev->ordinal_allocator.val);
     trace_dev(dev, "probing name '%s'\n", dev->name);
 
     /* Calculate an id from the name and store it in id.val */
