@@ -27,6 +27,7 @@ if WINDOWS_DLL
         testmapfail \
         testmapinput \
         testmaplocation \
+        test_map_no_src \
         testmapprotocol \
         testmapscope \
         test_map_timed \
@@ -86,6 +87,7 @@ if WINDOWS_DLL
         test_subscriptions \
         test_time_sync \
         test_map_timed \
+        test_map_no_src \
         test
 
 else
@@ -111,6 +113,7 @@ else
         testmapfail \
         testmapinput \
         testmaplocation \
+        test_map_no_src \
         testmapprotocol \
         testmapscope \
         test_map_timed \
@@ -173,6 +176,7 @@ else
         test_subscriptions \
         test_time_sync \
         test_map_timed \
+        test_map_no_src \
         test
 
 endif
@@ -260,6 +264,10 @@ testmapfail_LDADD = $(TEST_LDADD)
 testmaplocation_CFLAGS = $(TEST_CFLAGS)
 testmaplocation_SOURCES = testmaplocation.c
 testmaplocation_LDADD = $(TEST_LDADD)
+
+test_map_no_src_CFLAGS = $(TEST_CFLAGS)
+test_map_no_src_SOURCES = test_map_no_src.c
+test_map_no_src_LDADD = $(TEST_LDADD)
 
 testmapprotocol_CFLAGS = $(TEST_CFLAGS)
 testmapprotocol_SOURCES = testmapprotocol.c

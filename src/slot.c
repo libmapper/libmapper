@@ -41,7 +41,8 @@ typedef struct _mpr_local_slot {
     mpr_link link;
     lo_message msg;
     uint16_t num_msg;
-    uint16_t sending;
+    uint8_t sending;
+    uint8_t is_used;
 } mpr_local_slot_t;
 
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
@@ -361,6 +362,18 @@ int mpr_slot_get_causes_update(mpr_slot slot)
 void mpr_slot_set_causes_update(mpr_slot slot, int causes_update)
 {
     slot->causes_update = causes_update;
+}
+
+int mpr_local_slot_get_is_used(mpr_local_slot slot)
+{
+    return slot->is_used;
+}
+
+void mpr_local_slot_set_is_used(mpr_local_slot slot, int is_used)
+{
+    slot->is_used = is_used;
+    if (!is_used)
+        slot->causes_update = 0;
 }
 
 int mpr_slot_get_status(mpr_local_slot slot)

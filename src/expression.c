@@ -224,14 +224,54 @@ int mpr_expr_get_var_type(mpr_expr expr, int idx)
 
 int mpr_expr_get_src_causes_update(mpr_expr expr, int idx)
 {
-    int i, muted = VAR_MUTED;
+    int i, muted = VAR_MUTED, reducing_src = 0;
     etoken_t *tok = expr->stack->tokens;
     for (i = 0; i < expr->stack->num_tokens; i++) {
-        if ((tok[i].toktype == TOK_VAR || tok[i].toktype == TOK_TT) && tok[i].var.idx == idx + VAR_X) {
-            muted &= tok[i].gen.flags;
+        switch (tok[i].toktype) {
+            case TOK_VAR:
+            case TOK_TT:
+                if (   reducing_src
+                    || (VAR_X_NEWEST == tok[i].var.idx)
+                    || (idx + VAR_X) == tok[i].var.idx)
+                    muted &= tok[i].gen.flags;
+                break;
+            case TOK_LOOP_START:
+                if (RT_SIGNAL == (tok->con.flags & REDUCE_TYPE_MASK))
+                    reducing_src = 1;
+            case TOK_LOOP_END:
+                if (RT_SIGNAL == (tok->con.flags & REDUCE_TYPE_MASK))
+                    reducing_src = 0;
+            default:
+                break;
         }
     }
     return muted == 0;
+}
+
+int mpr_expr_get_src_is_used(mpr_expr expr, int idx)
+{
+    int i, reducing_src = 0;
+    etoken_t *tok = expr->stack->tokens;
+    for (i = 0; i < expr->stack->num_tokens; i++) {
+        switch (tok[i].toktype) {
+            case TOK_VAR:
+            case TOK_TT:
+                if (   reducing_src
+                    || VAR_X_NEWEST == tok[i].var.idx
+                    || (idx + VAR_X) == tok[i].var.idx)
+                    return 1;
+                break;
+            case TOK_LOOP_START:
+                if (RT_SIGNAL == (tok->con.flags & REDUCE_TYPE_MASK))
+                    reducing_src = 1;
+            case TOK_LOOP_END:
+                if (RT_SIGNAL == (tok->con.flags & REDUCE_TYPE_MASK))
+                    reducing_src = 0;
+            default:
+                break;
+        }
+    }
+    return 0;
 }
 
 int mpr_expr_get_num_src(mpr_expr expr)

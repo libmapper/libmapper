@@ -46,7 +46,7 @@ int setup_src(mpr_graph g, const char *iface)
         goto error;
     if (iface)
         mpr_graph_set_interface(mpr_obj_get_graph(src), iface);
-    eprintf("source created using interface %s.\n",
+    eprintf("Source created using interface %s.\n",
             mpr_graph_get_interface(mpr_obj_get_graph(src)));
 
     sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_INT32, NULL,
@@ -76,7 +76,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
-        eprintf("handler: Got %f\n", (*(float*)value));
+        eprintf("Handler: Got %f\n", (*(float*)value));
         received++;
     }
 }
@@ -91,7 +91,7 @@ int setup_dst(mpr_graph g, const char *iface)
         goto error;
     if (iface)
         mpr_graph_set_interface(mpr_obj_get_graph(dst), iface);
-    eprintf("destination created using interface %s.\n",
+    eprintf("Destination created using interface %s.\n",
             mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
@@ -119,10 +119,10 @@ void cleanup_dst(void)
 
 int setup_maps(void)
 {
-    if (mpr_map_new(1, &sendsig, 1, &sendsig))
+    if (!mpr_map_new(1, &sendsig, 1, &sendsig))
         return 1;
 
-    if (mpr_map_new(1, &recvsig, 1, &recvsig))
+    if (!mpr_map_new(1, &recvsig, 1, &recvsig))
         return 1;
 
     return 0;

@@ -297,8 +297,17 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     mpr_list maps;
     unsigned char i, j, is_local = 0;
 
+    /* we will allow simple self-maps to support "sourceless" maps */
+    if (0 == num_src && 1 == num_dst) {
+        num_src = 1;
+        src = dst;
+    }
+
     RETURN_ARG_UNLESS(src && *src && dst && *dst, 0);
     RETURN_ARG_UNLESS(num_src > 0 && num_src <= MAX_NUM_MAP_SRC, 0);
+
+    /* Only 1 destination supported for now */
+    RETURN_ARG_UNLESS(1 == num_dst, 0);
 
     for (i = 0; i < num_src; i++) {
         mpr_dev src_dev = mpr_sig_get_dev(src[i]);
@@ -311,8 +320,8 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
         }
         for (j = 0; j < num_dst; j++) {
             mpr_dev dst_dev = mpr_sig_get_dev(dst[j]);
-            if (src[i] == dst[j]) {
-                trace("Cannot connect signal '%s:%s' to itself.\n",
+            if (src[i] == dst[j] && num_src > 1) {
+                trace("Cannot connect signal '%s:%s' to itself in a convergent map.\n",
                       mpr_dev_get_name(src_dev), mpr_sig_get_name(src[i]));
                 return 0;
             }
@@ -323,16 +332,14 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
                 trace("Cannot create map between uninitialized devices unless they share a graph.");
                 return 0;
             }
-            if (0 == mpr_sig_compare_names(src[i], dst[j])) {
-                trace("Cannot connect signal '%s:%s' to itself.\n",
+            if (0 == mpr_sig_compare_names(src[i], dst[j]) && num_src > 1) {
+                trace("Cannot connect signal '%s:%s' to itself in a convergent map.\n",
                       mpr_dev_get_name(src_dev), mpr_sig_get_name(src[i]));
                 return 0;
             }
         }
         is_local += mpr_obj_get_is_local((mpr_obj)src[i]);
     }
-    /* Only 1 destination supported for now */
-    RETURN_ARG_UNLESS(1 == num_dst, 0);
     is_local += mpr_obj_get_is_local((mpr_obj)*dst);
     g = mpr_obj_get_graph((mpr_obj)*dst);
 
@@ -1022,7 +1029,8 @@ mpr_time mpr_map_process(mpr_local_map m, mpr_time t_now)
                 /* check if source signals have a value for this instance */
                 /* TODO: check whether source signal is actually referenced in the map expression */
                 for (j = 0; j < m->num_src; j++) {
-                    if (!mpr_value_get_has_value(src_vals[0], i))
+                    if (   mpr_local_slot_get_is_used(m->src[0])
+                        && !mpr_value_get_has_value(src_vals[0], i))
                         break;
                 }
                 if (j < m->num_src)
@@ -1716,14 +1724,27 @@ static int set_expr(mpr_local_map m, const char *expr_str)
     /* Special case: if we are the receiver and the new expression evaluates to
      * a constant we can update immediately. */
     /* TODO: should call handler for all instances updated through this map. */
-    if (mpr_expr_get_num_src(m->expr) <= 0 && !m->use_inst && mpr_obj_get_is_local((mpr_obj)dst_sig)) {
-        /* call handler if it exists */
-        mpr_sig_call_handler((mpr_local_sig)dst_sig, MPR_STATUS_UPDATE_REM, 0, 0);
+    if (!m->use_inst && mpr_obj_get_is_local((mpr_obj)dst_sig)) {
+        int num_src = mpr_expr_get_num_src(m->expr), i;
+        for (i = 0; i < num_src; i++) {
+            if (mpr_expr_get_src_is_used(m->expr, i)) {
+                break;
+            }
+        }
+        if (i >= num_src) {
+            /* apply update to all active destination instances */
+            mpr_value dst_val = mpr_slot_get_value(m->dst);
+            void *value = mpr_value_get_value(dst_val, i, 0);
+            mpr_local_sig_set_inst_value((mpr_local_sig)dst_sig, value, -1, &m->id_map, EXPR_UPDATE,
+                                         mpr_expr_get_manages_inst(m->expr), t_now);
+        }
     }
 
-    /* check whether each source slot causes computation */
-    for (i = 0; i < m->num_src; i++)
+    /* check whether each source slot is referenced and should trigger evaluation */
+    for (i = 0; i < m->num_src; i++) {
+        mpr_local_slot_set_is_used(m->src[i], mpr_expr_get_src_is_used(m->expr, i));
         mpr_slot_set_causes_update((mpr_slot)m->src[i], mpr_expr_get_src_causes_update(m->expr, i));
+    }
 
     /* check whether expression manages recalculation scheduling */
     if ((m->is_self_timed = mpr_expr_get_manages_time(m->expr))) {
@@ -2236,7 +2257,6 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
     va_end(aq);
 
     TRACE_RETURN_UNLESS(dst, NULL, "Map format string '%s' has no output signal!\n", expr);
-    TRACE_RETURN_UNLESS(num_src, NULL, "Map format string '%s' has no input signals!\n", expr);
 
     /* create the map */
     map = mpr_map_new(num_src, srcs, 1, &dst);

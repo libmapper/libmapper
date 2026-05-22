@@ -1689,9 +1689,8 @@ static int parse_sig_names(const char *types, lo_arg **av, int ac, int *src_idx,
     for (i = 0; i < num_src; i++) {
         TRACE_RETURN_UNLESS(strchr((&av[*src_idx+i]->s)+1, '/'), 0,
                             "malformed source signal name '%s'.\n", &av[*src_idx+i]->s);
-        TRACE_RETURN_UNLESS(strcmp(&av[*src_idx+i]->s, &av[*dst_idx]->s), 0,
-                            "prevented attempt to connect signal '%s' to itself.\n",
-                            &av[*dst_idx]->s);
+        TRACE_RETURN_UNLESS(strcmp(&av[*src_idx+i]->s, &av[*dst_idx]->s) || (1 == num_src), 0,
+                            "prevented loop in convergent map.\n");
     }
     TRACE_RETURN_UNLESS(strchr((&av[*dst_idx]->s)+1, '/'), 0, "malformed "
                         "destination signal name '%s'.\n", &av[*dst_idx]->s)
