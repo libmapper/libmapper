@@ -10,7 +10,7 @@ from pprint import pprint
 
 def platforms():
     ARCHES = ['x86_64', 'i686'] # WIP: 'aarch64', 'armv7l', 'ppc64', 'ppc64le', 's390x'
-    BASES = ['manylinux2010',  'manylinux2014', 'manylinux_2_24']
+    BASES = ['manylinux2010',  'manylinux_2_24']
     for base in BASES:
         for arch in ARCHES:
             if base == 'manylinux2010' and arch not in ['x86_64', 'i686']:
