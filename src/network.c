@@ -260,6 +260,17 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
             && memcmp(&sa->sin_addr, &zero, sizeof(struct in_addr)) != 0) {
             trace("checking network interface '%s' (pref: '%s')\n",
                   ifap->ifa_name, pref ? pref : "NULL");
+
+            if (strncmp("utun", ifap->ifa_name, strlen("utun")) == 0) {
+                // interface name starts with "utun", indicating it is likely a p2p connection
+                // should not attempt to bind to these automatically
+                if (!pref || 0 != strcmp(ifap->ifa_name, pref)) {
+                    // was not the preferred iface, so skip it
+                    ifap = ifap->ifa_next;
+                    continue;
+                }
+            }
+
             ifchosen = ifap;
             if (pref && 0 == strcmp(ifap->ifa_name, pref)) {
                 trace("  preferred interface found!\n");
