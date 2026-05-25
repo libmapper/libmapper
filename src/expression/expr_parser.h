@@ -2145,6 +2145,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             t = estack_insert(out, ++i, substack_len, estack_peek(out, var_idx - substack_len + 1));
             {FAIL_IF(t->toktype != TOK_VAR, "error!");}
             t->toktype = TOK_ASSIGN;
+            t->var.offset = 0;
             if (pre)
                 t->toktype |= ASSIGN_KEEP_ARG;
             t->gen.flags |= flags;
