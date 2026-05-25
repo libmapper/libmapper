@@ -2002,27 +2002,47 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                 break;
             }
             case MPR_PROP_USE_INST: {
-                int use_inst;
-                if (types[0] == 's') {
-                    const char *str = &(vals[0])->s;
-                    if (!strchr("TFtf", str[0]))
+                int use_inst = -1;
+                switch (types[0]) {
+                    case MPR_STR: {
+                        const char *str = &(vals[0])->s;
+                        if (!strchr("TFtf", str[0]))
+                            break;
+                        if (strlen(str) == 1)
+                            use_inst = str[0] == 'T' || str[0] == 't';
+                        else if (strcmp(str + 1, "rue") == 0)
+                            use_inst = 1;
+                        else if (strcmp(str + 1, "alse") == 0)
+                            use_inst = 0;
+                        else
+                            break;
                         break;
-                    if (strlen(str) == 1)
-                        use_inst = str[0] == 'T' || str[0] == 't';
-                    else if (strcmp(str + 1, "rue") == 0)
+                    }
+                    case MPR_INT32:
+                        use_inst = 0 != (vals[0])->i32;
+                        break;
+                    case MPR_FLT:
+                        use_inst = 0.f != (vals[0])->f;
+                        break;
+                    case MPR_DBL:
+                        use_inst = 0. != (vals[0])->d;
+                        break;
+                    case 'T':
                         use_inst = 1;
-                    else if (strcmp(str + 1, "alse") == 0)
+                        break;
+                    case 'F':
                         use_inst = 0;
-                    else
+                        break;
+                    default:
                         break;
                 }
-                else
-                    use_inst = types[0] == 'T';
                 if (m->obj.is_local && m->use_inst && !use_inst) {
                     /* TODO: release map instances */
                 }
-                updated += mpr_tbl_add_record(tbl, MPR_PROP_USE_INST, NULL, 1, MPR_BOOL,
-                                              &use_inst, MPR_TBL_MOD_REM);
+                if (use_inst >= 0) {
+                    updated += mpr_tbl_add_record(tbl, MPR_PROP_USE_INST, NULL, 1, MPR_BOOL,
+                                                  &use_inst, MPR_TBL_MOD_REM);
+                }
                 break;
             }
             case MPR_PROP_EXTRA: {

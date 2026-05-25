@@ -40,6 +40,9 @@ MPR_INLINE static int mpr_type_get_is_num(mpr_type type)
         case MPR_INT32:
         case MPR_FLT:
         case MPR_DBL:
+        case MPR_BOOL:
+        case 'T':
+        case 'F':
             return 1;
         default:    return 0;
     }

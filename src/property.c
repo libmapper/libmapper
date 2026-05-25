@@ -25,7 +25,7 @@ const static_prop_t static_props[] = {
     { "@data",          1, 0  },        /* MPR_PROP_DATA */
     { "@device",        1, MPR_STR },   /* MPR_PROP_DEVICE */
     { "@direction",     1, MPR_STR },   /* MPR_PROP_DIR */
-    { "@ephemeral",     1, MPR_BOOL },  /* MPR_PROP_EPHEM */
+    { "@ephemeral",     1, 'n' },       /* MPR_PROP_EPHEM */
     { "@expr",          1, MPR_STR },   /* MPR_PROP_EXPR */
     { "@host",          1, MPR_STR },   /* MPR_PROP_HOST */
     { "@id",            1, MPR_INT64 }, /* MPR_PROP_ID */
@@ -36,7 +36,7 @@ const static_prop_t static_props[] = {
     { "@linked",        0, MPR_STR },   /* MPR_PROP_LINKED */
     { "@max",           0, 'n' },       /* MPR_PROP_MAX */
     { "@min",           0, 'n' },       /* MPR_PROP_MIN */
-    { "@muted",         1, MPR_BOOL },  /* MPR_PROP_MUTED */
+    { "@muted",         1, 'n' },       /* MPR_PROP_MUTED */
     { "@name",          1, MPR_STR },   /* MPR_PROP_NAME */
     { "@num_inst",      1, MPR_INT32 }, /* MPR_PROP_NUM_INST */
     { "@num_maps",      2, MPR_INT32 }, /* MPR_PROP_NUM_MAPS */
@@ -57,7 +57,7 @@ const static_prop_t static_props[] = {
     { "@synced",        1, MPR_TIME },  /* MPR_PROP_SYNCED */
     { "@type",          1, MPR_TYPE },  /* MPR_PROP_TYPE */
     { "@unit",          1, MPR_STR },   /* MPR_PROP_UNIT */
-    { "@use_inst",      1, MPR_BOOL },  /* MPR_PROP_USE_INST */
+    { "@use_inst",      1, 'n' },       /* MPR_PROP_USE_INST */
     { "@version",       1, MPR_INT32 }, /* MPR_PROP_VERSION */
     { "@extra",         0, 'a' },       /* MPR_PROP_EXTRA (special case, does not
                                          * represent a specific property name) */
