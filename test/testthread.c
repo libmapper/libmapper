@@ -355,7 +355,7 @@ int main(int argc, char **argv)
     /* poll device in another thread */
     loop2();
 
-    if (autoconnect && (!received || sent > received)) {
+    if (autoconnect && (!received || (sent - received) > 1)) {
         eprintf("Not all sent messages were received.\n");
         eprintf("Updated value %d time%s and received %d of them.\n",
                 sent, sent == 1 ? "" : "s", received);

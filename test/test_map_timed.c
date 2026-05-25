@@ -316,7 +316,8 @@ void loop()
         if (sent % 3)
             mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &sent);
 
-        mpr_dev_poll(src, period);
+        if (!shared_graph)
+            mpr_dev_poll(src, period);
 
         if (!verbose) {
             printf("\r  Received: %4i", received);
@@ -332,7 +333,7 @@ int run_test(test_config *config)
     double period_sec = period * 0.001;
     mpr_time t_start;
     int result = 0;
-//    int zero = 0;
+    int use_inst = 0;
     mpr_map map;
     char expr[256];
 
@@ -350,8 +351,10 @@ int run_test(test_config *config)
     /* set expression */
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
 
-    // TODO: ensure can set this with an int, etc
-//    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_USE_INST, NULL, 1, MPR_BOOL, &zero, 1);
+    /* set use_inst property to False since the destination will claim an instance locally */
+    /* TODO: test with multiple instances, instanced periods, etc. */
+    /* also test setting boolean property with integer value */
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_USE_INST, NULL, 1, MPR_INT32, &use_inst, 1);
 
     mpr_obj_push(map);
 
@@ -383,6 +386,12 @@ int run_test(test_config *config)
             break;
         }
     } while (!done);
+
+    /* double-check that the map instancing is correct */
+    if (mpr_obj_get_prop_as_int32((mpr_obj)map, MPR_PROP_USE_INST, NULL) != use_inst) {
+        eprintf("error: map.use_inst=%d but should be %d\n", !use_inst, use_inst);
+        return 1;
+    }
 
     /* activate a destination instance */
 //    mpr_sig_activate_inst(recvsig, 0);

@@ -704,6 +704,12 @@ int run_test(test_config *config)
     mpr_dev_poll(src, 10);
     mpr_dev_poll(dst, 10);
 
+    /* double-check that the map instancing is correct */
+    if (mpr_obj_get_prop_as_int32((mpr_obj)map, MPR_PROP_USE_INST, NULL) != use_inst) {
+        eprintf("error: map.use_inst=%d but should be %d\n", !use_inst, use_inst);
+        return 1;
+    }
+
     /* remove any extra destination instances allocated by previous tests */
     while (5 <= mpr_sig_get_num_inst(multirecv, MPR_STATUS_ANY)) {
         mpr_id id;
