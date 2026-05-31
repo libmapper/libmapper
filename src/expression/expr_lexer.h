@@ -23,6 +23,7 @@ static expr_op_t op_lookup(etoken t, const char *s)
             else {
                 t->toktype = op_tbl[i].arity > 1 ? TOK_OP : TOK_OP_UNARY;
                 t->op.idx = i;
+                t->op.arity = op_tbl[i].arity;
                 return len;
             }
         }

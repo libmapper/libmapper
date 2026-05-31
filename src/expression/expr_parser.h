@@ -1550,6 +1550,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     break;
                 }
                 op_top->op.idx = OP_IF_THEN_ELSE;
+                op_top->op.arity = 3;
                 allow_toktype = OBJECT_TOKENS;
                 break;
             }
@@ -2021,6 +2022,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             /* 1) prepare operator token: copy op and datatype from assignment token */
             newtok.toktype = TOK_OP;
             newtok.op.idx = t->var.op_idx;
+            newtok.op.arity = 2;
             newtok.gen.datatype = t->gen.datatype;
             newtok.gen.casttype = 0;
             newtok.gen.vec_len = t->gen.vec_len;
@@ -2138,6 +2140,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
             /* add operator */
             newtok.toktype = TOK_OP;
             newtok.op.idx = inc ? OP_ADD : OP_SUBTRACT;
+            newtok.op.arity = 2;
             newtok.gen.vec_len = 1;
             estack_insert(out, ++i, 1, &newtok);
 

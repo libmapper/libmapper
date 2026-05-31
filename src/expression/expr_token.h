@@ -110,6 +110,7 @@ struct operator_type {
     uint8_t flags;
     /* end of generic_type */
     expr_op_t idx;
+    uint8_t arity;
 };
 
 /* Used by
@@ -229,6 +230,7 @@ MPR_INLINE static void etoken_set_op(etoken tok, expr_op_t op)
 {
     tok->toktype = TOK_OP;
     tok->op.idx = op;
+    tok->op.arity = op_tbl[op].arity;
 }
 
 MPR_INLINE static void etoken_set_int32(etoken tok, int val)

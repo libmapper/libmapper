@@ -496,7 +496,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             break;
         }
         case TOK_OP: {
-            uint8_t i, max_len, rlen, arity = op_tbl[tok->op.idx].arity;
+            uint8_t i, max_len, rlen, arity = tok->op.arity;
             INCR_STACK_PTR(1 - arity);
             /* first copy vals[sp] elements if necessary */
             max_len = lens[dp];
