@@ -176,6 +176,7 @@ int setup_maps(void)
 
     switch (config) {
         case 0: {
+            /* build expression string with combination function and muted sources */
             int offset = 2, len = num_sources * 5 + 5;
             char *expr;
 
@@ -185,8 +186,6 @@ int setup_maps(void)
                 eprintf("Failed to create map\n");
                 return 1;
             }
-
-            /* build expression string with combination function and muted sources */
 
             expr = (char*)malloc(len * sizeof(char));
             snprintf(expr, 3, "y=");
@@ -210,6 +209,7 @@ int setup_maps(void)
             break;
         }
         case 1:
+            /* build expression string with combination function and buddy logic */
             eprintf("Configuration 1: combination function and buddy logic\n");
 
             if (!(map = mpr_map_new(num_sources, sendsigs, 1, &recvsig))) {
@@ -217,15 +217,15 @@ int setup_maps(void)
                 return 1;
             }
 
-            /* build expression string with combination function and buddy logic */
             mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
                              "alive=(t_x$0>t_y{-1})&&(t_x$1>t_y{-1})&&(t_x$2>t_y{-1});"
                              "y=x$0+x$1+x$2;", 1);
             mpr_obj_push(map);
             break;
         case 2:
-            eprintf("Configuration 2: format string and signal arguments\n");
             /* create/modify map with format string and signal arguments */
+            eprintf("Configuration 2: format string and signal arguments\n");
+
             if (!(map = mpr_map_new_from_str("%y=%x-_%x+_%x", recvsig, sendsigs[0],
                                              sendsigs[1], sendsigs[2]))) {
                 eprintf("Failed to create map\n");
@@ -234,15 +234,19 @@ int setup_maps(void)
             mpr_obj_push(map);
             break;
         case 3: {
-            eprintf("Configuration 3: create the map using a 3rd party graph\n");
             /* create the map using a 3rd party graph */
-            g2 = mpr_graph_new(MPR_OBJ);
             mpr_sig *sendsigs2 = calloc(1, sizeof(mpr_sig) * num_sources);
             mpr_sig recvsig2;
+            int synced = 0;
+
+            eprintf("Configuration 3: create the map using a 3rd party graph\n");
+
+            g2 = mpr_graph_new(MPR_OBJ);
 
             eprintf("waiting for graph sync... ");
-            while (!done) {
-                int synced = 1;
+            j = 10;
+            while (!done && --j > 0) {
+                synced = 1;
                 mpr_id sig_id;
 
                 for (i = 0; i < num_sources; i++)
@@ -269,7 +273,7 @@ int setup_maps(void)
                 if (synced)
                     break;
             }
-            if (done)
+            if (!synced)
                 return 1;
             eprintf("synced!\n");
             map = mpr_map_new_from_str("%y=[%x,_%x+1,_%x+2]", recvsig2, sendsigs2[0],
@@ -285,6 +289,7 @@ int setup_maps(void)
     }
 
     /* wait until mappings have been established */
+    j = 10;
     while (!done && (!mpr_map_get_is_ready(map) || j > 0)) {
         for (i = 0; i < num_sources; i++)
             mpr_dev_poll(srcs[i], 10);
