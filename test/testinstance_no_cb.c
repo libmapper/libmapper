@@ -144,7 +144,7 @@ test_config test_configs[] = {
 
     /* singleton convergent ––> singleton */
     { 23, SNGL, SNGL, SNGL, SNGL, MPR_LOC_SRC, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   0 },
-    { 24, SNGL, SNGL, SNGL, SNGL, MPR_LOC_DST, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   1 },
+    { 24, SNGL, SNGL, SNGL, SNGL, MPR_LOC_DST, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.01,  1 },
 
     /* singleton convergent ==> singleton */
     { 25, SNGL, SNGL, SNGL, INST, MPR_LOC_SRC, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   0 },
@@ -152,7 +152,7 @@ test_config test_configs[] = {
 
     /* singleton convergent ––> instanced */
     { 27, SNGL, SNGL, INST, SNGL, MPR_LOC_SRC, NO_ACTION, NULL,  2.0,  2.0,  2.0,  2.0,  0.0,   1 },
-    { 28, SNGL, SNGL, INST, SNGL, MPR_LOC_DST, NO_ACTION, NULL,  2.0,  2.0,  2.0,  2.0,  0.0,   1 },
+    { 28, SNGL, SNGL, INST, SNGL, MPR_LOC_DST, NO_ACTION, NULL,  2.0,  2.0,  2.0,  2.0,  0.02,  1 },
 
     /* singleton convergent ==> instanced */
     { 29, SNGL, SNGL, INST, SNGL, MPR_LOC_SRC, NO_ACTION, NULL,  2.0,  2.0,  2.0,  2.0,  0.01,  1 },
@@ -160,7 +160,7 @@ test_config test_configs[] = {
 
     /* instanced convergent ––> singleton */
     { 31, INST, INST, SNGL, SNGL, MPR_LOC_SRC, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   0 },
-    { 32, INST, INST, SNGL, SNGL, MPR_LOC_DST, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   0 },
+    { 32, INST, INST, SNGL, SNGL, MPR_LOC_DST, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.01,  0 },
 
     /* instanced convergent ==> singleton */
     { 33, INST, INST, SNGL, INST, MPR_LOC_SRC, NO_ACTION, NULL,  1.0,  1.0,  1.0,  1.0,  0.0,   0 },

@@ -14,6 +14,9 @@
 
 #define NUM_SRC 1
 
+/* This test verifies that a map will be re-created immediately after a release, i.e. while
+ * protocol messages from unmapping are still being exchanged. */
+
 int verbose = 1;
 int terminate = 0;
 int shared_graph = 0;

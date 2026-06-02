@@ -12,6 +12,10 @@
 #include <signal.h>
 #include <string.h>
 
+/* This test simply verifies that map and link structures are garbage collected if map creation is
+ * not completed.
+ * NOTE: this test uses the MPR_LINK object type which is not part of the public API. */
+
 int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
