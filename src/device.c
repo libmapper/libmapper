@@ -865,6 +865,11 @@ void mpr_local_dev_handler_name(mpr_local_dev dev, const char *name,
             if (temp_id < random_id) {
                 /* Count ordinal collisions. */
                 ++dev->ordinal_allocator.collision_count;
+#ifdef DEBUG
+                /* do not use trace_dev() here since it calls check_registration() */
+                printf("\x1B[32m-- <device.%p.%s?>\x1B[0m ", dev, mpr_dev_get_name((mpr_dev)dev));
+                printf("collision count: %d\n", dev->ordinal_allocator.collision_count);
+#endif
                 dev->ordinal_allocator.count_time = mpr_get_current_time();
             }
             else if (temp_id == random_id && hint > 0 && hint != dev->ordinal_allocator.val) {
@@ -910,7 +915,12 @@ void mpr_local_dev_handler_name_probe(mpr_local_dev dev, char *name, int temp_id
         send_name_registered(net, name, temp_id, dev->ordinal_allocator.val + i + 1);
     }
     else {
-        dev->ordinal_allocator.collision_count += 1;
+        ++dev->ordinal_allocator.collision_count;
+#ifdef DEBUG
+        /* do not use trace_dev() here since it calls check_registration() */
+        printf("\x1B[32m-- <device.%p.%s?>\x1B[0m ", dev, mpr_dev_get_name((mpr_dev)dev));
+        printf("collision count: %d\n", dev->ordinal_allocator.collision_count);
+#endif
         dev->ordinal_allocator.count_time = current_time;
         if (temp_id == random_id)
             dev->ordinal_allocator.online = 1;
@@ -1329,7 +1339,7 @@ static int check_collisions(mpr_net net, mpr_allocated resource)
             if (!resource->hints[i])
                 break;
         }
-        resource->val += i + (rand() % mpr_net_get_num_devs(net));
+        resource->val += i + 1 + (rand() % resource->collision_count);
 
         /* Prepare for causing new resource collisions. */
         resource->collision_count = 0;

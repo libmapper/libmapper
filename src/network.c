@@ -163,7 +163,7 @@ static int handler_map_to(HANDLER_ARGS);
 static int handler_mapped(HANDLER_ARGS);
 static int handler_map_mod(HANDLER_ARGS);
 static int handler_name_probe(HANDLER_ARGS);
-static int handler_name(HANDLER_ARGS);
+static int handler_name_registered(HANDLER_ARGS);
 static int handler_ping(HANDLER_ARGS);
 static int handler_sig(HANDLER_ARGS);
 static int handler_sig_removed(HANDLER_ARGS);
@@ -532,7 +532,7 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
         lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_PROBE], "si",
                              handler_name_probe, net);
         lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_REG], NULL,
-                             handler_name, net);
+                             handler_name_registered, net);
     }
 
     /* Probe potential name. */
@@ -1578,8 +1578,8 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
 }
 
 /*! Respond to name collisions during allocation, help suggest IDs once allocated. */
-static int handler_name(const char *path, const char *types, lo_arg **av,
-                        int ac, lo_message msg, void *user)
+static int handler_name_registered(const char *path, const char *types, lo_arg **av,
+                                   int ac, lo_message msg, void *user)
 {
     mpr_net net = (mpr_net)user;
     int i, temp_id = -1, hint = 0;
@@ -1610,10 +1610,30 @@ static int handler_name_probe(const char *path, const char *types, lo_arg **av,
     char *name = &av[0]->s;
     int i, temp_id = av[1]->i;
     mpr_id id = mpr_id_from_str(name);
+    mpr_dev dev = (mpr_dev)mpr_graph_get_obj(net->graph, id, MPR_DEV);
 
     trace_net(net);
-    for (i = 0; i < net->num_devs; i++)
-        mpr_local_dev_handler_name_probe(net->devs[i], name, temp_id, net->random_id, id);
+
+    if (dev) {
+        if (mpr_obj_get_is_local((mpr_obj)dev)) {
+            mpr_local_dev_handler_name_probe((mpr_local_dev)dev, name, temp_id, net->random_id, id);
+        }
+        else if (mpr_dev_get_is_registered(dev)) {
+            /* simple response */
+            lo_message msg = lo_message_new();
+            if (msg) {
+                trace("sending 3rd-party /name/registered message\n");
+                mpr_net_use_bus(net);
+                lo_message_add_string(msg, name);
+                mpr_net_add_msg(net, NULL, MSG_NAME_REG, msg);
+            }
+        }
+    }
+    else {
+        for (i = 0; i < net->num_devs; i++) {
+            (mpr_local_dev_handler_name_probe(net->devs[i], name, temp_id, net->random_id, id));
+        }
+    }
 
     return 0;
 }

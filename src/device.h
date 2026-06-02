@@ -25,16 +25,17 @@ typedef struct _mpr_local_dev *mpr_local_dev;
 /*! Debug tracer */
 #if defined(__GNUC__) || defined(WIN32)
     #ifdef DEBUG
-        #define trace_dev(DEV, ...)                                                          \
-        {                                                                                    \
-            if (!DEV)                                                                        \
-                printf("\x1B[32m-- <device>\x1B[0m ");                                       \
-            else if (mpr_dev_get_is_registered((mpr_dev)DEV))                                \
-                printf("\x1B[32m-- <device '%s'*>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV)); \
-            else                                                                             \
-                printf("\x1B[32m-- <device '%s?'::%p>\x1B[0m ",                              \
-                       mpr_dev_get_name((mpr_dev)DEV), DEV);                                 \
-            printf(__VA_ARGS__);                                                             \
+        #define trace_dev(DEV, ...)                             \
+        {                                                       \
+            if (!DEV)                                           \
+                printf("\x1B[32m-- <device>\x1B[0m ");          \
+            else if (mpr_dev_get_is_registered((mpr_dev)DEV))   \
+                printf("\x1B[32m-- <device.%p.%s*>\x1B[0m ",    \
+                       DEV, mpr_dev_get_name((mpr_dev)DEV));    \
+            else                                                \
+                printf("\x1B[32m-- <device.%p.%s?>\x1B[0m ",    \
+                       DEV, mpr_dev_get_name((mpr_dev)DEV));    \
+            printf(__VA_ARGS__);                                \
         }
     #else /* !DEBUG */
         #define trace_dev(...) {}

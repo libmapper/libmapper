@@ -329,7 +329,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
                 /* Only allow this if devices are the same or share a graph. */
                 if (mpr_obj_get_graph((mpr_obj)src[i]) == mpr_obj_get_graph((mpr_obj)dst[j]))
                     continue;
-                trace("Cannot create map between uninitialized devices unless they share a graph.");
+                trace("Cannot create map between uninitialized devices unless they share a graph.\n");
                 return 0;
             }
             if (0 == mpr_sig_compare_names(src[i], dst[j]) && num_src > 1) {
