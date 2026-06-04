@@ -389,13 +389,13 @@ namespace mapper {
 
         /* Copy constructor */
         List(const List& orig)
-            { _list = mpr_list_get_cpy(orig._list); printf("list copy made\n"); }
+            { _list = mpr_list_get_cpy(orig._list); }
         /* Move constructor */
         List(List&& orig) noexcept
             { _list = orig._list; orig._list = NULL; }
 
         ~List()
-            { if(_list == nullptr) {return;} mpr_list_free(_list); printf("list freed\n"); }
+            { if(_list == nullptr) {return;} mpr_list_free(_list); }
 
         operator mpr_list() { return _list; }
 
@@ -521,7 +521,7 @@ namespace mapper {
         friend class PropVal;
 
         List(mpr_list list)
-            { _list = list; printf("list constructed\n");}
+            { _list = list; }
     private:
         mpr_list _list;
     };
