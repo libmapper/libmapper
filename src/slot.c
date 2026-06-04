@@ -15,7 +15,7 @@
 #include "slot.h"
 #include "table.h"
 
-#include "util/mpr_debug.h"
+#include "mpr_debug.h"
 
 #include <mapper/mapper.h>
 

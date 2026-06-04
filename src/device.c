@@ -18,7 +18,7 @@
 #include "path.h"
 #include "table.h"
 
-#include "util/mpr_debug.h"
+#include "mpr_debug.h"
 
 #include "config.h"
 #include <mapper/mapper.h>

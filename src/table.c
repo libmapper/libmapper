@@ -8,8 +8,8 @@
 #include "path.h"
 #include "property.h"
 #include "object.h"
-#include "util/mpr_debug.h"
-#include "util/mpr_set_coerced.h"
+#include "mpr_debug.h"
+#include "mpr_set_coerced.h"
 #include "table.h"
 #include <mapper/mapper.h>
 

@@ -1,6 +1,6 @@
 #include <string.h>
 #include <mapper/mapper.h>
-#include "../mpr_type.h"
+#include "mpr_type.h"
 
 /* Helper for setting property value from different data types */
 int mpr_set_coerced(int src_len, mpr_type src_type, const void *src_val,

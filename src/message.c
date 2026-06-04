@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include "message.h"
 #include "property.h"
-#include "util/mpr_debug.h"
-#include "util/mpr_inline.h"
+#include "mpr_debug.h"
+#include "mpr_inline.h"
 
 #ifdef DEBUG
 #define TRACING 0 /* Set non-zero to see parsed properties. */

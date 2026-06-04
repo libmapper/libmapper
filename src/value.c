@@ -7,7 +7,7 @@
 #include <assert.h>
 
 #include "bitflags.h"
-#include "util/mpr_set_coerced.h"
+#include "mpr_set_coerced.h"
 #include "value.h"
 
 #define GET_BUFFER() &v->inst[inst_idx % v->num_inst]

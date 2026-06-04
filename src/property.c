@@ -5,7 +5,7 @@
 #include "list.h"
 #include "object.h"
 #include "property.h"
-#include "util/mpr_debug.h"
+#include "mpr_debug.h"
 #include <mapper/mapper.h>
 
 /* length = 0 indicates variable length. */

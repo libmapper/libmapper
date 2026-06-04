@@ -22,6 +22,9 @@ noinst_HEADERS = bitflags.h \
     list.h \
     map.h \
     message.h \
+    mpr_debug.h \
+    mpr_inline.h \
+    mpr_set_coerced.h \
     mpr_signal.h \
     mpr_time.h \
     mpr_type.h \
@@ -32,10 +35,7 @@ noinst_HEADERS = bitflags.h \
     slot.h \
     table.h \
     thread_data.h \
-    value.h \
-    util/mpr_debug.h \
-    util/mpr_inline.h \
-    util/mpr_set_coerced.h
+    value.h
 EXTRA_DIST = libmapper.def
 
 if WINDOWS_DLL
@@ -51,6 +51,7 @@ libmapper_la_SOURCES = device.c \
     list.c \
     map.c \
     message.c \
+    mpr_set_coerced.c \
     network.c \
     object.c \
     path.c \
@@ -59,7 +60,6 @@ libmapper_la_SOURCES = device.c \
     slot.c \
     table.c \
     time.c \
-    util/mpr_set_coerced.c \
     value.c
 libmapper_la_LIBADD = $(liblo_LIBS)
 libmapper_la_LDFLAGS = $(lt_windows) -export-dynamic -version-info @SO_VERSION@

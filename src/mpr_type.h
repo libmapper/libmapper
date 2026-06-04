@@ -4,8 +4,8 @@
 
 #include <mapper/mapper_constants.h>
 #include "mpr_time.h"
-#include "util/mpr_debug.h"
-#include "util/mpr_inline.h"
+#include "mpr_debug.h"
+#include "mpr_inline.h"
 
 typedef char mpr_type;
 

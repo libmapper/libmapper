@@ -7,7 +7,7 @@
 #include "expr_function.h"
 #include "expr_trace.h"
 #include "expr_variable.h"
-#include "../util/mpr_inline.h"
+#include "../mpr_inline.h"
 
 #define TOKEN_SIZE sizeof(etoken_t)
 

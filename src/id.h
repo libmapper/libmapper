@@ -10,7 +10,7 @@ typedef uint64_t mpr_id;
 
 #include <string.h>
 #include <zlib.h>
-#include "util/mpr_inline.h"
+#include "mpr_inline.h"
 
 MPR_INLINE static mpr_id mpr_id_from_str(const char *str)
     { return (mpr_id) crc32(0L, (const Bytef *)str, strlen(str)) << 32; }

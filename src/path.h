@@ -2,7 +2,7 @@
 #ifndef __MPR_PATH_H__
 #define __MPR_PATH_H__
 
-#include "util/mpr_inline.h"
+#include "mpr_inline.h"
 
 /*! Compare two strings with support for wildcard characters in the second string */
 int mpr_path_match(const char* s, const char* p);

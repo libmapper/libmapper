@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "util/mpr_inline.h"
+#include "mpr_inline.h"
 
 typedef char *mpr_bitflags;
 

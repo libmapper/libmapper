@@ -7,7 +7,7 @@
 #include "object.h"
 #include "path.h"
 #include "property.h"
-#include "util/mpr_debug.h"
+#include "mpr_debug.h"
 #include <mapper/mapper.h>
 
 /*   Note on the trick used here: Presuming that we can have lists as the result

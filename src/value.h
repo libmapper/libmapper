@@ -4,7 +4,7 @@
 
 #include <string.h>
 #include "table.h"
-#include "util/mpr_inline.h"
+#include "mpr_inline.h"
 #include "mpr_type.h"
 #include "bitflags.h"
 

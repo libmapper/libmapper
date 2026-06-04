@@ -4,8 +4,8 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "util/mpr_debug.h"
-#include "util/mpr_inline.h"
+#include "mpr_debug.h"
+#include "mpr_inline.h"
 
 /*! Bit flags for indicating instance id_map status. */
 #define UPDATED           0x01

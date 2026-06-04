@@ -13,7 +13,7 @@
 #include "path.h"
 #include "property.h"
 #include "table.h"
-#include "util/mpr_set_coerced.h"
+#include "mpr_set_coerced.h"
 
 #include <mapper/mapper.h>
 

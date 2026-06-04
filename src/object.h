@@ -26,7 +26,7 @@ typedef struct _mpr_obj
 } mpr_obj_t;
 
 #include "graph.h"
-#include "util/mpr_inline.h"
+#include "mpr_inline.h"
 #include "table.h"
 
 void mpr_obj_init(mpr_obj obj, mpr_graph graph, mpr_type type);

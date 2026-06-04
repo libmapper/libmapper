@@ -34,7 +34,7 @@
 #include "property.h"
 #include "slot.h"
 #include "thread_data.h"
-#include "util/mpr_debug.h"
+#include "mpr_debug.h"
 
 #include <mapper/mapper.h>
 

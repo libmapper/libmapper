@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "path.h"
-#include "util/mpr_debug.h"
+#include "mpr_debug.h"
 
 #ifdef _MSC_VER
 #include <malloc.h>

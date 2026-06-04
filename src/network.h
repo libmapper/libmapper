@@ -9,7 +9,7 @@ typedef struct _mpr_net *mpr_net;
 #include "device.h"
 #include "graph.h"
 #include "mpr_time.h"
-#include "util/mpr_inline.h"
+#include "mpr_inline.h"
 
 typedef enum {
     SERVER_DATA_UDP = 0,
