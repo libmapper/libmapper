@@ -370,9 +370,8 @@ int main(int argc, char ** argv)
 
     out << "try printing all device signals:" << std::endl;
     List<Signal> qsig = dev.signals(Direction::INCOMING);
-    qsig.begin();
-    for (; qsig != qsig.end(); ++qsig) {
-        out << "  input: " << *qsig << std::endl;
+    for (Signal sig : qsig) {
+        out << "  input: " << sig << std::endl;
     }
 
     Graph graph;
@@ -410,7 +409,7 @@ int main(int argc, char ** argv)
     // try retrieving linked devices
     out << "devices linked to " << dev << ":" << std::endl;
     List<Device> foo = dev[Property::LINKED];
-    for (; foo != foo.end(); foo++) {
+    for (Device dev : foo) {
         out << "  " << *foo << std::endl;
     }
 
@@ -419,8 +418,8 @@ int main(int argc, char ** argv)
     List<Device> qdev = graph.devices();
     qdev.filter(Property::NAME, "my*", Operator::EQUAL);
     qdev.filter(Property::NUM_SIGNALS_IN, 0, Operator::GREATER_THAN_OR_EQUAL);
-    for (; qdev != qdev.end(); qdev++) {
-        out << "  " << *qdev << " (" << (*qdev)[Property::NUM_SIGNALS_IN] << " inputs)" << std::endl;
+    for (Device dev : qdev) {
+        out << "  " << dev << " (" << (dev)[Property::NUM_SIGNALS_IN] << " inputs)" << std::endl;
     }
 
     // check graph records
