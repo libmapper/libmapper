@@ -90,7 +90,7 @@ jobs:
       run: |
         cd ./liblo
         pwd
-        (./configure CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -fPIC -mmacosx-version-min=10.10" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -mmacosx-version-min=10.10" LDFLAGS="-mmacosx-version-min=10.10" --build=x86_64-apple-darwin19.6.0 --host=aarch64-apple-darwin --prefix=$PWD/inst --enable-static --disable-shared --disable-tests --disable-tools --disable-examples --disable-doc || (cat config.log; false))
+        (./configure CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -fPIC -mmacosx-version-min=10.10" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -mmacosx-version-min=10.10" LDFLAGS="-mmacosx-version-min=10.10" --build=x86_64-apple-darwin19.6.0 --host=aarch64-apple-darwin --prefix=$PWD/inst --enable-static --disable-shared --disable-poll --disable-tests --disable-tools --disable-examples --disable-doc || (cat config.log; false))
         make install
         mv ./inst/lib/liblo.a ./inst/lib/liblo.a.arm64
         cd ..
@@ -99,7 +99,7 @@ jobs:
         cd ./liblo
         pwd
         make clean
-        (./configure CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -fPIC -mmacosx-version-min=10.10" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -mmacosx-version-min=10.10" LDFLAGS="-mmacosx-version-min=10.10" --build=arm-apple-darwin --host=x86_64-apple-darwin --prefix=$PWD/inst --enable-static --disable-shared  --disable-tests --disable-tools --disable-examples --disable-doc || (cat config.log; false))
+        (./configure CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -fPIC -mmacosx-version-min=10.10" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -mmacosx-version-min=10.10" LDFLAGS="-mmacosx-version-min=10.10" --build=arm-apple-darwin --host=x86_64-apple-darwin --prefix=$PWD/inst --enable-static --disable-shared --disable-poll --disable-tests --disable-tools --disable-examples --disable-doc || (cat config.log; false))
         make install
         mv ./inst/lib/liblo.a ./inst/lib/liblo.a.x86_64
         cd ..
