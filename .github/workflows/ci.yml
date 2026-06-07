@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   Linux:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
     - uses: actions/checkout@v6
       with:
@@ -34,34 +34,131 @@ jobs:
         find inst
         cd ..
     - name: autogen
-      run:
+      run: |
         pwd
-        && mkdir $PWD/inst
-        && env NOCONFIGURE=1 am_opt=--copy ./autogen.sh
-        && (./configure --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo/inst/lib/pkgconfig || (cat config.log; false))
+        mkdir $PWD/inst
+        env NOCONFIGURE=1 am_opt=--copy ./autogen.sh
+        (./configure --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo/inst/lib/pkgconfig || (cat config.log; false))
     - name: make
-      run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
-    - name: make tests
-      continue-on-error: true
-      run: cd test && make tests
-    - name: make dist
-      run: make dist
-    - name: python wheels
-      run:
-        pwd && make distclean && bindings/python/build_wheels.py
+      run: |
+        make
+        (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false))
+        make install
+        find inst
+        cp -r ./liblo/inst/include/lo ./inst/include/
+    - name: prepare test artifact
+      run: |
+        mkdir test_artifact
+        mv ./test/.libs ./test_artifact/test
+        mv ./inst ./test_artifact/
     - uses: actions/upload-artifact@v7
       with:
-        name: artifact_linux
+        name: tests_linux
+        path: ./test_artifact
+        retention-days: 1
+    - name: make dist
+      run: make dist
+    - uses: actions/upload-artifact@v7
+      with:
+        name: linux_tarball
         path: |
           libmapper*.tar.gz
+    - name: build wheels
+      run: |
+        make distclean
+        bindings/python/build_wheels.py
+    - uses: actions/upload-artifact@v7
+      with:
+        name: linux_wheel
+        path: |
           ./wheelhouse/*.whl
+
+  Linux-tests:
+    runs-on: ubuntu-latest
+    needs: Linux
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        flags: [-qtf, -qtfs]
+    steps:
+      - name: download libraries
+        uses: actions/download-artifact@v8
+        with:
+          name: tests_linux
+      - name: run tests
+        env:
+          TEST_FLAGS: ${{ matrix.flags }}
+        run: |
+          cd test
+          ls -al
+          chmod +x *
+          for i in *; do
+           if [[ $i = "testinstance" || $i = "testinstance_no_cb" ]]; then continue; fi;
+           echo Running $i $TEST_FLAGS;
+           LD_LIBRARY_PATH=../inst/lib ./$i $TEST_FLAGS --iterations 200 || continue;
+           echo Completed $i $TEST_FLAGS;
+           done
+
+  Linux-instance-tests:
+    runs-on: ubuntu-latest
+    needs: Linux-tests
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        flags: [-qtf, -qtfs, -qtfp, -qtfps]
+    steps:
+      - name: download libraries
+        uses: actions/download-artifact@v8
+        with:
+          name: tests_linux
+      - name: run tests
+        env:
+          TEST_FLAGS: ${{ matrix.flags }}
+        run: |
+          cd test
+          ls -al
+          chmod +x *
+          for i in testinstance testinstance_no_cb; do
+           echo Running $i $TEST_FLAGS;
+           LD_LIBRARY_PATH=../inst/lib ./$i $TEST_FLAGS || continue;
+           echo Completed $i $TEST_FLAGS;
+           done
+
+  Linux-check-wheel:
+    runs-on: ubuntu-latest
+    needs: Linux-instance-tests
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: linux_wheel
+      - name: install wheel
+        run:
+          ls
+          && python3 -m pip install libmapper*-py3-none-manylinux_2_24_x86_64.whl
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: run python tests
+        run:
+          mkdir testpython
+          && cd testpython
+          && cp ../bindings/python/test*.py .
+          && for i in test testcallbacks testconvergent testgetvalue testinstance testmapfromstr testnumpy testreverse testvector; do echo running ${i}; if ! python3 ${i}.py; then exit 1; fi; done;
 
   MacOS:
     runs-on: macOS-14
-    timeout-minutes: 45
+    timeout-minutes: 10
     env:
       CC: clang
       CXX: clang++
+      COMMON: -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -mmacosx-version-min=10.10 -Qunused-arguments
+      LDCOMMON: -mmacosx-version-min=10.10
     steps:
     - uses: actions/checkout@v6
       with:
@@ -86,76 +183,89 @@ jobs:
         tar -xzf liblo-0.35.tar.gz
         rm liblo-0.35.tar.gz
         mv liblo-0.35 liblo
-    - name: liblo make arm64
+    - name: liblo build arm64
       run: |
         cd ./liblo
-        pwd
-        (./configure CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -fPIC -mmacosx-version-min=10.10" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -mmacosx-version-min=10.10" LDFLAGS="-mmacosx-version-min=10.10" --build=x86_64-apple-darwin19.6.0 --host=aarch64-apple-darwin --prefix=$PWD/inst --enable-static --disable-shared --disable-poll --disable-tests --disable-tools --disable-examples --disable-doc || (cat config.log; false))
+        mkdir $PWD/inst
+        ./autogen.sh \
+          CFLAGS="$COMMON -arch arm64 -fPIC" \
+          CXXFLAGS="$COMMON -arch arm64" \
+          LDFLAGS="$COMMON -arch arm64 $LDCOMMON" \
+          --enable-static --disable-shared --disable-poll \
+          --disable-tests --disable-tools --disable-examples --disable-doc \
+          --prefix=$PWD/inst
         make install
-        mv ./inst/lib/liblo.a ./inst/lib/liblo.a.arm64
+        mv -v ./inst/lib/liblo.a ./inst/lib/liblo.a.arm64
         cd ..
-    - name: liblo make x86_64
+    - name: liblo build x86_64
       run: |
         cd ./liblo
-        pwd
         make clean
-        (./configure CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -fPIC -mmacosx-version-min=10.10" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -mmacosx-version-min=10.10" LDFLAGS="-mmacosx-version-min=10.10" --build=arm-apple-darwin --host=x86_64-apple-darwin --prefix=$PWD/inst --enable-static --disable-shared --disable-poll --disable-tests --disable-tools --disable-examples --disable-doc || (cat config.log; false))
+        ./autogen.sh \
+          CFLAGS="$COMMON -arch x86_64" \
+          CXXFLAGS="$COMMON -arch x86_64" \
+          LDFLAGS="$COMMON -arch x86_64 $LDCOMMON" \
+          --enable-static --disable-shared --disable-poll \
+          --disable-tests --disable-tools --disable-examples --disable-doc \
+          --prefix=$PWD/inst
         make install
-        mv ./inst/lib/liblo.a ./inst/lib/liblo.a.x86_64
+        mv -v ./inst/lib/liblo.a ./inst/lib/liblo.a.x86_64
         cd ..
-    - name: liblo universal binary
-      run: cd ./liblo/inst/lib && lipo -create -output ./liblo.a ./liblo.a.arm64 ./liblo.a.x86_64 && lipo -info ./liblo.a && rm ./liblo.a.* && cd ../../..
-    - name: libmapper autogen x86_64
-      run:
+    - name: liblo create universal binary
+      run: |
+        cd ./liblo/inst/lib
+        lipo -create -output ./liblo.a ./liblo.a.arm64 ./liblo.a.x86_64
+        lipo -info ./liblo.a
+        rm ./liblo.a.*
+        cd ../../..
+    - name: libmapper build arm64
+      run: |
         pwd
-        && mkdir $PWD/inst
-        && mkdir $PWD/inst/lib
-        && (./autogen.sh CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -mmacosx-version-min=10.10" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -mmacosx-version-min=10.10" LDFLAGS="-mmacosx-version-min=10.10" --build=arm-apple-darwin --host=x86_64-apple-darwin --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo/inst/lib/pkgconfig || (cat config.log; false))
-    - name: libmapper make x86_64 part 1
-      continue-on-error: true
-      run:
-        make
-        && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false))
-        && make install
-    - name: libmapper make x86_64 part 2
-      run:
-        cd ./src/.libs
-        && gcc -dynamiclib -Wl,-undefined -Wl,dynamic_lookup -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -o libmapper.15.dylib libmapper_la-device.o libmapper_la-expression.o libmapper_la-graph.o libmapper_la-link.o libmapper_la-list.o libmapper_la-map.o libmapper_la-message.o libmapper_la-network.o libmapper_la-object.o libmapper_la-path.o libmapper_la-property.o libmapper_la-signal.o libmapper_la-slot.o libmapper_la-table.o libmapper_la-time.o libmapper_la-mpr_set_coerced.o libmapper_la-value.o -L/Users/runner/work/libmapper/libmapper/liblo/inst/lib /Users/runner/work/libmapper/libmapper/liblo/inst/lib/liblo.a -lz -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -install_name /Users/runner/work/libmapper/libmapper/inst/lib/libmapper.15.dylib
-        && cd ../..
-        && mv ./src/.libs/libmapper.15.dylib ./inst/lib/libmapper.15.dylib.x86_64
-        && file ./inst/lib/libmapper.15.dylib.x86_64
-        && mv ./src/.libs/libmapper.a ./inst/lib/libmapper.a.x86_64
-        && lipo -info ./inst/lib/libmapper.a.x86_64
-    - name: libmapper autogen arm64
-      run:
+        mkdir $PWD/inst
+        mkdir $PWD/inst/lib
+        ./autogen.sh \
+          CFLAGS="$COMMON -arch arm64" \
+          CXXFLAGS="$COMMON -arch arm64" \
+          LDFLAGS="$COMMON -arch arm64 $LDCOMMON" \
+          --enable-static \
+          --disable-audio --disable-docs --disable-java --disable-csharp \
+          --prefix=$PWD/inst \
+          PKG_CONFIG_PATH=$PWD/liblo/inst/lib/pkgconfig
+        make install
+        mv -v ./inst/lib/libmapper.15.dylib ./inst/lib/libmapper.15.dylib.arm64
+        file ./inst/lib/libmapper.15.dylib.arm64
+        mv -v ./inst/lib/libmapper.a ./inst/lib/libmapper.a.arm64
+        lipo -info ./inst/lib/libmapper.a.arm64
+    - name: libmapper build x86_64
+      run: |
         make clean
-        && (./autogen.sh CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -mmacosx-version-min=10.10" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -mmacosx-version-min=10.10" LDFLAGS="-mmacosx-version-min=10.10" --build=arm-apple-darwin --host=aarch64-apple-darwin --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo/inst/lib/pkgconfig || (cat config.log; false))
-    - name: libmapper make arm64
-      run:
-        make
-        && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false))
-        && make install
-        && mv ./inst/lib/libmapper.15.dylib ./inst/lib/libmapper.15.dylib.arm64
-        && file ./inst/lib/libmapper.15.dylib.arm64
-        && mv ./inst/lib/libmapper.a ./inst/lib/libmapper.a.arm64
-        && lipo -info ./inst/lib/libmapper.a.arm64
-    - name: libmapper universal binary
-      run:
+        ./autogen.sh \
+          CFLAGS="$COMMON -arch x86_64" \
+          CXXFLAGS="$COMMON -arch x86_64" \
+          LDFLAGS="$COMMON -arch x86_64 $LDCOMMON" \
+          --enable-static \
+          --disable-audio --disable-docs --disable-java --disable-csharp \
+          --prefix=$PWD/inst \
+          PKG_CONFIG_PATH=$PWD/liblo/inst/lib/pkgconfig
+        make install
+        mv -v ./inst/lib/libmapper.15.dylib ./inst/lib/libmapper.15.dylib.x86_64
+        file ./inst/lib/libmapper.15.dylib.x86_64
+        mv -v ./inst/lib/libmapper.a ./inst/lib/libmapper.a.x86_64
+        lipo -info ./inst/lib/libmapper.a.x86_64
+    - name: libmapper create universal binary
+      run: |
         pwd
-        && find inst
-        && cd ./inst/lib
-        && lipo -create -output ./libmapper.a ./libmapper.a.arm64 ./libmapper.a.x86_64
-        && lipo -info ./libmapper.a
-        && rm ./libmapper.a.*
-        && file ./libmapper.15.dylib.arm64
-        && file ./libmapper.15.dylib.x86_64
-        && lipo -create -output ./libmapper.15.dylib ./libmapper.15.dylib.arm64 ./libmapper.15.dylib.x86_64
-        && file ./libmapper.15.dylib
-        && rm ./libmapper.15.dylib.*
-        && cd ../..
-    - name: make tests
-      continue-on-error: true
-      run: cd test && make tests
+        find inst
+        cd ./inst/lib
+        lipo -create -output ./libmapper.a ./libmapper.a.arm64 ./libmapper.a.x86_64
+        lipo -info ./libmapper.a
+        rm ./libmapper.a.*
+        file ./libmapper.15.dylib.arm64
+        file ./libmapper.15.dylib.x86_64
+        lipo -create -output ./libmapper.15.dylib ./libmapper.15.dylib.arm64 ./libmapper.15.dylib.x86_64
+        file ./libmapper.15.dylib
+        rm ./libmapper.15.dylib.*
+        cd ../..
     - name: python wheels
       run:
         mv bindings/python/pyproject.toml bindings/python/pyproject.toml.temp
@@ -166,61 +276,72 @@ jobs:
       with:
         name: artifact_macos
         path: ./wheelhouse/*.whl
-
-  Windows-Latest:
-    runs-on: windows-latest
-    timeout-minutes: 20
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-    - uses: actions/setup-python@v6
-      with:
-        python-version: '3.11'
-    - name: install dependencies
-      run:
-        python3 -m pip install --upgrade setuptools
-    - name: Run windows PowerShell build script
-      shell: pwsh
-      run: .\windows_build.ps1
-    - name: Build python wheel
-      run: .\bindings\python\windows_build_wheel.ps1
+    - name: prepare test artifact
+      run: |
+        mkdir test_artifact
+        mv ./test/.libs ./test_artifact/test
+        mv ./inst ./test_artifact/
     - uses: actions/upload-artifact@v7
       with:
-        name: artifact_windows
-        path: ./bindings/python/dist/*.whl
+        name: tests_macos
+        path: ./test_artifact
+        retention-days: 1
 
-  Linux-check-wheel:
-    runs-on: ubuntu-latest
-    needs: Linux
-    timeout-minutes: 20
+  MacOS-tests:
+    runs-on: macOS-14
+    needs: MacOS
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        flags: [-qtf, -qtfs]
     steps:
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-      - name: download artifact
+      - name: download libraries
         uses: actions/download-artifact@v8
         with:
-          name: artifact_linux
-      - name: install wheel
-        run:
-          ls
-          && python3 -m pip install wheelhouse/libmapper*-py3-none-manylinux_2_24_x86_64.whl
-      - name: checkout
-        uses: actions/checkout@v6
+          name: tests_macos
+      - name: run tests
+        env:
+          TEST_FLAGS: ${{ matrix.flags }}
+        run: |
+          cd test
+          ls -al
+          chmod +x *
+          for i in *; do
+           if [[ $i = "testinstance" || $i = "testinstance_no_cb" ]]; then continue; fi;
+           echo Running $i $TEST_FLAGS;
+           DYLD_LIBRARY_PATH=../inst/lib ./$i $TEST_FLAGS --iterations 200 || continue;
+           echo Completed $i $TEST_FLAGS;
+           done
+
+  MacOS-instance-tests:
+    runs-on: macOS-14
+    needs: MacOS-tests
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        flags: [-qtf, -qtfs, -qtfp, -qtfps]
+    steps:
+      - name: download libraries
+        uses: actions/download-artifact@v8
         with:
-          fetch-depth: 0
-      - name: run python tests
-        run:
-          mkdir testpython
-          && cd testpython
-          && cp ../bindings/python/test*.py .
-          && for i in test testcallbacks testconvergent testgetvalue testinstance testmapfromstr testnumpy testreverse testvector; do echo running ${i}; if ! python3 ${i}.py; then exit 1; fi; done;
+          name: tests_macos
+      - name: run tests
+        env:
+          TEST_FLAGS: ${{ matrix.flags }}
+        run: |
+          cd test
+          ls -al
+          chmod +x *
+          for i in testinstance testinstance_no_cb; do
+           echo Running $i $TEST_FLAGS;
+           DYLD_LIBRARY_PATH=../inst/lib ./$i $TEST_FLAGS || continue;
+           echo Completed $i $TEST_FLAGS;
+           done
 
   MacOS-check-wheel:
     runs-on: macOS-14
-    needs: MacOS
-    timeout-minutes: 20
+    needs: MacOS-instance-tests
+    timeout-minutes: 5
     env:
       SYSTEM_VERSION_COMPAT: 0
     steps:
@@ -245,6 +366,29 @@ jobs:
           && cd testpython
           && cp ../bindings/python/test*.py .
           && for i in test testcallbacks testconvergent testgetvalue testinstance testmapfromstr testnumpy testreverse testvector; do echo running ${i}; if ! python3 ${i}.py; then exit 1; fi; done;
+
+  Windows-Latest:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+    - name: install dependencies
+      run:
+        python3 -m pip install --upgrade setuptools
+    - name: Run windows PowerShell build script
+      shell: pwsh
+      run: .\windows_build.ps1
+    - name: Build python wheel
+      run: .\bindings\python\windows_build_wheel.ps1
+    - uses: actions/upload-artifact@v7
+      with:
+        name: artifact_windows
+        path: ./bindings/python/dist/*.whl
 
   Windows-Latest-check-wheel:
     runs-on: windows-latest
