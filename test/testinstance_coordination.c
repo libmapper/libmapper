@@ -1,5 +1,4 @@
 #include <mapper/mapper.h>
-#include "../src/util/mpr_debug.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -221,8 +220,8 @@ void loop(void)
                 if (value) {
                     int k, len = mpr_obj_get_prop_as_int32((mpr_obj)recvsig1, MPR_PROP_LEN, NULL);
                     if (verbose) {
-                        printf("%s.%"PR_MPR_ID" got ",
-                               mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL), id);
+                        printf("%s.%d got ",
+                               mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL), (int)id);
                         if (len > 1)
                             printf("[");
                         for (k = 0; k < len; k++)
@@ -243,8 +242,8 @@ void loop(void)
                 }
             }
             if (status & MPR_STATUS_REL_UPSTRM) {
-                eprintf("%s.%"PR_MPR_ID" got release\n",
-                        mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL), id);
+                eprintf("%s.%d got release\n",
+                        mpr_obj_get_prop_as_str((mpr_obj)recvsig1, MPR_PROP_NAME, NULL), (int)id);
                 mpr_sig_release_inst(recvsig1, id);
             }
             mpr_sig_get_inst_id(recvsig2, j, MPR_STATUS_ANY, &id);
@@ -254,8 +253,8 @@ void loop(void)
                 if (value) {
                     int k, len = mpr_obj_get_prop_as_int32((mpr_obj)recvsig2, MPR_PROP_LEN, NULL);
                     if (verbose) {
-                        printf("%s.%"PR_MPR_ID" got ",
-                               mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL), id);
+                        printf("%s.%d got ",
+                               mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL), (int)id);
                         if (len > 1)
                             printf("[");
                         for (k = 0; k < len; k++)
@@ -276,8 +275,8 @@ void loop(void)
                 }
             }
             if (status & MPR_STATUS_REL_UPSTRM) {
-                eprintf("%s.%"PR_MPR_ID" got release\n",
-                        mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL), id);
+                eprintf("%s.%d got release\n",
+                        mpr_obj_get_prop_as_str((mpr_obj)recvsig2, MPR_PROP_NAME, NULL), (int)id);
                 mpr_sig_release_inst(recvsig2, id);
             }
         }
