@@ -81,13 +81,37 @@ MPR_INLINE static int mpr_bitflags_get_all(mpr_bitflags bitflags)
     if (bitflags[0] & 0x01)
         return 1;
     else {
-        unsigned int i, num_bytes = ((bitflags[0] >> 1) - 1) / 8 + 2;
-        for (i = 1; i < num_bytes; i++) {
+        unsigned int i, num_bytes = ((bitflags[0] >> 1) - 1) / 8 + 1;
+        for (i = 1; i <= num_bytes; i++) {
+            /* bitflags are padded with 1's so we can simply compare byte to 0xFF */
             if (bitflags[i] != (char)0xFF)
                 return 0;
         }
         bitflags[0] |= 0x01;
         return 1;
+    }
+}
+
+MPR_INLINE static int mpr_bitflags_get_sum(mpr_bitflags bitflags)
+{
+    if (bitflags[0] & 0x01)
+        return bitflags[0] >> 1;
+    else {
+        unsigned int num_flags = bitflags[0] >> 1;
+        unsigned int num_bytes = (num_flags - 1) / 8 + 1;
+        unsigned int i = 1, sum = 0;
+        for (i = 1; i <= num_bytes; i++) {
+            char byte = bitflags[i];
+            if (byte) {
+                int j;
+                for (j = 0; j < 8 && j < num_flags; j++) {
+                    sum += byte & 0x01;
+                    byte >>= 1;
+                }
+            }
+            num_flags -= 8;
+        }
+        return sum;
     }
 }
 
