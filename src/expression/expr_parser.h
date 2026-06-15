@@ -130,7 +130,16 @@ int push_vfn_token(estack op, estack out, etoken tok, expr_var_t *vars, int *p_n
     return memory;
 }
 
-/*! Use Dijkstra's shunting-yard algorithm to parse expression into RPN stack. */
+/*! Use Dijkstra's shunting-yard algorithm to parse expression into RPN stack.
+ *  \param expr         The mpr_expr struct to use.
+ *  \param str          The expression string to parse.
+ *  \param num_src      The number of source signals available for this expression.
+ *  \param src_types    An array of types, one for each source signal.
+ *  \param src_lens     An array of vector lengths, one for each source signal.
+ *  \param num_dst      The number of destination signals available for this expression.
+ *  \param dst_types    An array of types, one for each destination signal.
+ *  \param dst_lens     An array of vector lengths, one for each destination signal.
+ *  \return             0 if successful, or 1 for error. */
 int expr_parser_build_stack(mpr_expr expr, const char *str,
                             int num_src, const mpr_type *src_types, const unsigned int *src_lens,
                             int num_dst, const mpr_type *dst_types, const unsigned int *dst_lens)
@@ -1662,6 +1671,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 }
 
                 /* start another sub-expression */
+                estack_new_subexpr(out);
                 assigning = is_const = 1;
                 allow_toktype = TOK_VAR | TOK_TT;
                 break;
@@ -1985,12 +1995,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     for (i = 0; i < out->num_tokens; i++) {
         etoken t = estack_peek(out, i);
         if ((TOK_ASSIGN & t->toktype) && (ASSIGN_COMPOUND & t->toktype)) {
-#if TRACE_PARSE
-            printf("expanding compound assignment token at index %d\n", i);
-#endif
             /* include variable indexes/indexing subexpressions but not the value to be assigned */
             int j, assign_len = 1, arg_substack_len, var_substack_len = 1;
             etoken_t newtok;
+
+#if TRACE_PARSE
+            printf("expanding compound assignment token at index %d\n", i);
+#endif
 
             for (j = NUM_VAR_IDXS(t->gen.flags); j > 0; j--) {
                 var_substack_len += 1 + estack_get_substack_len(out, i - var_substack_len);
@@ -2034,7 +2045,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 etoken a = estack_peek(out, j);
                 if (!(TOK_ASSIGN & a->toktype))
                     break;
-                a->toktype &= ~ASSIGN_COMPOUND;
+                a->toktype &= ~(ASSIGN_COMPOUND | ASSIGN_CONSTANT);
                 --j;
             }
 
@@ -2080,11 +2091,11 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 pre = t->op.idx == OP_INCREMENT_PRE || t->op.idx == OP_DECREMENT_PRE,
                 var_idx = i - 1,
                 flags = t->gen.flags;
+            etoken_t newtok, *vartok = estack_peek(out, var_idx);
 #if TRACE_PARSE
             printf("expanding %sfix %screment operator at index %d\n",
                    pre ? "pre" : "post", inc ? "in" : "de", i);
 #endif
-            etoken_t newtok, *vartok = estack_peek(out, var_idx);
             {FAIL_IF(TOK_VAR != vartok->toktype, "misplaced increment or decrement operator");}
             {FAIL_IF(vartok->var.idx >= VAR_X_NEWEST, "cannot assign to variable 'x'");}
             {FAIL_IF(vartok->gen.flags & VAR_HIST_IDX, "cannot assign to historical value");}
@@ -2198,7 +2209,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
     /* replace special constants with their typed values */
     {FAIL_IF(estack_replace_special_constants(out), "Error replacing special constants."); }
 
-    estack_find_init_offset(out);
+    estack_sort(out);
 
 #if TRACE_PARSE
     estack_print("OUTPUT STACK", out, vars, 0);

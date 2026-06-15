@@ -17,6 +17,8 @@ struct _mpr_expr
     int8_t mute_ctl;
     int8_t num_src;
     int8_t flags;
+    uint8_t num_expr;
+    mpr_bitflags src_updates_expr;
 };
 
 #endif /* __MPR_EXPR_STRUCT_H__ */

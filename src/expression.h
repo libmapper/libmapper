@@ -74,6 +74,8 @@ void mpr_expr_update_mlen(mpr_expr expr, int idx, unsigned int mlen);
 
 void mpr_expr_cpy_stack_and_vars(mpr_expr expr, void *stack, void *vars, int num_var);
 
+int mpr_expr_get_num_subexpr(mpr_expr expr);
+
 int mpr_expr_get_num_tokens(mpr_expr expr);
 
 void mpr_expr_restart(mpr_expr expr);

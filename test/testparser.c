@@ -43,6 +43,9 @@ mpr_type expect_type[MAX_DST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
 
+/* ensure size of this array is sufficient for number of subexpression in each expression below */
+uint8_t subexpr_starts[10];
+
 mpr_time time_in = {0, 0}, time_out = {0, 0};
 
 /* evaluation buffer */
@@ -281,10 +284,11 @@ void setup_test(mpr_type in_type, int in_len, mpr_type out_type, int out_len)
 #define EVAL_SUCCESS    0x00
 #define EVAL_FAILURE    0x02
 
-int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
+int parse_and_eval(int expectation, int check_val, int exp_updates,
+                   int exp_num_subexpr, int exp_num_tok)
 {
     /* clear output arrays */
-    int i, j, result = 0, mlen, status, num_tokens;
+    int i, j, result = 0, mlen, status, num_tokens, num_subexpr;
     mpr_bitflags updated_values = 0;
 
     if (start_index >= 0 && (expression_count < start_index || expression_count > stop_index)) {
@@ -354,10 +358,11 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
         mpr_value_incr_idx(user_vars[i], 0, MPR_NOW);
     }
 
+    num_subexpr = mpr_expr_get_num_subexpr(e);
     num_tokens = mpr_expr_get_num_tokens(e);
-    eprintf("Parser returned %d tokens...", num_tokens);
-    if (max_tok && num_tokens > max_tok) {
-        eprintf(" (expected %d)\n", max_tok);
+    eprintf("Parser returned %d tokens in %d sub-expressions...", num_tokens, num_subexpr);
+    if (exp_num_subexpr != num_subexpr || (num_tokens != exp_num_tok)) {
+        eprintf(" (expected %d:%d)\n", exp_num_tok, exp_num_subexpr);
         result = 1;
         goto free;
     }
@@ -438,7 +443,7 @@ int parse_and_eval(int expectation, int max_tok, int check, int exp_updates)
     if (0 == result)
         eprintf("OK\n");
 
-    if (check_result(updated_values, outh, check))
+    if (check_result(updated_values, outh, check_val))
         result = 1;
 
     eprintf("Recv'd %d updates... ", update_count);
@@ -474,14 +479,14 @@ int run_tests()
     set_expr_str("y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0]-x)*3*4+cos(2.)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_flt[0]-src_flt[0])*3*4+cosf(2.0f);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 18))
         return 1;
 
     /* 2) Complex string using dot function syntax */
     set_expr_str("y=26*2/2+pi.log10()+2.*(2).pow(1*(3+7*.1)*1.1+x{0}[0]-x)*3*4+(2.).cos()");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_flt[0]-src_flt[0])*3*4+cosf(2.0f);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 18))
         return 1;
 
     /* 3) Building vectors, conditionals */
@@ -490,21 +495,21 @@ int run_tests()
     expect_int[0] = src_flt[0] > 1 ? 1 : 2;
     expect_int[1] = src_flt[1] > 1 ? 2 : 4;
     expect_int[2] = src_flt[2] > 1 ? 3 : 6;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 7))
         return 1;
 
     /* 4) Conditionals with shortened syntax; sign() */
     set_expr_str("y=(sign(x)==-1)?x:123");
     setup_test(MPR_FLT, 1, MPR_INT32, 1);
     expect_int[0] = src_flt[0] < 0 ? (int)src_flt[0] : 123;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 8))
         return 1;
 
     /* 5) Conditional that should be optimized */
     set_expr_str("y=1?2:123");
     setup_test(MPR_FLT, 1, MPR_INT32, 1);
     expect_int[0] = 2;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 2, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 6) Building vectors with variables, operations inside vector-builder */
@@ -513,7 +518,7 @@ int run_tests()
     expect_dbl[0] = (double)src_int[0] * -2 + 1;
     expect_dbl[1] = (double)src_int[1] * -2 + 1;
     expect_dbl[2] = 0.0;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 8))
         return 1;
 
     /* 7) Building vectors with variables, operations inside vector-builder */
@@ -526,7 +531,7 @@ int run_tests()
     expect_dbl[2] = -((double)src_int[1]);
     expect_dbl[2] *= 1.1f;
     expect_dbl[2] += ((double)src_int[1]);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 10))
         return 1;
 
     /* 8) Indexing vectors by range */
@@ -534,7 +539,7 @@ int run_tests()
     setup_test(MPR_DBL, 3, MPR_FLT, 2);
     expect_flt[0] = (float)(src_dbl[1] + 100);
     expect_flt[1] = (float)(src_dbl[2] + 100);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 4))
         return 1;
 
     /* 9) Typical linear scaling expression with vectors */
@@ -546,7 +551,7 @@ int run_tests()
     expect_flt[1] += 1.3f;
     expect_flt[2] = src_flt[2] * -0.1112f;
     expect_flt[2] += 9000.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 6))
         return 1;
 
     /* 10) Check type and vector length promotion of operation sequences */
@@ -554,7 +559,7 @@ int run_tests()
     setup_test(MPR_FLT, 2, MPR_FLT, 2);
     expect_flt[0] = 1. + 2. * 3. - 4. * src_flt[0];
     expect_flt[1] = 1. + 2. * 3. - 4. * src_flt[1];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 6))
         return 1;
 
     /* 11) Swizzling, more pre-computation */
@@ -562,14 +567,14 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[2] * 0. + 1. + 12.;
     expect_flt[1] = src_flt[0] * 0. + 1. + 12.;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 12) Logical negation */
     set_expr_str("y=!(x[1]*0)");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
     expect_int[0] = (int)!(src_dbl[1] && 0);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 13) any() */
@@ -578,7 +583,7 @@ int run_tests()
     expect_int[0] =    ((int)src_dbl[0] - 1) ? 1 : 0
                      | ((int)src_dbl[1] - 1) ? 1 : 0
                      | ((int)src_dbl[2] - 1) ? 1 : 0;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 5))
         return 1;
 
     /* 14) all() */
@@ -587,60 +592,60 @@ int run_tests()
     expect_int[0] = (int)src_dbl[2] * (  (((int)src_dbl[0] - 1) ? 1 : 0)
                                        & (((int)src_dbl[1] - 1) ? 1 : 0)
                                        & (((int)src_dbl[2] - 1) ? 1 : 0));
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 7))
         return 1;
 
     /* 15) pi and e, extra spaces */
     set_expr_str("y=x + pi -     e");
     setup_test(MPR_DBL, 1, MPR_FLT, 1);
     expect_flt[0] = (float)(src_dbl[0] + M_PI - M_E);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 6))
         return 1;
 
     /* 16) Bad vector notation */
     set_expr_str("y=(x-2)[1]");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 17) Negative vector index */
     set_expr_str("y=x[-3]");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
     expect_int[0] = src_int[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 18) Vector length mismatch */
     set_expr_str("y=x[1:2]");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
     expect_int[0] = src_int[1];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 19) Unnecessary vector notation */
     set_expr_str("y=x+[1]");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0] + 1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 4, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 4))
         return 1;
 
     /* 20) Invalid history index */
     set_expr_str("y=x{-101}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 21) Invalid history index */
     set_expr_str("y=x-y{-101}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 22) Scientific notation */
     set_expr_str("y=x[1]*1.23e-20");
     setup_test(MPR_INT32, 2, MPR_DBL, 1);
     expect_dbl[0] = (double)src_int[1] * 1.23e-20;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 4))
         return 1;
 
     /* 23) Vector assignment */
@@ -649,7 +654,7 @@ int run_tests()
     expect_type[0] = MPR_NULL;
     expect_int[1] = (int)src_dbl[1];
     expect_type[2] = MPR_NULL;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 24) Vector assignment */
@@ -658,7 +663,7 @@ int run_tests()
     expect_type[0] = MPR_NULL;
     expect_int[1] = (int)src_dbl[1];
     expect_int[2] = 10;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 4))
         return 1;
 
     /* 25) Output vector swizzling */
@@ -667,7 +672,7 @@ int run_tests()
     expect_dbl[0] = (double)src_flt[1];
     expect_type[1] = MPR_NULL;
     expect_dbl[2] = (double)src_flt[2];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 3))
         return 1;
 
     /* 26) Multiple expressions */
@@ -678,20 +683,20 @@ int run_tests()
     expect_type[1] = MPR_NULL;
     expect_flt[2] = src_int[0] * 6.7f;
     expect_flt[2] = 100.f - expect_flt[2];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 12))
         return 1;
 
     /* 27) Error check: separating sub-expressions with commas */
     set_expr_str("foo=1,  y=y{-1}+foo");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 28) Initialize filters */
     set_expr_str("y=x+y{-1}; y{-1}=100");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0] * iterations + 100;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 8))
         return 1;
 
     /* 29) Initialize filters + vector index */
@@ -699,7 +704,7 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = src_int[0] * iterations;
     expect_int[1] = src_int[1] * iterations + 100;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 8))
         return 1;
 
     /* 30) Initialize filters + vector index */
@@ -707,7 +712,7 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = src_int[0] * iterations + 100;
     expect_int[1] = src_int[1] * iterations + 101;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 8))
         return 1;
 
     /* 31) Initialize filters */
@@ -716,7 +721,7 @@ int run_tests()
     expect_int[0] = src_int[0] * iterations + 100;
     expect_int[1] = src_int[1] * iterations;
     expect_int[2] = src_int[2] * iterations + 200;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 3, 11))
         return 1;
 
     /* 32) Initialize filters */
@@ -748,49 +753,49 @@ int run_tests()
             expect_int[1] = 103;
             break;
     }
-    if (parse_and_eval(PARSE_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS, 1, iterations, 3, 14))
         return 1;
 
     /* 33) Only initialize */
     set_expr_str("y{-1}=100");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 34) Bad syntax */
     set_expr_str(" ");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 35) Bad syntax */
     set_expr_str(" ");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 36) Bad syntax */
     set_expr_str("y");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 37) Bad syntax */
     set_expr_str("y=");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 38) Bad syntax */
     set_expr_str("=x");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 39) sin */
     set_expr_str("sin(x)");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 40) Variable declaration */
@@ -798,7 +803,7 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_FLT, 2);
     expect_flt[0] = src_int[0] + 3.5f;
     expect_flt[1] = src_int[1];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 6))
         return 1;
 
     /* 41) Variable declaration */
@@ -812,7 +817,7 @@ int run_tests()
         expect_flt[0] += temp;
     }
     expect_flt[0] *= 2.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 3, 15))
         return 1;
 
     /* 42) Multiple variable declaration */
@@ -821,20 +826,20 @@ int run_tests()
     expect_flt[0] = (float)src_int[0];
     expect_flt[0] += 1.1;
     expect_flt[0] -= 2.2 * 3.3;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 4, 14))
         return 1;
 
     /* 43) Malformed variable declaration */
     set_expr_str("y=x + myvariable * 10");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 44) Vector functions mean() and sum() */
     set_expr_str("y=x.mean()==(x.sum()/3)");
     setup_test(MPR_FLT, 3, MPR_INT32, 1);
     expect_int[0] = 1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 8))
         return 1;
 
     /* 45) Overloaded vector functions max() and min() */
@@ -847,34 +852,34 @@ int run_tests()
                         (src_flt[0] < src_flt[2] ? src_flt[0] : src_flt[2]) :
                         (src_flt[1] < src_flt[2] ? src_flt[1] : src_flt[2]))
                      * (src_flt[0] > 1 ? src_flt[0] : 1));
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 10))
         return 1;
 
     /* 46) Vector function: norm() */
     set_expr_str("y=x.norm();");
     setup_test(MPR_INT32, 2, MPR_FLT, 1);
     expect_flt[0] = sqrtf(powf((float)src_int[0], 2) + powf((float)src_int[1], 2));
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 3))
         return 1;
 
     /* 47) Optimization: operations by zero */
     set_expr_str("y=0*sin(x)*200+1.1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 1.1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 2, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 48) Optimization: operations by one */
     set_expr_str("y=x*1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = (float)src_int[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 2, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 49) Error check: division by zero */
     set_expr_str("y=x/0");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 1, 0))
         return 1;
 
     /* 50) Multiple Inputs */
@@ -882,7 +887,7 @@ int run_tests()
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
     expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1] + src_dbl[0]);
     expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2] + src_dbl[1]);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 6))
         return 1;
 
     /* 51) Functions with memory: ema() */
@@ -897,7 +902,7 @@ int run_tests()
     expect_flt[0] = (float)src_int[0] - expect_flt[0] + 2.f;
     expect_flt[1] = (float)src_int[1] - expect_flt[1] + 2.f;
     expect_flt[2] = (float)src_int[2] - expect_flt[2] + 2.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 10))
         return 1;
 
     /* 52) Functions with memory: emd() */
@@ -918,7 +923,7 @@ int run_tests()
             ema[j] += diff * weight[j];
         }
     }
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 53) Functions with memory: schmitt() */
@@ -936,7 +941,7 @@ int run_tests()
             expect_flt[i] = ans;
         }
     }
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 14))
         return 1;
 
     /* 54) Multiple output assignment */
@@ -945,13 +950,13 @@ int run_tests()
     expect_flt[0] = src_flt[0] - 10000;
     expect_flt[0] = expect_flt[0] < 0 ? 0 : expect_flt[0];
     expect_flt[0] = expect_flt[0] > 0 ? 1 : expect_flt[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 10))
         return 1;
 
     /* 55) Access timetags */
     set_expr_str("y=t_x");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 1, 2))
         return 1;
     if (start_index < 0 || start_index == 55) {
         if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
@@ -965,7 +970,7 @@ int run_tests()
     /* 56) Access timetags from past samples */
     set_expr_str("y=t_x-t_y{-1}");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 1, 5))
         return 1;
     if (start_index < 0 || start_index == 56) {
         /* results may vary depending on machine but we can perform a sanity check */
@@ -982,7 +987,7 @@ int run_tests()
                  "period=t_x-t_y{-1};"
                  "y=y{-1}*0.9+period*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 3, 17))
         return 1;
     if (start_index < 0 || start_index == 57) {
         /* results may vary depending on machine but we can perform a sanity check */
@@ -1001,7 +1006,7 @@ int run_tests()
      *              "y=y{-1}*0.9+abs(interval-sr)*0.1;"); */
     set_expr_str("y=emd(t_x - t_y{-1}, 0.1)");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 1, 12))
         return 1;
     if (start_index < 0 || start_index == 58) {
         /* results may vary depending on machine but we can perform a sanity check */
@@ -1019,7 +1024,7 @@ int run_tests()
                  "y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, -1))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, -1, 3, 11))
         return 1;
 
     /* 60) Expression for limiting rate with smoothed output */
@@ -1031,7 +1036,7 @@ int run_tests()
                  "count=alive?1:count+1;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = (src_int[0] % 100);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, -1))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, -1, 6, 34))
         return 1;
 
     /* 61) Manipulate timetag directly. This functionality may be used in the
@@ -1040,7 +1045,7 @@ int run_tests()
     set_expr_str("y=x[0]{0}; t_y=t_x+10");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 /*     mpr_time time = *(mpr_time*)mpr_value_get_time(outh, 0, 0);
      if (mpr_time_as_dbl(time) != mpr_time_as_dbl(time_in) + 10) {
@@ -1054,14 +1059,14 @@ int run_tests()
     /* 62) Faulty timetag syntax */
     set_expr_str("y=t_x-y;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 63) Instance management */
     set_expr_str("count{-1}=0;alive=count>=5;y=x;count=(count+1)%10;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, -1))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, -1, 4, 15))
         return 1;
     if (start_index < 0 || start_index == 63) {
         if (abs(iterations / 2 - update_count) > 4) {
@@ -1074,7 +1079,7 @@ int run_tests()
     set_expr_str("muted=(x==x{-1});y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, 1))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, 1, 2, 7))
         return 1;
 
     /* 65) Buddy logic */
@@ -1083,38 +1088,38 @@ int run_tests()
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
     expect_flt[0] = src_int[0] + src_flt[1];
     expect_flt[1] = src_int[1] + src_flt[2];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations - 1))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations - 1, 2, 14))
         return 1;
 
     /* 66) Variable delays */
     set_expr_str("y=x{abs(x%10)-10,10}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 1, 8))
         return 1;
 
     /* 67) Variable delay with missing maximum */
     set_expr_str("y=x{abs(x%10)-10}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 0, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 0, iterations, 1, 8))
         return 1;
 
     /* 68) Calling delay() function explicitly */
     set_expr_str("y=delay(x, abs(x%10)-10), 10)");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 0, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 0, iterations, 1, 0))
         return 1;
 
     /* 69) Fractional delays */
     set_expr_str("ratio{-1}=0;y=x{-10+ratio, 10};ratio=(ratio+0.01)%5;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 3, 14))
         return 1;
 
     /* 70) Pooled instance functions: any() and all() */
     set_expr_str("y=(x-1).instance.any() + (x+1).instance.all();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 2;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 16))
         return 1;
 
     /* 71) Pooled instance functions: sum(), count() and mean() */
@@ -1123,14 +1128,14 @@ int run_tests()
     expect_int[0] = 1;
     expect_int[1] = 1;
     expect_int[2] = 1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 17))
         return 1;
 
     /* 72) Pooled instance functions: max(), min(), and size() */
     set_expr_str("y=(x.instance.max()-x.instance.min())==x.instance.size();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 21))
         return 1;
 
     /* 73) Pooled instance function: center() */
@@ -1138,19 +1143,19 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = 1;
     expect_int[1] = 1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 25))
         return 1;
 
     /* 74) Pooled instance mean length of centered vectors */
     set_expr_str("m=x.instance.mean(); y=(x-m).norm().instance.mean()");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 2, 21))
         return 1;
 
     /* 75) Pooled instance mean linear displacement */
     set_expr_str("y=(x-x{-1}).instance.mean()");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations-1))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations - 1, 1, 12))
         return 1;
 
     /* 76) Dot product of two vectors */
@@ -1160,14 +1165,14 @@ int run_tests()
     expect_flt[0] = src_int[0] * src_flt[0];
     expect_flt[0] += src_int[1] * src_flt[1];
     expect_flt[0] += src_int[2] * src_flt[2];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 4))
         return 1;
 
     /* 77) 2D Vector angle */
     set_expr_str("y=angle([-1,-1], [1,0]);");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = M_PI * 0.75f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 78) Pooled instance mean angular displacement */
@@ -1177,14 +1182,14 @@ int run_tests()
                  "c0=c1;");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = 0.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations-1))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations - 1, 4, 41))
         return 1;
 
     /* 79) Integer divide-by-zero */
     set_expr_str("foo{-1}=1; y=x/foo; foo=!foo;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     /* we expect only half of the evaluation attempts to succeed (i.e. when 'foo' == 1) */
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, (iterations + 1) / 2))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, (iterations + 1) / 2, 3, 10))
         return 1;
 
     /* 80) Optimization: Vector squashing (10 tokens instead of 12) */
@@ -1196,7 +1201,7 @@ int run_tests()
     expect_flt[1] += 1.0f;
     expect_flt[2] = src_flt[2] * src_flt[1];
     expect_flt[2] += 1.0f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 10, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 10))
         return 1;
 
     /* 81) Wrapping vectors, vector variables (6 tokens instead of 11) */
@@ -1208,7 +1213,7 @@ int run_tests()
     expect_flt[1] += 4.56f;
     expect_flt[2] = src_flt[2] * 3.0f;
     expect_flt[2] += 1.23f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 6, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 6))
         return 1;
 
     /* 82) Just instance count */
@@ -1216,7 +1221,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = 1;
     expect_flt[1] = 1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 2, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 83) instance.reduce() */
@@ -1224,7 +1229,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
     expect_flt[0] = src_flt[1] + 10;
     expect_flt[1] = src_flt[2] + 10;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 11, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 11))
         return 1;
 
     /* 84) Reducing a constant - syntax error */
@@ -1232,7 +1237,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = 1;
     expect_flt[1] = 1;
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 1, 0))
         return 1;
 
     /* 85) Reducing a user variable */
@@ -1240,7 +1245,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[0] - 100.f + src_flt[1] - 100.f + src_flt[2] - 100.f;
     expect_flt[1] = expect_flt[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 10))
         return 1;
 
     /* 86) History mean() - windowed running mean */
@@ -1253,7 +1258,7 @@ int run_tests()
     }
     expect_flt[0] /= 5.f;
     expect_flt[1] /= 5.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 87) Reducing a user variable over history */
@@ -1261,7 +1266,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[0] - 100;
     expect_flt[1] = src_flt[1] - 100;
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 88) history.reduce() with accumulator initialisation */
@@ -1272,7 +1277,7 @@ int run_tests()
         expect_flt[0] += src_flt[0];
         expect_flt[1] += src_flt[1];
     }
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 89) vector.mean() */
@@ -1280,7 +1285,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = (src_flt[0] + src_flt[1] + src_flt[2]) / 3;
     expect_flt[1] = expect_flt[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 90) vector.reduce() */
@@ -1288,7 +1293,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[0] + src_flt[1] + src_flt[2];
     expect_flt[1] = expect_flt[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 91) signal.mean() */
@@ -1302,7 +1307,7 @@ int run_tests()
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
     expect_flt[0] = (float)(((double)src_int[0] + (double)src_flt[0] + src_dbl[0]) / 3.);
     expect_flt[1] = (float)(((double)src_int[1] + (double)src_flt[1] + src_dbl[0]) / 3.);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 92) signal.reduce() */
@@ -1316,7 +1321,7 @@ int run_tests()
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
     expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[0] + src_dbl[0]);
     expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[1] + src_dbl[0]);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 93) Nested reduce(): sum of last 3 samples of all input signals with extra input reference */
@@ -1329,7 +1334,7 @@ int run_tests()
     lens[2] = 1;
     setup_test_multisource(3, types, lens, MPR_FLT, 1);
     expect_flt[0] = (float)(((double)src_int[0] + (double)src_flt[0] + src_dbl[0] + 3.0) * 4.0);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 22))
         return 1;
 
     /* 94) mean() nested with reduce() using sequential dot syntax - not currently allowed */
@@ -1342,7 +1347,7 @@ int run_tests()
     lens[1] = 3;
     lens[2] = 1;
     setup_test_multisource(3, types, lens, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 95) vector.reduce() on specific signal */
@@ -1355,7 +1360,7 @@ int run_tests()
     lens[2] = 1;
     setup_test_multisource(3, types, lens, MPR_FLT, 1);
     expect_flt[0] = 1.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 15))
         return 1;
 
     /* 96) instance.count() on specific signal */
@@ -1368,7 +1373,7 @@ int run_tests()
     lens[2] = 1;
     setup_test_multisource(3, types, lens, MPR_FLT, 1);
     expect_flt[0] = 1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 97) vector.reduce() with vector subset */
@@ -1376,7 +1381,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[1] + src_flt[2];
     expect_flt[1] = expect_flt[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 98) signal.reduce() nested with instance count() */
@@ -1389,7 +1394,7 @@ int run_tests()
     lens[2] = 1;
     setup_test_multisource(3, types, lens, MPR_FLT, 1);
     expect_flt[0] = 3;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 99) signal.reduce() nested with instance mean() */
@@ -1402,7 +1407,7 @@ int run_tests()
     lens[2] = 1;
     setup_test_multisource(3, types, lens, MPR_FLT, 1);
     expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[0] + src_dbl[0]);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 16))
         return 1;
 
     /* 100) Nested reduce() of same type */
@@ -1414,7 +1419,7 @@ int run_tests()
     lens[1] = 3;
     lens[2] = 2;
     setup_test_multisource(3, types, lens, MPR_FLT, 3);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 101) Nested reduce(): sum of all vector elements of all input signals */
@@ -1430,7 +1435,7 @@ int run_tests()
     expect_flt[0] = (  (double)src_int[0] + (double)src_int[1]
                      + (double)src_flt[0] + (double)src_flt[1] + (double)src_flt[2]
                      + src_dbl[0]);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 16))
         return 1;
 
     /* 102) reduce() nested with mean() */
@@ -1445,7 +1450,7 @@ int run_tests()
     expect_flt[0] = (  ((double)src_int[0] + (double)src_int[1] + (double)src_int[2]) / 3.
                      + ((double)src_flt[0] + (double)src_flt[1]) / 2.
                      + (src_dbl[0] + src_dbl[1]) / 2.);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 16))
         return 1;
 
     /* 103) reduce() nested with mean(), accum ref before input ref */
@@ -1460,7 +1465,7 @@ int run_tests()
     expect_flt[0] = (  ((double)src_int[0] + (double)src_int[1]) / 2.
                      + ((double)src_flt[0] + (double)src_flt[1] + (double)src_flt[2]) / 3.
                      + src_dbl[0]) * -1.;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 16))
         return 1;
 
     /* 104) Misplaced commas */
@@ -1470,42 +1475,42 @@ int run_tests()
     lens[0] = 2;
     lens[1] = 3;
     setup_test_multisource(2, types, lens, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 105) sort() */
     set_expr_str("a=[4,2,3,1,5,0]; a = a.sort(1); y=a[round(x)];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = (((int)round(src_flt[0])) % 6 + 6) % 6;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 3, 10))
         return 1;
 
     /* 106) Call sort() directly on vector */
     set_expr_str("a=[4,2,3,1,5,0].sort(1); y=a[0];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 0;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 4))
         return 1;
 
     /* 107) Variable vector index */
     set_expr_str("a=[0,1,2,3,4,5]; y=a[x];");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = ((src_int[0]) % 6 + 6) % 6;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 5))
         return 1;
 
     /* 108) Expression vector index */
     set_expr_str("a=[0,1,2,3,4,5]; y=a[sin(x)>0?0:1];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = sin(src_flt[0]) > 0.f ? 0.f : 1.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 11))
         return 1;
 
     /* 109) Fractional vector index */
     set_expr_str("y=x[1.5];");
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
     expect_flt[0] = (src_flt[1] + src_flt[2]) * 0.5;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 3))
         return 1;
 
     /* 110) Variable signal index */
@@ -1516,7 +1521,7 @@ int run_tests()
     lens[1] = 1;
     setup_test_multisource(2, types, lens, MPR_FLT, 1);
     expect_flt[0] = src_int[0] % 2 ? (float)src_int[0] : src_flt[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 3))
         return 1;
 
     /* 111) Expression signal index */
@@ -1527,13 +1532,13 @@ int run_tests()
     lens[1] = 1;
     setup_test_multisource(2, types, lens, MPR_FLT, 1);
     expect_flt[0] = (sin(src_flt[0]) > 0.f) ? (float)src_int[0] : src_flt[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 6))
         return 1;
 
     /* 112) Fractional signal index */
     set_expr_str("y=x$0.5;");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 1, 3))
         return 1;
 
     /* 113) Indexing vectors by range with wrap-around */
@@ -1541,7 +1546,7 @@ int run_tests()
     setup_test(MPR_DBL, 3, MPR_FLT, 2);
     expect_flt[0] = (float)(src_dbl[2] + 100);
     expect_flt[1] = (float)(src_dbl[0] + 100);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 4))
         return 1;
 
     /* 114) Reduce with vector initialisation for accumulator */
@@ -1555,7 +1560,7 @@ int run_tests()
         expect_flt[1] += src_flt[1];
         expect_flt[2] += src_flt[2];
     }
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 115) Reduce with function initialisation for accumulator */
@@ -1568,7 +1573,7 @@ int run_tests()
     expect_flt[0] = sin(src_flt[0] - 10.f);
     for (i = 0; i < iterations && i < 4; i++)
         expect_flt[0] += src_int[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 12))
         return 1;
 
     /* 116) Nested reduce with function initialisation for accumulator */
@@ -1585,7 +1590,7 @@ int run_tests()
         else
             expect_flt[0] += 0 - cosf(expect_flt[0]);
     }
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 20))
         return 1;
 
     /* 117) Arpeggiator */
@@ -1597,27 +1602,27 @@ int run_tests()
     expect_flt[0] /= 12.f;
     expect_flt[0] = pow(2.0, expect_flt[0]);
     expect_flt[0] *= 440.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 4, 13))
         return 1;
 
     /* 118) Multiple variable indices */
     set_expr_str("a=0; b=1; c= -1; y=x$(a)[b]{c,2};");
     setup_test(MPR_INT32, 2, MPR_FLT, 1);
     expect_flt[0] = src_int[1];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 4, 11))
         return 1;
 
     /* 119) Mixed input and output references in history reduce */
     set_expr_str("y=(x-y).history(4).mean();");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 120) Turn history into vector */
     set_expr_str("a = x.history(5).concat(5).sort(1); y = a[2];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = (iterations > 3) || (src_flt[0] < 0) ? src_flt[0] : 0.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 13, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 13))
         return 1;
 
     /* 121) Turn signals into vector */
@@ -1640,14 +1645,14 @@ int run_tests()
             expect_flt[0] = (float)src_dbl[i];
         }
     }
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 13, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 13))
         return 1;
 
     /* 122) Turn instances into vector and return a function of vector size */
     set_expr_str("y = x.instance.concat(5).length() * 10;");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 10.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 12))
         return 1;
 
     /* 123) Turn instances into vector and arpeggiate */
@@ -1656,26 +1661,26 @@ int run_tests()
     set_expr_str("i{-1}=0;p=(x%128).instance.concat(10).sort(1);y=miditohz(p[i]);i=i+1;");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 440.f * powf(2.f, (fmodf((float)src_int[0], 128.f) - 69.f) / 12.f);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 4, 24))
         return 1;
 
     /* 124) Count instances over time */
     set_expr_str("y = y{-1} + x.instance.count();");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = iterations;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 5))
         return 1;
 
     /* 125) Reduce without lambda operator */
     set_expr_str("y=x.history(5).reduce(x, a = 100, x + a);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 126) Reduce with extra lambda operator */
     set_expr_str("y=x.history(5).reduce(x, a = 100 -> x + a -> x + 1);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 127) Fractional indices for both vector and history */
@@ -1685,7 +1690,7 @@ int run_tests()
     expect_flt[1] += src_flt[1] * 0.3f;
     expect_flt[0] = expect_flt[1] * 0.25f;
     expect_flt[0] += expect_flt[1] * 0.75f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 3))
         return 1;
 
     /* 128) Fractional indices for both history and vector */
@@ -1695,13 +1700,13 @@ int run_tests()
     expect_flt[1] += src_flt[1] * 0.6f;
     expect_flt[0] = expect_flt[1] * 0.75f;
     expect_flt[0] += expect_flt[1] * 0.25f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 4))
         return 1;
 
     /* 129) Fractional vector index with non-integer length */
     set_expr_str("y=x[0.2:1.1];");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
-    if (parse_and_eval(PARSE_FAILURE, 0, 0, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 0, iterations, 0, 0))
         return 1;
 
     /* 130) Multi-step linear envelope */
@@ -1715,7 +1720,7 @@ int run_tests()
                  "t=t-(idx?sumtimes[idx-1]:0);"             /* subtract previous envelope times */
                  "y[0]=amps[(idx<2)?idx+t/times[idx]:2];"); /* interpolate amp vals for envelope */
     setup_test(MPR_FLT, 1, MPR_DBL, 2);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 9, 50))
         return 1;
     if (start_index < 0 || start_index == 130) {
         if (dst_dbl[1] < 0.1) {
@@ -1746,7 +1751,7 @@ int run_tests()
     set_expr_str("v=[60,61,62,63,64]; y=v.index(62) + index(v, 0);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 2, 10))
         return 1;
 
     /* 132) Check assignment vector length */
@@ -1757,7 +1762,7 @@ int run_tests()
     expect_type[0] = MPR_FLT;
     expect_type[1] = MPR_NULL;
     expect_type[2] = MPR_NULL;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 5))
         return 1;
 
     /* 133) Concatenate source values over time */
@@ -1768,20 +1773,20 @@ int run_tests()
         if (expect_flt[i] >= iterations)
             expect_flt[i] -= 6;
     }
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations / MAX_DST_ARRAY_LEN))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations / MAX_DST_ARRAY_LEN, 6, 19))
         return 1;
 
     /* 134) Vector median value (precomputed by the optimizer in this case) */
     set_expr_str("y=[0,1,2,3,4,5].median();");
     setup_test(MPR_FLT, 3, MPR_INT32, 2);
     expect_int[0] = expect_int[1] = floor(2.5f);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 2))
         return 1;
 
     /* 135) Setting vector to uniform; ensure is not precomputed. */
     set_expr_str("y=1+2+uniform(2);");
     setup_test(MPR_FLT, 1, MPR_FLT, 4);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 5, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 1, 5))
         return 1;
     if (start_index < 0 || start_index == 135) {
         for (i = 1; i < 4; i++) {
@@ -1803,7 +1808,7 @@ int run_tests()
     lens[1] = 2;
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
     expect_flt[0] = expect_flt[1] = src_flt[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 6))
         return 1;
 
     /* 137) Use latest source of a convergent map (shorthand) */
@@ -1814,13 +1819,13 @@ int run_tests()
     lens[1] = 2;
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
     expect_flt[0] = expect_flt[1] = src_flt[0];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 6))
         return 1;
 
     /* 138) Implicit reduce with variable timetag argument instead of value */
     set_expr_str("y=t_x.instance.mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 1, 9))
         return 1;
     if (start_index < 0 || start_index == 138) {
         if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
@@ -1837,7 +1842,7 @@ int run_tests()
     expect_int[0] = src_int[0] + 8;
     expect_int[1] = src_int[0] + 6;
     expect_int[2] = src_int[0] + 4;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 4))
         return 1;
 
     /* 140) Inverse trigonometric functions */
@@ -1846,7 +1851,7 @@ int run_tests()
     expect_flt[0] = sinf(asinf(fmodf(fabsf(src_flt[0]), 2.f) - 1));
     expect_flt[1] = cosf(acosf(fmodf(fabsf(src_flt[1]), 2.f) - 1));
     expect_flt[2] = tanf(atanf(fmodf(fabsf(src_flt[2]), 2.f) - 1));
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 18))
         return 1;
 
     /* 141) Inverse trigonometric functions outside bounds: precomputed */
@@ -1855,33 +1860,33 @@ int run_tests()
     expect_flt[0] = sinf(asinf(src_flt[0]));
     expect_flt[1] = cosf(acosf(src_flt[1]));
     expect_flt[2] = tanf(atanf(src_flt[2]));
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 142) Inverse trigonometric functions outside bounds: NOT precomputed */
     set_expr_str("y=sin(asin(x+20));");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_FAILURE, 1, iterations, 1, 6))
         return 1;
 
     /* 143) Divide-by-zero: NOT precomputed */
     set_expr_str("y=x/(x-x);");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_FAILURE, 1, iterations, 1, 6))
         return 1;
 
     /* 144) Round/Ceiling/Floor with integer operand (should call pass() function) */
     set_expr_str("y=round(x)+floor(x)+ceil(x);");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0] * 3;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 9))
         return 1;
 
     /* 145) get instance index */
     set_expr_str("y=#x + x.instance.reduce(a, b -> a * #a + b);");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 0;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 13))
         return 1;
 
     /* 146) quaternion multiplication */
@@ -1893,7 +1898,7 @@ int run_tests()
     expect_flt[1] = 0.420736140000f;
     expect_flt[2] = 0.420736134052f;
     expect_flt[3] = -0.229849368334f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 8, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 3, 8))
         return 1;
 
     /* 147) quaternion slerp */
@@ -1905,13 +1910,13 @@ int run_tests()
     expect_flt[1] = 0.254800477000f;
     expect_flt[2] = 0.254801571369f;
     expect_flt[3] = 0.f;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 3, 9))
         return 1;
 
     /* 148) normal distribution */
     set_expr_str("y = emd(normal(abs(x)), 0.1);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 11, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 1, 11))
         return 1;
     if (start_index < 0 || start_index == 148) {
         /* deviation should approach abs(x) as iterations increase */
@@ -1927,56 +1932,56 @@ int run_tests()
     set_expr_str("a = a + 2; y = a.diff() + diff(a) + a';");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 6;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 28))
         return 1;
 
     /* 150) edge() */
     set_expr_str("a = a + 0.1; y = y{-1} + ((sin(a)>0).edge() == 1)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 1 + floor((iterations - 1) * 0.1 / (M_PI * 2));
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 20))
         return 1;
 
     /* 151) ++i, --i */
     set_expr_str("y=(++a)-(--b)");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = iterations * 2;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 10, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 10))
         return 1;
 
     /* 152) i++, i-- */
     set_expr_str("y=(a++)-(b--)");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = (iterations - 1) * 2;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 12, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 12))
         return 1;
 
     /* 153) malformed increment/decrement */
     set_expr_str("y=2-(x+a)++");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = (iterations - 1) * 2;
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 154) malformed increment/decrement */
     set_expr_str("y=2--(x+a)");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = (iterations - 1) * 2;
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 155) malformed increment/decrement */
     set_expr_str("y=y{-1}++");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = (iterations - 1) * 2;
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 156) malformed increment/decrement */
     set_expr_str("y=(--a++)");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = (iterations - 1) * 2;
-    if (parse_and_eval(PARSE_FAILURE, 0, 1, iterations))
+    if (parse_and_eval(PARSE_FAILURE, 1, iterations, 0, 0))
         return 1;
 
     /* 157) increment vector element */
@@ -1984,40 +1989,40 @@ int run_tests()
     setup_test(MPR_FLT, 2, MPR_FLT, 2);
     expect_flt[0] = 0;
     expect_flt[1] = iterations;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 8))
         return 1;
 
     /* 158) postfix increment vector index */
     set_expr_str("y=x[a++];");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = expect_flt[1] = src_flt[(iterations - 1) % 3];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 7))
         return 1;
 
     /* 159) prefix increment vector index */
     set_expr_str("y=x[++a];");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = expect_flt[1] = src_flt[(iterations) % 3];
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 6))
         return 1;
 
     /* 160) isolated increment and decrement */
     set_expr_str("++a; b--; y=b-a;");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = iterations * -2;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 3, 12))
         return 1;
 
     /* 161) increment operator inside reduce expression */
     set_expr_str("y=x.vector.reduce(a,b -> ++a);");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
-    if (parse_and_eval(PARSE_FAILURE, 0, 0, 0))
+    if (parse_and_eval(PARSE_FAILURE, 0, 0, 0, 0))
         return 1;
 
     /* 162) test type promotion with timestamp assignment */
     set_expr_str("t_y{-1}=3;y=x;");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, iterations, 2, 5))
         return 1;
     if (start_index < 0 || start_index == 162) {
         if (dst_flt[0] != (float)src_int[0]) {
@@ -2033,7 +2038,7 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = src_int[0] + iterations - 1;
     expect_int[1] = src_int[1] + iterations - 1;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 2, 8))
         return 1;
 
     /* 164) vector augmented assignment */
@@ -2041,7 +2046,7 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_INT32, 3);
     expect_int[0] = -src_int[0] * iterations;
     expect_int[2] = -src_int[1] * iterations;
-    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 7))
         return 1;
 
 //    /* 165) Signal count() */
@@ -2052,7 +2057,7 @@ int run_tests()
 //    lens[1] = 2;
 //    setup_test_multisource(2, types, lens, MPR_FLT, 2);
 //    expect_flt[0] = expect_flt[1] = 2.f;
-//    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+//    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 1, iterations, 1, 0))
 //        return 1;
 
     /* 152) IDEA: map instance reduce to instanced destination */

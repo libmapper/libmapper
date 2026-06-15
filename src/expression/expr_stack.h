@@ -9,8 +9,11 @@
 typedef struct _estack
 {
     etoken_t *tokens;
+    uint8_t *subexpr_starts;
+    uint8_t *subexpr_lens;
     uint8_t init_offset;
     uint8_t num_tokens;
+    uint8_t num_subexpr;
     uint8_t size;
     uint8_t vec_len;
     uint8_t initialized;
@@ -26,18 +29,154 @@ estack estack_new(uint8_t num_tokens)
     if (num_tokens) {
         stk->size = num_tokens;
         stk->tokens = calloc(1, num_tokens * sizeof(etoken_t));
+        stk->subexpr_starts = calloc(1, sizeof(uint8_t));
+        stk->subexpr_lens = calloc(1, sizeof(uint8_t));
     }
     return stk;
+}
+
+static void estack_move_subexpr(estack stk, int from, int to)
+{
+    int from_idx = stk->subexpr_starts[from],
+        to_idx = stk->subexpr_starts[to],
+        num_tokens = stk->subexpr_lens[from];
+    etoken_t *temp;
+
+    RETURN_UNLESS(from != to);
+
+    temp = malloc(num_tokens * TOKEN_SIZE);
+    memcpy(temp, stk->tokens + from_idx, num_tokens * TOKEN_SIZE);
+
+    if (from > to) {
+        /* shift (from_idx - to_idx) tokens num_tokens to the right */
+        int i;
+        for (i = from_idx - 1; i >= to_idx; i--) {
+            etoken_cpy(&stk->tokens[i + num_tokens], &stk->tokens[i]);
+        }
+        /* we also need to update the `subexpr_starts` and `subexpr_lens` arrays */
+        for (i = from; i > to; i--) {
+            stk->subexpr_starts[i] = stk->subexpr_starts[i - 1] + num_tokens;
+            stk->subexpr_lens[i] = stk->subexpr_lens[i - 1];
+        }
+        stk->subexpr_starts[to] = to_idx;
+        stk->subexpr_lens[to] = num_tokens;
+    }
+    else { /* (from < to) */
+        /* shift (from_idx - to_idx) tokens num_tokens to the left */
+        int i;
+        for (i = from_idx + num_tokens; i < to_idx + stk->subexpr_lens[to]; i++) {
+            etoken_cpy(&stk->tokens[i - num_tokens], &stk->tokens[i]);
+        }
+        /* we also need to update the `subexpr_starts` and `subexpr_lens` arrays */
+        for (i = from; i < to; i++) {
+            stk->subexpr_starts[i] = stk->subexpr_starts[i + 1] - num_tokens;
+            stk->subexpr_lens[i] = stk->subexpr_lens[i + 1];
+        }
+        stk->subexpr_starts[to] = to_idx;
+        stk->subexpr_lens[to] = num_tokens;
+    }
+
+    memcpy(stk->tokens + to_idx, temp, num_tokens * TOKEN_SIZE);
+    free(temp);
+}
+
+/* Where possible, shuffle initialization subexpressions and constant assignments to the start of
+ * the stack. During evaluation these tokens can be skipped after the first evaluation. */
+static int estack_sort(estack stk)
+{
+    int i, initializing, init_offset = 0;
+    mpr_bitflags move = mpr_bitflags_new(stk->num_subexpr);
+
+    /* if user variable is assigned constant before read -> move to start */
+    /* TODO: also consider variable instancing when finding init offset(s) */
+
+    for (i = 0; i < stk->num_subexpr; i++) {
+        int j, end_idx = stk->subexpr_starts[i] + stk->subexpr_lens[i], var_referenced = 0;
+        mpr_bitflags_set(move, i);
+        for (j = stk->subexpr_starts[i]; j < end_idx; j++) {
+            etoken t = &stk->tokens[j];
+            int toktype = t->toktype & TOKEN_MASK;
+            if (TOK_VAR == toktype || TOK_TT == toktype) {
+                if (VAR_Y == t->var.idx) {
+                    mpr_bitflags_unset(move, i);
+                    break;
+                }
+                else {
+                    /* Check if variable is assigned elsewhere outside of initialization statements.
+                     * If the assignment is not constant or there are multiple assignments to this
+                     * variable, disallow moving or skipping this subexpression */
+                    int k, breaking = 0;
+                    for (k = 0; k < stk->num_tokens; k++) {
+                        etoken t2 = &stk->tokens[k];
+                        if (    (TOK_ASSIGN & t2->toktype)
+                            &&  (t2->var.idx == t->var.idx)
+                            && !(t2->gen.flags & VAR_HIST_IDX)
+                            && !(ASSIGN_CONSTANT & t2->toktype)) {
+                            mpr_bitflags_unset(move, i);
+                            breaking = 1;
+                            break;
+                        }
+                    }
+                    if (t->var.idx >= N_USER_VARS)
+                        var_referenced = 1;
+                    if (breaking)
+                        break;
+                }
+            }
+            else if (TOK_ASSIGN == toktype) {
+                if ((var_referenced || t->var.idx >= N_USER_VARS) && !(VAR_HIST_IDX & t->gen.flags)) {
+                    mpr_bitflags_unset(move, i);
+                    break;
+                }
+                var_referenced = 0;
+            }
+            else if (TOK_ASSIGN_TT == toktype) {
+                if (var_referenced && !(VAR_HIST_IDX & t->gen.flags)) {
+                    mpr_bitflags_unset(move, i);
+                    break;
+                }
+                var_referenced = 0;
+            }
+        }
+    }
+
+    if (!(mpr_bitflags_get_sum(move))) {
+        /* no expressions to move */
+        goto done;
+    }
+
+    initializing = 1;
+    for (i = 0; i < stk->num_subexpr; i++) {
+        if (mpr_bitflags_get(move, i)) {
+            if (!initializing) {
+                estack_move_subexpr(stk, i, init_offset);
+            }
+            ++init_offset;
+        }
+        else {
+            initializing = 0;
+        }
+    }
+
+done:
+    mpr_bitflags_free(move);
+    stk->init_offset = stk->subexpr_starts[init_offset];
+    return init_offset;
 }
 
 void estack_cpy(estack to, estack from)
 {
     to->num_tokens = from->num_tokens;
+    to->num_subexpr = from->num_subexpr;
     to->vec_len = from->vec_len;
     to->init_offset = from->init_offset;
     to->initialized = from->initialized;
+
     to->tokens = malloc(sizeof(etoken_t) * (size_t)from->num_tokens);
     memcpy(to->tokens, from->tokens, sizeof(etoken_t) * (size_t)from->num_tokens);
+
+    to->subexpr_starts = malloc(sizeof(uint8_t) * from->num_subexpr);
+    memcpy(to->subexpr_starts, from->subexpr_starts, sizeof(uint8_t) * (size_t)from->num_subexpr);
 
 #if TRACE_PARSE
     printf("Copied %d tokens to expression\n", from->num_tokens);
@@ -54,7 +193,21 @@ void estack_free(estack stk, int free_token_mem)
             etoken_free(&stk->tokens[i]);
     }
     FUNC_IF(free, stk->tokens);
+    FUNC_IF(free, stk->subexpr_starts);
+    FUNC_IF(free, stk->subexpr_lens);
     free(stk);
+}
+
+static int estack_get_subexpr(estack stk, int token_idx)
+{
+    int i;
+    for (i = 0; i < stk->num_subexpr; i++) {
+        token_idx -= stk->subexpr_lens[i];
+        if (token_idx < 0) {
+            break;
+        }
+    }
+    return i;
 }
 
 static int estack_replace_special_constants(estack stk)
@@ -65,6 +218,22 @@ static int estack_replace_special_constants(estack stk)
             return -1;
     }
     return 0;
+}
+
+static void estack_new_subexpr(estack stk)
+{
+    ++stk->num_subexpr;
+    stk->subexpr_starts = realloc(stk->subexpr_starts, (stk->num_subexpr + 1) * sizeof(int));
+    stk->subexpr_starts[stk->num_subexpr] = stk->num_tokens;
+
+    stk->subexpr_lens = realloc(stk->subexpr_lens, (stk->num_subexpr) * sizeof(int));
+    if (stk->num_subexpr > 1) {
+        int last_subexpr = stk->num_subexpr - 1;
+        stk->subexpr_lens[last_subexpr] = stk->num_tokens - stk->subexpr_starts[last_subexpr];
+    }
+    else {
+        stk->subexpr_lens[0] = stk->num_tokens;
+    }
 }
 
 static etoken estack_push(estack stk, etoken tok)
@@ -394,6 +563,14 @@ static etoken estack_insert(estack stk, int idx, int num_tokens, etoken_t *src)
     }
     stk->num_tokens += num_tokens;
     free(cache);
+
+    /* update `subexpr_starts` and `subexpr_lens` arrays */
+    i = estack_get_subexpr(stk, idx);
+    stk->subexpr_lens[i] += num_tokens;
+    for (++i; i < stk->num_subexpr; i++) {
+        stk->subexpr_starts[i] += num_tokens;
+    }
+
     return &stk->tokens[idx + num_tokens - 1];
 }
 
@@ -703,7 +880,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
         }
     }
 
-    // TODO: fix ordering of these VFN exceptions for more efficient check
+    /* TODO: fix ordering of these VFN exceptions for more efficient check */
     if (!(tokens[sp].gen.flags & VEC_LEN_LOCKED)) {
         if (   tokens[sp].toktype != TOK_VFN
             || VFN_REVERSE == tokens[sp].fn.idx
@@ -818,39 +995,6 @@ static int estack_check_assign_type_and_len(estack stk, expr_var_t *vars)
         if (reducing > 1 && (vars[tokens[sp].var.idx].flags & VAR_INSTANCED))
             vars[tokens[sp].var.idx].flags &= ~VAR_INSTANCED;
     }
-
-    if (!(tokens[sp].gen.flags & VAR_HIST_IDX))
-        return 0;
-
-    if (expr_len == sp + 1) {
-        /* This statement is already at the start of the expression stack. */
-        return 0;
-    }
-
-    /* Need to move initialization assignment statements to beginning of stack. */
-
-    for (i = sp - expr_len; i > 0; i--) {
-        if (tokens[i].toktype & TOK_ASSIGN && !(tokens[i].gen.flags & VAR_HIST_IDX))
-            break;
-    }
-
-    if (i > 0) {
-        /* This expression statement needs to be moved. */
-        etoken_t *temp = malloc(expr_len * TOKEN_SIZE);
-        memcpy(temp, tokens + sp - expr_len + 1, expr_len * TOKEN_SIZE);
-        sp = sp - expr_len + 1;
-        for (; sp >= 0; sp = sp - expr_len) {
-            /* batch copy tokens in blocks of expr_len to avoid memcpy overlap */
-            int len = expr_len;
-            if (sp < len) {
-                len = sp;
-            }
-            memcpy(tokens + sp - len + expr_len, tokens + sp - len, len * TOKEN_SIZE);
-        }
-        memcpy(tokens, temp, expr_len * TOKEN_SIZE);
-        free(temp);
-    }
-
     return 0;
 }
 
@@ -951,104 +1095,6 @@ static int estack_get_reduces_inst(estack stk)
         }
     }
     return input_found;
-}
-
-int estack_find_init_offset(estack stk)
-{
-    int i = 0, size = 0, var_referenced = 0;
-
-    stk->init_offset = 0;
-
-    for (i = 0; i < stk->num_tokens; i++) {
-        etoken t = &stk->tokens[i];
-        switch (t->toktype & TOKEN_MASK) {
-            case TOK_LITERAL:
-            case TOK_VLITERAL:
-            case TOK_VAR_NUM_INST:
-            case TOK_VAR_INST_IDX:
-                ++size;
-                break;
-            case TOK_VAR:
-            case TOK_TT: {
-                int j;
-                if (t->var.idx == VAR_Y)
-                    goto done;
-                if (t->var.idx >= N_USER_VARS)
-                    var_referenced = 1;
-                /* check if variable is assigned in later subexpressions */
-                for (j = i + 1; j < stk->num_tokens; j++) {
-                    etoken t2 = &stk->tokens[j];
-                    if (    (TOK_ASSIGN & t2->toktype)
-                        &&  (t2->var.idx == t->var.idx)
-                        && !(t2->gen.flags & VAR_HIST_IDX)
-                        && !(ASSIGN_CONSTANT & t2->toktype)) {
-                        goto done;
-                    }
-                }
-                size += 1 - NUM_VAR_IDXS(t->gen.flags);
-                break;
-            }
-            case TOK_OP:
-                size += 1 - op_tbl[t->op.idx].arity;
-                break;
-            case TOK_FN:
-                if (t->fn.idx >= FN_NORMAL)
-                    goto done;
-                size += 1 - t->fn.arity;
-                break;
-            case TOK_VFN:
-                size += 1 - t->fn.arity;
-                break;
-            case TOK_LOOP_START:
-                if (t->con.flags & RT_INSTANCE)
-                    ++size;
-                break;
-            case TOK_SP_ADD:
-                size += t->lit.val.i;
-                break;
-            case TOK_LOOP_END:
-                /* NOP */
-                break;
-            case TOK_COPY_FROM:
-                ++size;
-                break;
-            case TOK_MOVE:
-                size -= t->con.cache_offset;
-                break;
-            case TOK_VECTORIZE:
-                size += 1 - t->fn.arity;
-                break;
-            case TOK_ASSIGN:
-                if ((var_referenced || t->var.idx >= N_USER_VARS) && !(t->gen.flags & VAR_HIST_IDX))
-                    goto done;
-                size -= NUM_VAR_IDXS(t->gen.flags);
-                if (t->gen.flags & CLEAR_STACK)
-                    size = 0;
-                else if (!(ASSIGN_KEEP_ARG & t->toktype)) {
-                    --size;
-                }
-                var_referenced = 0;
-                break;
-            case TOK_ASSIGN_TT:
-                if (var_referenced && !(t->gen.flags & VAR_HIST_IDX))
-                    goto done;
-                if (t->gen.flags & CLEAR_STACK)
-                    size = 0;
-                else
-                    --size;
-                var_referenced = 0;
-                break;
-            default:
-                printf("ERROR!");
-                stk->init_offset = 0;
-                return -1;
-        }
-        if (size == 0 && i != 0) {
-            stk->init_offset = i + 1;
-        }
-    }
-done:
-    return stk->init_offset;
 }
 
 #if TRACE_PARSE

@@ -311,6 +311,11 @@ int mpr_expr_get_num_tokens(mpr_expr expr)
     return expr->stack->num_tokens;
 }
 
+int mpr_expr_get_num_subexpr(mpr_expr expr)
+{
+    return expr->stack->num_subexpr;
+}
+
 void mpr_expr_restart(mpr_expr expr)
 {
     expr->stack->initialized = 0;
