@@ -66,11 +66,8 @@ static double periodicd(double period, double t_start, double t_now)
     if (period <= 0)
         period = 1;
     if (t_start > t_now) {
-        printf("returning future start_time %f\n", t_start);
         return t_start;
     }
-    printf("returning next %f (%f)\n", (floor((t_now - t_start + 0.001) / period) + 1) * period + t_start,
-           t_now);
     return (floor((t_now - t_start + 0.001) / period) + 1) * period + t_start;
 }
 
