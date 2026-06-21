@@ -67,6 +67,7 @@ enum etoken_type {
     TOK_LOOP_END,
     TOK_SP_ADD,                         /* Stack pointer offset */
     TOK_REDUCING,
+    TOK_COND_EVAL,
     TOK_END             = 0x04000000
 };
 
@@ -170,6 +171,21 @@ struct control_type {
     uint8_t branch_offset;
 };
 
+// TODO: combine conditionals into control type
+/* Used by:
+ * TOK_COND_EVAL,
+ */
+struct conditional_type {
+    enum etoken_type toktype;
+    mpr_type datatype;
+    mpr_type casttype;
+    uint8_t vec_len;
+    uint8_t flags;
+    /* end of generic_type */
+    int8_t jump_offset;
+    uint8_t eval_flags;
+};
+
 typedef union _token {
     enum etoken_type toktype;
     struct generic_type gen;
@@ -178,6 +194,7 @@ typedef union _token {
     struct variable_type var;
     struct function_type fn;
     struct control_type ctl;
+    struct conditional_type cnd;
 } etoken_t, *etoken;
 
 static int etoken_get_is_0(etoken tok)
@@ -606,6 +623,9 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
                     snprintf(s, l, "LOOP_END\t%s<%d,%d>", dims[tok->ctl.flags & REDUCE_TYPE_MASK],
                              tok->ctl.branch_offset, tok->ctl.cache_offset);
             }
+            break;
+        case TOK_COND_EVAL:
+            snprintf(s, l, "COND(%d)->%d", tok->cnd.eval_flags, tok->cnd.jump_offset);
             break;
         case TOK_SP_ADD:            snprintf(s, l, "SP_ADD\t%d", tok->lit.val.i);       break;
         case TOK_SEMICOLON:         snprintf(s, l, "semicolon");                        break;

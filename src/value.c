@@ -290,6 +290,12 @@ mpr_time mpr_value_get_time(mpr_value v, unsigned int inst_idx, int hist_idx)
     return *t;
 }
 
+int mpr_value_get_updated(mpr_value v, unsigned int inst_idx, mpr_time then)
+{
+    mpr_time *t = mpr_value_get_time_internal(v, inst_idx, 0);
+    return t->sec > then.sec || (t->sec == then.sec && t->frac > then.frac);
+}
+
 mpr_time mpr_value_get_start(mpr_value v, unsigned int inst_idx)
 {
     mpr_value_buffer b = GET_BUFFER();

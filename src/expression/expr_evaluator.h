@@ -116,9 +116,10 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     uint8_t alive = 1, muted = 0, cache = 0, vlen = stk->vec_len;
     uint8_t hist_offset = 0, sig_offset = 0, vec_offset = 0;
     mpr_value x = NULL;
+    mpr_time then;
 
     evalue vals = buff->vals;
-    uint8_t *lens = buff->lens;
+    uint8_t *lens = buff->lens, src_updated = 0;
     mpr_type *types = buff->types;
 
     if (v_out) {
@@ -154,6 +155,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
     if (v_out) {
         /* Increment index position of output data structure.
          * Also copy last value in case only certain elements are set in this update. */
+        then = mpr_value_get_time(v_out, inst_idx, 0);
         mpr_value_cpy_next(v_out, inst_idx, time ? *time : MPR_NOW);
     }
 
@@ -187,6 +189,23 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         errno = 0;
 
         switch (tok->toktype & TOKEN_MASK) {
+        case TOK_COND_EVAL: {
+            if (v_in && v_out) {
+                /* calculate bitflags for updated sources */
+                // TODO: skip this calculation for subsequent conditional evaluation tokens
+                int i;
+                for (i = 0; i < expr->num_src; i++) {
+                    if (mpr_value_get_updated(v_in[i], inst_idx, then))
+                        src_updated |= 0x1 << i;
+                }
+            }
+            // TODO: find more efficient way of indicating that this eval was called by next?
+            if (  !(tok->cnd.eval_flags & src_updated)
+                && (mpr_time_get_diff(mpr_value_get_time(v_next, inst_idx, 0), *time) > 0.001)) {
+                tok += tok->cnd.jump_offset;
+            }
+            break;
+        }
         case TOK_LITERAL:
         case TOK_VLITERAL:
             INCR_STACK_PTR(1);

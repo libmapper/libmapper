@@ -1068,6 +1068,129 @@ static int estack_get_eval_buffer_size(estack stk)
     return eval_buffer_len;
 }
 
+/* Check each subexpression and insert conditional evaluation tokens as necessary to enable
+ * skipping evaluation if criteria are not met.
+ * Don't bother inserting conditional execution tokens for:
+ * - initialization expressions
+ * - expressions with one source and no self-timing
+ * - subexpressions using VAR_X_NEWEST
+ * - subexpressions using signal reduce
+ * - subexpressions that are otherwise affected by all inputs
+ */
+void estack_update_eval_flags(estack stk, int num_inputs)
+{
+    if (1 == stk->num_subexpr) {
+        /* conditional evaluation can be handled at map-level */
+        return;
+    }
+    if (1 == num_inputs) {
+        /* check if expression includes self-timing tokens */
+        int i;
+        etoken_t *tok = stk->tokens;
+        for (i = 0; i < stk->num_tokens; i++) {
+            if (tok[i].toktype == TOK_ASSIGN_TT && VAR_NEXT == tok[i].var.idx)
+                break;
+        }
+        if (i >= stk->num_tokens) {
+            /* no need for conditional evaluation tokens */
+            trace("no need for conditional evaluation tokens\n");
+            return;
+        }
+    }
+
+    /* create a conditional expression token for each subexpr */
+    int i;
+    etoken_t *newtoks = calloc(1, stk->num_subexpr * sizeof(etoken_t));
+    for (i = 0; i < stk->num_subexpr; i++) {
+        newtoks[i].toktype = TOK_COND_EVAL;
+    }
+
+    for (i = 0; i < num_inputs; i++) {
+        /* calculate which subexpressions are affected directly or indirectly by this input */
+        unsigned long int subexprs_implicated = 0;
+        unsigned int vars_implicated = 0x1 << (i + VAR_X);
+        unsigned int updated = 1;
+        int s;
+        while (updated) {
+            int s;
+            updated = 0;
+            for (s = 0; s < stk->num_subexpr; s++) {
+                int j, first = stk->subexpr_starts[s], last = first + stk->subexpr_lens[s] - 1;
+                if ((subexprs_implicated >> s) & 0x1) {
+                    continue;
+                }
+                for (j = first; j <= last; j++) {
+                    etoken t = &stk->tokens[j];
+                    int implicated = 0, toktype = t->toktype & TOKEN_MASK;
+                    if (j < stk->init_offset) {
+                        continue;
+                    }
+                    switch (toktype) {
+                        case TOK_VAR:
+                        case TOK_VAR_NUM_INST:
+                        case TOK_TT:
+                            if (   !(t->gen.flags & VAR_MUTED)
+                                && (   VAR_X_NEWEST == t->var.idx
+                                    || (vars_implicated >> t->var.idx) & 0x1)) {
+                                implicated = 1;
+                            }
+                            break;
+                        case TOK_LOOP_START:
+                            if (RT_SIGNAL == (t->ctl.flags & REDUCE_TYPE_MASK))
+                                implicated = 1;
+                            break;
+                        default:
+                            break;
+                    }
+                    if (implicated) {
+                        updated = 1;
+                        subexprs_implicated |= (0x1 << s);
+                        vars_implicated |= (0x1 << stk->tokens[last].var.idx);
+                    }
+                }
+            }
+        }
+        for (s = 0; s < stk->num_subexpr; s++) {
+            if ((subexprs_implicated >> s) & 0x1) {
+                newtoks[s].cnd.eval_flags |= (0x1 << i);
+            }
+        }
+    }
+
+    uint8_t all_inputs = 0x1, last_flags;
+    for (i = 1; i < num_inputs; i++) {
+        all_inputs |= (0x1 << i);
+    }
+    last_flags = all_inputs;
+
+    etoken last_cond_eval_tok = NULL;
+    int j = 0;
+    for (i = 0; i < stk->num_subexpr; i++) {
+        uint8_t flags = newtoks[i].cnd.eval_flags;
+        j += stk->subexpr_lens[i];
+        if (j <= stk->init_offset) {
+            /* by definition initialization subexpression do not depend on inputs */
+            continue;
+        }
+        if (flags == last_flags) {
+            /* go back and adjust jump for last cond eval token (if any) */
+            if (last_cond_eval_tok) {
+                last_cond_eval_tok->cnd.jump_offset += stk->subexpr_lens[i];
+            }
+            continue;
+        }
+        last_flags = flags;
+        if (flags == all_inputs) {
+            /* no need for conditional evaluation token */
+            continue;
+        }
+        /* insert a conditional evaluation token */
+        newtoks[i].cnd.jump_offset = stk->subexpr_lens[i];
+        last_cond_eval_tok = estack_insert(stk, stk->subexpr_starts[i], 1, &newtoks[i]);
+    }
+    free(newtoks);
+}
+
 /* checks if the stack contains references to input variables that do not occur within a reduce
  * sub-expression */
 static int estack_get_reduces_inst(estack stk)

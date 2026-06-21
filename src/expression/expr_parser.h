@@ -2211,6 +2211,8 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
     estack_sort(out);
 
+    estack_update_eval_flags(out, num_src);
+
 #if TRACE_PARSE
     estack_print("OUTPUT STACK", out, vars, 0);
     estack_print("OPERATOR STACK", op, vars, 0);

@@ -52,6 +52,8 @@ int mpr_value_set_next_coerced(mpr_value v, unsigned int inst_idx, unsigned int 
 
 mpr_time mpr_value_get_time(mpr_value v, unsigned int inst_idx, int hist_idx);
 
+int mpr_value_get_updated(mpr_value v, unsigned int inst_idx, mpr_time then);
+
 void mpr_value_set_time(mpr_value v, unsigned int inst_idx, int hist_idx, mpr_time t);
 
 mpr_time mpr_value_get_start(mpr_value v, unsigned int inst_idx);
