@@ -89,6 +89,10 @@ static const char* _get_var_str_and_len(const char* str, int last_char, int *len
         if (--idx >= 0)
             c = str[idx];
     }
+    if ('_' == str[idx + 1]) {
+        /* skip 'muted' symbol - already handled by var_lookup */
+        ++idx;
+    }
     *len = last_char - idx;
     return str + idx + 1;
 }
