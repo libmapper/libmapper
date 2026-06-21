@@ -99,6 +99,9 @@ MPR_INLINE static int _newest_val_idx(mpr_value *vals, int num_vals, int inst_id
     return newest_idx;
 }
 
+#define BAIL_UNLESS(X)  \
+    if (!X) goto bail;
+
 int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_vars,
                   mpr_value v_out, mpr_time *time, mpr_value v_next, int inst_idx)
 {
@@ -107,7 +110,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
            inst_idx, time ? mpr_time_as_dbl(*time) : -1);
 #endif
     estack stk = expr->stack;
-    etoken_t *tok = stk->tokens, *end = tok + stk->num_tokens;
+    etoken_t *tok = stk->tokens, *end = tok + stk->num_tokens, *init = tok + stk->init_offset;
     int dp = -1, sp = -stk->vec_len, status = 1 | EXPR_EVAL_DONE;
     /* Note: signal, history, and vector reduce are currently limited to 255 items here */
     uint8_t alive = 1, muted = 0, cache = 0, vlen = stk->vec_len;
@@ -123,7 +126,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #if TRACE_EVAL
             printf("advancing start token to %d\n", stk->init_offset);
 #endif
-            tok += stk->init_offset;
+            tok = init;
         }
         else {
 #if TRACE_EVAL
@@ -225,7 +228,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #endif
 
             if (VAR_Y == tok->var.idx) {
-                RETURN_ARG_UNLESS(v_out, status);
+                BAIL_UNLESS(v_out);
                 v = v_out;
 #if TRACE_EVAL
                 printf("[y]");
@@ -234,7 +237,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             else if (VAR_NOW == tok->var.idx) {
                 int i;
                 double t_d;
-                RETURN_ARG_UNLESS(time, status);
+                BAIL_UNLESS(time);
 #if TRACE_EVAL
                 printf("[now]");
 #endif
@@ -251,14 +254,14 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 break;
             }
             else if (VAR_NEXT == tok->var.idx) {
-                RETURN_ARG_UNLESS(v_next, status);
+                BAIL_UNLESS(v_next);
                 v = v_next;
 #if TRACE_EVAL
                 printf("[next]");
 #endif
             }
             else if (tok->var.idx >= VAR_X_NEWEST) {
-                RETURN_ARG_UNLESS(v_in, status);
+                BAIL_UNLESS(v_in);
                 if (VAR_X_NEWEST == tok->var.idx) {
                     /* Find most recently-updated source signal */
                     int newest_idx = _newest_val_idx(v_in, expr->num_src, inst_idx);
@@ -461,7 +464,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             SET_TYPE(MPR_INT32);
             SET_LEN(tok->gen.vec_len);
             if (VAR_Y == tok->var.idx) {
-                RETURN_ARG_UNLESS(v_out, status);
+                BAIL_UNLESS(v_out);
                 vals[sp].i = mpr_value_get_num_active_inst(v_out);
             }
             else if (VAR_X_NEWEST == tok->var.idx) {
@@ -469,7 +472,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 vals[sp].i = mpr_value_get_num_active_inst(v_in[newest_idx]);
             }
             else if (tok->var.idx >= VAR_X) {
-                RETURN_ARG_UNLESS(v_in, status);
+                BAIL_UNLESS(v_in);
                 vals[sp].i = mpr_value_get_num_active_inst(v_in[tok->var.idx - VAR_X]);
             }
             else if (v_vars)
@@ -836,7 +839,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     }
                     break;
                 case RT_VECTOR:
-                    RETURN_ARG_UNLESS(v_in, status);
+                    BAIL_UNLESS(v_in);
                     ++vec_offset;
                     if (USE_VAR_LEN & tok->con.flags) {
                         if (vec_offset < mpr_value_get_vlen(v_in[sig_offset])) {
@@ -934,8 +937,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     goto assign_done;
                 }
                 status |= muted ? EXPR_MUTED_UPDATE : EXPR_UPDATE;
-                if (!v_out)
-                    return status;
+                BAIL_UNLESS(v_out);
                 v = v_out;
             }
             else if (tok->var.idx >= 0 && tok->var.idx < N_USER_VARS) {
@@ -1094,8 +1096,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #if TRACE_EVAL
             printf("\n");
 #endif
-            if (!v)
-                return status;
+            BAIL_UNLESS(v);
             mpr_time_set_dbl(&t, vals[sp].d);
             mpr_value_set_time(v, inst_idx, hidx, t);
 
@@ -1147,7 +1148,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         ++tok;
     }
 
-    RETURN_ARG_UNLESS(v_out, status);
+    BAIL_UNLESS(v_out);
 
     if (!time) {
         /* Internal evaluation during parsing doesn't contain assignment token,
@@ -1168,15 +1169,21 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             default:
                 goto error;
         }
-        return status;
     }
-
-    /* Undo position increment if nothing was updated. */
-    if (!(status & (EXPR_UPDATE | EXPR_MUTED_UPDATE))) {
+    else if (!(status & (EXPR_UPDATE | EXPR_MUTED_UPDATE))) {
+        /* Undo position increment if nothing was updated. */
         mpr_value_decr_idx(v_out, inst_idx);
-        return status;
     }
 
+    return status;
+
+  bail:
+    if (tok < init) {
+        status &= ~EXPR_EVAL_DONE;
+    }
+#if TRACE_EVAL
+            printf("     bailing with status %d\n", status);
+#endif
     return status;
 
   skip_assignment:
