@@ -1187,7 +1187,9 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
     /* If the dst slot is remote, we need to allocate enough dst slot and variable instances for
      * the most multitudinous source signal. In the case where the dst slot is associated with a
      * local signal the call below will default to using the signal's instance count. */
-    mpr_slot_alloc_values(m->dst, num_inst, mlen);
+    /* include one extra memory slot for the expression output in case we abort evaluations and
+     * need to decrement value position to previous state */
+    mpr_slot_alloc_values(m->dst, num_inst, mlen + 1);
 
     num_vars = mpr_expr_get_num_vars(e);
     vars = (mpr_value*) malloc(sizeof(mpr_value) * num_vars);
