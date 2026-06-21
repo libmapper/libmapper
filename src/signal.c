@@ -432,7 +432,7 @@ again:
             val_len = slot_sig->len;
             map_manages_inst = mpr_expr_get_manages_inst(expr);
         }
-        else {
+        else if (MPR_LOC_SRC == mpr_map_get_locality((mpr_map)map)) {
             /* value has already been processed at source device */
             map = 0;
             vals = check_types(types + offset, val_len, sig->type, sig->len);
