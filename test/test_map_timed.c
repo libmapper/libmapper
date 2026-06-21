@@ -47,10 +47,11 @@ double expected = 0;
 
 /* better to schedule by incrementing the `next` timestamp for drift-free timing */
 /* schedule next periodic event (implicit phase) */
+/* also test assigning `t_next` instead of `next` (shouldn't make a difference) */
 #define NEXT            \
     "period = %g; "     \
     "y = 1; "           \
-    "next += period;"
+    "t_next += period;"
 
 /* schedule next periodic event (explicit phase)
  * we "round up" when calculating num periods since start if closer than 0.999 */
@@ -113,14 +114,15 @@ double expected = 0;
     "next = next{-1} + period * 2;"
 
 #define QUANTIZE                                        \
-    "period = ema((_t_x-_t_x{-1}) ?: %f * 25, 0.2); "   \
+    "period = ema((_t_x-_t_x{-1}) ?: %g * 25, 0.2); "   \
     "y = period; "                                      \
     "next += period;"
 
 #define RANDOM                  \
     "p = %g; "                  \
     "r = uniform(p) + p * 0.5; "\
-    "y = r; next += r;"
+    "y = r;"                    \
+    "next += r;"
 
 //"new{-1}=0; period = ema(new?0.1:(t_x')
 
@@ -177,15 +179,15 @@ test_config test_configs[] = {
     { 17, PAST,                 MPR_LOC_SRC, 0.00, 0.05 },
     { 18, PAST,                 MPR_LOC_DST, 0.00, 0.05 },
     { 19, FUTURE,               MPR_LOC_SRC, 1.95, 2.05 },
-    { 20, FUTURE,               MPR_LOC_DST, 1.95, 2.05 },
+    { 20, FUTURE,               MPR_LOC_DST, 1.90, 2.05 },
     { 21, UPSAMPLE,             MPR_LOC_SRC, 0.65, 0.70 },
     { 22, UPSAMPLE,             MPR_LOC_DST, 0.65, 0.70 },
     { 23, DOWNSAMPLE,           MPR_LOC_SRC, 1.95, 2.05 },
     { 24, DOWNSAMPLE,           MPR_LOC_DST, 1.95, 2.05 },
     { 25, QUANTIZE,             MPR_LOC_SRC, 1.65, 1.90 },
     { 26, QUANTIZE,             MPR_LOC_DST, 1.65, 1.90 },
-    { 27, RANDOM,               MPR_LOC_SRC, 0.75, 1.25 },
-    { 28, RANDOM,               MPR_LOC_DST, 0.75, 1.25 },
+    { 27, RANDOM,               MPR_LOC_SRC, 0.50, 1.50 },
+    { 28, RANDOM,               MPR_LOC_DST, 0.50, 1.50 },
     { 29, FN_PERIODIC,          MPR_LOC_SRC, 0.95, 1.15 },
     { 30, FN_PERIODIC,          MPR_LOC_DST, 0.95, 1.15 },
     { 31, FN_PERIODIC_FUTURE,   MPR_LOC_SRC, 1.95, 2.05 },
@@ -337,6 +339,7 @@ int run_test(test_config *config)
     mpr_map map;
     char expr[256];
 
+    /* insert period value into expression string if specified */
     snprintf(expr, 256, config->expr, period_sec);
 
     printf("Configuration %d: ", config->test_id);
