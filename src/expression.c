@@ -236,10 +236,10 @@ int mpr_expr_get_src_causes_update(mpr_expr expr, int idx)
                     muted &= tok[i].gen.flags;
                 break;
             case TOK_LOOP_START:
-                if (RT_SIGNAL == (tok->con.flags & REDUCE_TYPE_MASK))
+                if (RT_SIGNAL == (tok->ctl.flags & REDUCE_TYPE_MASK))
                     reducing_src = 1;
             case TOK_LOOP_END:
-                if (RT_SIGNAL == (tok->con.flags & REDUCE_TYPE_MASK))
+                if (RT_SIGNAL == (tok->ctl.flags & REDUCE_TYPE_MASK))
                     reducing_src = 0;
             default:
                 break;
@@ -262,10 +262,10 @@ int mpr_expr_get_src_is_used(mpr_expr expr, int idx)
                     return 1;
                 break;
             case TOK_LOOP_START:
-                if (RT_SIGNAL == (tok->con.flags & REDUCE_TYPE_MASK))
+                if (RT_SIGNAL == (tok->ctl.flags & REDUCE_TYPE_MASK))
                     reducing_src = 1;
             case TOK_LOOP_END:
-                if (RT_SIGNAL == (tok->con.flags & REDUCE_TYPE_MASK))
+                if (RT_SIGNAL == (tok->ctl.flags & REDUCE_TYPE_MASK))
                     reducing_src = 0;
             default:
                 break;

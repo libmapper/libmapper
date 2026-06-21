@@ -705,9 +705,9 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             break;
         case TOK_LOOP_START:
 #if TRACE_EVAL
-            switch (tok->con.flags & REDUCE_TYPE_MASK) {
+            switch (tok->ctl.flags & REDUCE_TYPE_MASK) {
                 case RT_HISTORY:
-                    printf("History idx = -%d.\n", tok->con.reduce_start);
+                    printf("History idx = -%d.\n", tok->ctl.reduce_start);
                     break;
                 case RT_INSTANCE:
                     printf("Instance idx = %d.\n", inst_idx);
@@ -722,10 +722,10 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     goto error;
             }
 #endif
-            switch (tok->con.flags & REDUCE_TYPE_MASK) {
+            switch (tok->ctl.flags & REDUCE_TYPE_MASK) {
                 case RT_HISTORY:
                     /* Set history start sample */
-                    hist_offset = tok->con.reduce_start;
+                    hist_offset = tok->ctl.reduce_start;
                     break;
                 case RT_INSTANCE:
                     /* cache previous instance idx */
@@ -750,7 +750,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                     break;
                 case RT_VECTOR:
                     /* Set vector start index */
-                    vec_offset = tok->con.reduce_start;
+                    vec_offset = tok->ctl.reduce_start;
                     break;
                 default:
                     break;
@@ -764,14 +764,14 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #endif
             break;
         case TOK_LOOP_END:
-            switch (tok->con.flags & REDUCE_TYPE_MASK) {
+            switch (tok->ctl.flags & REDUCE_TYPE_MASK) {
                 case RT_HISTORY:
-                    if (hist_offset > tok->con.reduce_stop) {
+                    if (hist_offset > tok->ctl.reduce_stop) {
                         --hist_offset;
 #if TRACE_EVAL
                         printf("History idx = -%d\n", hist_offset);
 #endif
-                        tok -= tok->con.branch_offset;
+                        tok -= tok->ctl.branch_offset;
                         goto repeat;
                     }
                     else {
@@ -795,22 +795,22 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                         printf("Instance idx = %d\n", i);
 #endif
                         inst_idx = i;
-                        tok -= tok->con.branch_offset;
+                        tok -= tok->ctl.branch_offset;
                         goto repeat;
                     }
                     else {
 #if TRACE_EVAL
                         printf("Instance loop done; restoring instance idx from offset %d: ",
-                               tok->con.cache_offset * -1);
-                        evalue_print(vals + sp - tok->con.cache_offset * vlen, MPR_INT32, 1,
-                                     dp - tok->con.cache_offset);
+                               tok->ctl.cache_offset * -1);
+                        evalue_print(vals + sp - tok->ctl.cache_offset * vlen, MPR_INT32, 1,
+                                     dp - tok->ctl.cache_offset);
 #endif
-                        inst_idx = vals[sp - tok->con.cache_offset * vlen].i;
+                        inst_idx = vals[sp - tok->ctl.cache_offset * vlen].i;
                         if (x && inst_idx >= mpr_value_get_num_inst(x))
                             goto error;
-                        if (tok->con.cache_offset > 0) {
-                            int dp_temp = dp - tok->con.cache_offset;
-                            for (dp_temp = dp - tok->con.cache_offset; dp_temp < dp; dp_temp++) {
+                        if (tok->ctl.cache_offset > 0) {
+                            int dp_temp = dp - tok->ctl.cache_offset;
+                            for (dp_temp = dp - tok->ctl.cache_offset; dp_temp < dp; dp_temp++) {
                                 int sp_temp = dp_temp * vlen;
                                 evalue_cpy(vals + sp_temp, vals + sp_temp + vlen, vlen);
                                 lens[dp_temp] = lens[dp_temp + 1];
@@ -828,7 +828,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 #if TRACE_EVAL
                         printf("Signal idx = %d\n", sig_offset);
 #endif
-                        tok -= tok->con.branch_offset;
+                        tok -= tok->ctl.branch_offset;
                         goto repeat;
                     }
                     else {
@@ -841,13 +841,13 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                 case RT_VECTOR:
                     BAIL_UNLESS(v_in);
                     ++vec_offset;
-                    if (USE_VAR_LEN & tok->con.flags) {
+                    if (USE_VAR_LEN & tok->ctl.flags) {
                         if (vec_offset < mpr_value_get_vlen(v_in[sig_offset])) {
 #if TRACE_EVAL
                             printf("Vector idx = %d of %d\n", vec_offset,
                                    mpr_value_get_vlen(v_in[sig_offset]));
 #endif
-                            tok -= tok->con.branch_offset;
+                            tok -= tok->ctl.branch_offset;
                             goto repeat;
                         }
                         else {
@@ -858,11 +858,11 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
                         }
                         break;
                     }
-                    if (vec_offset < tok->con.reduce_stop) {
+                    if (vec_offset < tok->ctl.reduce_stop) {
 #if TRACE_EVAL
-                        printf("Vector idx = %d of %d\n", vec_offset, tok->con.reduce_stop);
+                        printf("Vector idx = %d of %d\n", vec_offset, tok->ctl.reduce_stop);
 #endif
-                        tok -= tok->con.branch_offset;
+                        tok -= tok->ctl.branch_offset;
                         goto repeat;
                     }
                     else {
@@ -877,7 +877,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             }
             break;
         case TOK_COPY_FROM: {
-            int dp_from = dp - tok->con.cache_offset;
+            int dp_from = dp - tok->ctl.cache_offset;
             int sp_from = dp_from * vlen;
             assert(dp_from >= 0 && dp_from < buff->size);
             INCR_STACK_PTR(1);
@@ -895,7 +895,7 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
         case TOK_MOVE: {
             int dp_from = dp;
             int sp_from = sp;
-            INCR_STACK_PTR(-tok->con.cache_offset);
+            INCR_STACK_PTR(-tok->ctl.cache_offset);
             evalue_cpy(&vals[sp], &vals[sp_from], vlen);
             SET_TYPE(types[dp_from]);
             SET_LEN(lens[dp_from]);

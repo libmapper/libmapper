@@ -287,7 +287,7 @@ static int estack_promote_tokens(estack stk, int idx, mpr_type type, int vec_len
         goto done;
 
     while (TOK_COPY_FROM == tokens[idx].toktype) {
-        int offset = tokens[idx].con.cache_offset + 1;
+        int offset = tokens[idx].ctl.cache_offset + 1;
         tokens[idx].gen.datatype = type;
         if (!(tokens[idx].gen.flags & VEC_LEN_LOCKED) && tokens[idx].gen.vec_len < vec_len)
             tokens[idx].gen.vec_len = vec_len;
@@ -520,7 +520,7 @@ static int estack_get_reduce_types(estack stk)
     etoken_t *tokens = stk->tokens;
     for (i = 0; i < stk->num_tokens; i++) {
         if (TOK_REDUCING == tokens[i].toktype) {
-            flags |= tokens[i].con.flags;
+            flags |= tokens[i].ctl.flags;
         }
     }
     return flags;
@@ -646,7 +646,7 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
             if (tokens[i].toktype >= TOK_LOOP_START) {
                 can_precompute = enable_optimize = 0;
                 if (tokens[i].toktype == TOK_LOOP_END)
-                    i -= (tokens[i].con.branch_offset - tokens[i].con.cache_offset);
+                    i -= (tokens[i].ctl.branch_offset - tokens[i].ctl.cache_offset);
                 continue;
             }
 
@@ -689,22 +689,22 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                         vec_len = tokens[j].gen.vec_len;
                     }
                     if (TOK_COPY_FROM == tokens[j].toktype) {
-                        uint8_t offset = tokens[j].con.cache_offset + 1;
+                        uint8_t offset = tokens[j].ctl.cache_offset + 1;
                         uint8_t vec_reduce = 0;
                         while (offset > 0 && j > 0) {
                             --j;
                             if (TOK_SP_ADD == tokens[j].toktype)
                                 offset -= tokens[j].lit.val.i;
                             else if (TOK_LOOP_START == tokens[j].toktype) {
-                                if (tokens[j].con.flags & RT_INSTANCE)
+                                if (tokens[j].ctl.flags & RT_INSTANCE)
                                     --offset;
-                                else if (tokens[j].con.flags & RT_VECTOR)
+                                else if (tokens[j].ctl.flags & RT_VECTOR)
                                     ++vec_reduce;
                             }
                             else if (TOK_LOOP_END == tokens[j].toktype) {
-                                if (tokens[j].con.flags & RT_INSTANCE)
+                                if (tokens[j].ctl.flags & RT_INSTANCE)
                                     ++offset;
-                                else if (tokens[j].con.flags & RT_VECTOR)
+                                else if (tokens[j].ctl.flags & RT_VECTOR)
                                     --vec_reduce;
                             }
                             else if (tokens[j].toktype <= TOK_MOVE)
@@ -797,9 +797,9 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
         estack_promote_tokens(stk, i, type, 0);
         while (--i >= 0) {
             int j = i;
-            if (TOK_LOOP_END == tokens[i].toktype && tokens[i].con.flags & RT_VECTOR)
+            if (TOK_LOOP_END == tokens[i].toktype && tokens[i].ctl.flags & RT_VECTOR)
                 vec_reduce = 1;
-            else if (TOK_LOOP_START == tokens[i].toktype && tokens[i].con.flags & RT_VECTOR)
+            else if (TOK_LOOP_START == tokens[i].toktype && tokens[i].ctl.flags & RT_VECTOR)
                 vec_reduce = 0;
             if (tokens[i].toktype >= TOK_LOOP_START)
                 continue;
@@ -820,14 +820,14 @@ static etoken estack_check_type(estack stk, expr_var_t *vars, int enable_optimiz
                 }
 
                 if (TOK_COPY_FROM == tokens[j].toktype) {
-                    int offset = tokens[j].con.cache_offset + 1;
+                    int offset = tokens[j].ctl.cache_offset + 1;
                     while (offset > 0 && j > 0) {
                         --j;
                         if (TOK_SP_ADD == tokens[j].toktype)
                             offset -= tokens[j].lit.val.i;
-                        else if (TOK_LOOP_START == tokens[j].toktype && tokens[j].con.flags & RT_INSTANCE)
+                        else if (TOK_LOOP_START == tokens[j].toktype && tokens[j].ctl.flags & RT_INSTANCE)
                             --offset;
-                        else if (TOK_LOOP_END == tokens[j].toktype && tokens[j].con.flags & RT_INSTANCE)
+                        else if (TOK_LOOP_END == tokens[j].toktype && tokens[j].ctl.flags & RT_INSTANCE)
                             ++offset;
                         else if (tokens[j].toktype <= TOK_MOVE)
                             offset += etoken_get_arity(&tokens[j]) - 1;
@@ -1077,11 +1077,11 @@ static int estack_get_reduces_inst(estack stk)
         etoken tok = &stk->tokens[i];
         switch (tok->toktype) {
             case TOK_LOOP_START:
-                if (tok->con.flags & RT_INSTANCE)
+                if (tok->ctl.flags & RT_INSTANCE)
                     reducing = 1;
                 break;
             case TOK_LOOP_END:
-                if (tok->con.flags & RT_INSTANCE)
+                if (tok->ctl.flags & RT_INSTANCE)
                     reducing = 0;
             case TOK_VAR:
                 if (tok->var.idx >= VAR_X_NEWEST) {

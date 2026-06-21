@@ -267,18 +267,18 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         ++i;
                     }
                     tok.toktype = TOK_COPY_FROM;
-                    tok.con.cache_offset = offset;
+                    tok.ctl.cache_offset = offset;
 
                     i = out->num_tokens - 1 - offset;
                     {FAIL_IF(i < 0, "Compilation error (1)");}
                     if (reduce_types & RT_VECTOR)
-                        tok.con.vec_len = 1;
+                        tok.ctl.vec_len = 1;
                     else
-                        tok.con.vec_len = out->tokens[i].gen.vec_len;
-                    tok.con.datatype = (  out->tokens[i].gen.casttype
+                        tok.ctl.vec_len = out->tokens[i].gen.vec_len;
+                    tok.ctl.datatype = (  out->tokens[i].gen.casttype
                                         ? out->tokens[i].gen.casttype
                                         : out->tokens[i].gen.datatype);
-                    tok.con.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
+                    tok.ctl.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
 
                     /* TODO: handle timetags */
                     is_const = 0;
@@ -304,10 +304,10 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                         if (TOK_SP_ADD == out->tokens[pos].toktype)
                             stack_offset += out->tokens[pos].lit.val.i;
                         else if (TOK_LOOP_START == out->tokens[pos].toktype
-                                 && out->tokens[pos].con.flags & RT_INSTANCE)
+                                 && out->tokens[pos].ctl.flags & RT_INSTANCE)
                             ++stack_offset;
                         else if (TOK_LOOP_END == out->tokens[pos].toktype
-                                 && out->tokens[pos].con.flags & RT_INSTANCE)
+                                 && out->tokens[pos].ctl.flags & RT_INSTANCE)
                             --stack_offset;
                         else if (out->tokens[pos].toktype < TOK_LAMBDA)
                             stack_offset += 1 - etoken_get_arity(&out->tokens[pos]);
@@ -316,7 +316,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
                     etoken_cpy(&tok, estack_peek(out, ESTACK_TOP - stack_offset));
                     tok.toktype = TOK_COPY_FROM;
-                    tok.con.cache_offset = stack_offset;
+                    tok.ctl.cache_offset = stack_offset;
                     estack_push(out, &tok);
                     allow_toktype = (TOK_VFN_DOT | TOK_RFN | TOK_OP | TOK_CLOSE_PAREN
                                      | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY | TOK_COLON);
@@ -640,7 +640,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                                 int idx = out->num_tokens - 1 - i;
                                 etoken t = estack_peek(out, idx);
                                 while (TOK_COPY_FROM == t->toktype) {
-                                    idx -= t->con.cache_offset + 1;
+                                    idx -= t->ctl.cache_offset + 1;
                                     assert(idx >= 0);
                                     t = estack_peek(out, idx);
                                 }
@@ -661,13 +661,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                                 {FAIL("mixed history reduce is ambiguous.");}
                             else if (y_ref) {
                                 etoken t = estack_peek(op, ESTACK_TOP);
-                                t->con.reduce_start = lit_val;
-                                t->con.reduce_stop = 1;
+                                t->ctl.reduce_start = lit_val;
+                                t->ctl.reduce_stop = 1;
                             }
                             else if (x_ref) {
                                 etoken t = estack_peek(op, ESTACK_TOP);
-                                t->con.reduce_start = lit_val - 1;
-                                t->con.reduce_stop = 0;
+                                t->ctl.reduce_start = lit_val - 1;
+                                t->ctl.reduce_stop = 0;
                             }
                             else
                                 {FAIL("history reduce requires reference to 'x' or 'y'.");}
@@ -677,7 +677,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                                 if (TOK_VAR != t_out->toktype)
                                     continue;
                                 t_op = estack_peek(op, ESTACK_TOP);
-                                mpr_expr_update_mlen(expr, t_out->var.idx, t_op->con.reduce_start);
+                                mpr_expr_update_mlen(expr, t_out->var.idx, t_op->ctl.reduce_start);
                             }
                             GET_NEXT_TOKEN(tok);
                             {FAIL_IF(tok.toktype != TOK_CLOSE_PAREN, "missing close parenthesis. (2)");}
@@ -690,7 +690,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                                 int idx = out->num_tokens - 1 - i;
                                 etoken t = estack_peek(out, idx);
                                 while (TOK_COPY_FROM == t->toktype) {
-                                    idx -= t->con.cache_offset + 1;
+                                    idx -= t->ctl.cache_offset + 1;
                                     assert(idx > 0);
                                     t = estack_peek(out, idx);
                                 }
@@ -762,11 +762,11 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                                 t->gen.flags |= VEC_LEN_LOCKED;
                             }
                             t = estack_peek(op, ESTACK_TOP);
-                            t->con.reduce_start = 0;
-                            t->con.reduce_stop = vec_len;
+                            t->ctl.reduce_start = 0;
+                            t->ctl.reduce_stop = vec_len;
                             /* check if we are currently reducing over signals */
                             if (RT_SIGNAL & estack_get_reduce_types(op))
-                                t->con.flags |= USE_VAR_LEN;
+                                t->ctl.flags |= USE_VAR_LEN;
 
                             break;
                         }
@@ -784,7 +784,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 rt = _reduce_type_from_fn_idx((estack_peek(op, ESTACK_TOP))->fn.idx);
                 /* fail unless reduction already on the stack */
                 {FAIL_IF(RT_UNKNOWN == rt, "Syntax error: missing reduce function prefix.");}
-                newtok.con.flags |= rt;
+                newtok.ctl.flags |= rt;
                 estack_pop(op);
                 /* TODO: check if there is possible conflict here between vfn and rfn */
                 rfn = tok.fn.idx;
@@ -793,7 +793,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     etoken t = estack_peek(out, idx);
                     {FAIL_IF(rt != RT_INSTANCE, "count() requires 'instance' prefix");}
                     while (TOK_COPY_FROM == t->toktype) {
-                        idx -= t->con.cache_offset + 1;
+                        idx -= t->ctl.cache_offset + 1;
                         assert(idx > 0);
                         t = estack_peek(out, idx);
                     }
@@ -841,13 +841,13 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 idx = out->num_tokens - 1;
                 while (TOK_COPY_FROM == out->tokens[idx].toktype) {
                     /* TODO: rename 'cache_offset' variable or switch struct */
-                    idx -= out->tokens[idx].con.cache_offset + 1;
+                    idx -= out->tokens[idx].ctl.cache_offset + 1;
                     assert(idx > 0 && idx < out->num_tokens);
                 }
 
                 if (RFN_REDUCE == rfn) {
                     /* TODO: reduce types should be cached in stack instead of global */
-                    reduce_types |= newtok.con.flags & REDUCE_TYPE_MASK;
+                    reduce_types |= newtok.ctl.flags & REDUCE_TYPE_MASK;
                     newtok.toktype = TOK_REDUCING;
                     estack_push(op, &newtok);
                     tok.toktype = TOK_OPEN_PAREN;
@@ -878,7 +878,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     for (i = 0; i < sslen; i++) {
                         etoken t = estack_pop(out);
                         if (TOK_COPY_FROM == t->toktype)
-                            t->con.cache_offset += ar;
+                            t->ctl.cache_offset += ar;
                         estack_push(op, t);
                     }
                 }
@@ -1071,12 +1071,12 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 etoken_cpy(&tok, &newtok);
                 tok.toktype = TOK_LOOP_END;
                 if (RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn || RFN_CONCAT == rfn) {
-                    tok.con.branch_offset = 2 + sslen;
-                    tok.con.cache_offset = 2;
+                    tok.ctl.branch_offset = 2 + sslen;
+                    tok.ctl.cache_offset = 2;
                 }
                 else {
-                    tok.con.branch_offset = 1 + sslen;
-                    tok.con.cache_offset = 1;
+                    tok.ctl.branch_offset = 1 + sslen;
+                    tok.ctl.cache_offset = 1;
                 }
                 estack_push(out, &tok);
 
@@ -1455,26 +1455,26 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
 
                     /* push move token to output */
                     tok.toktype = TOK_MOVE;
-                    if (t->con.flags & RT_INSTANCE)
-                        tok.con.cache_offset = 3;
+                    if (t->ctl.flags & RT_INSTANCE)
+                        tok.ctl.cache_offset = 3;
                     else
-                        tok.con.cache_offset = 2;
+                        tok.ctl.cache_offset = 2;
                     if (t->gen.casttype)
-                        tok.con.datatype = t->gen.casttype;
+                        tok.ctl.datatype = t->gen.casttype;
                     else
-                        tok.con.datatype = t->gen.datatype;
+                        tok.ctl.datatype = t->gen.datatype;
                     estack_push(out, &tok);
 
                     /* push branch token to output */
                     t = estack_pop(op);
                     tok.toktype = TOK_LOOP_END;
-                    tok.con.flags |= t->con.flags;
-                    tok.con.branch_offset = out->num_tokens - 1 - cache_pos;
-                    tok.con.cache_offset = -1;
-                    tok.con.reduce_start = t->con.reduce_start;
-                    tok.con.reduce_stop = t->con.reduce_stop;
+                    tok.ctl.flags |= t->ctl.flags;
+                    tok.ctl.branch_offset = out->num_tokens - 1 - cache_pos;
+                    tok.ctl.cache_offset = -1;
+                    tok.ctl.reduce_start = t->ctl.reduce_start;
+                    tok.ctl.reduce_stop = t->ctl.reduce_stop;
                     estack_push(out, &tok);
-                    reduce_types &= ~(tok.con.flags & REDUCE_TYPE_MASK);
+                    reduce_types &= ~(tok.ctl.flags & REDUCE_TYPE_MASK);
                 }
                 /* special case: if top of stack is tok_assign with keep_arg flag, pop to output */
                 if (op->num_tokens
@@ -2136,7 +2136,7 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                 if (copy_tokens) {
                     /* need to insert copy token after variable */
                     /* newtok.toktype = TOK_COPY_FROM;
-                     * newtok.con.cache_offset = 0;
+                     * newtok.ctl.cache_offset = 0;
                      * estack_insert(out, i++, 1, &newtok);
                      */
 

@@ -177,7 +177,7 @@ typedef union _token {
     struct operator_type op;
     struct variable_type var;
     struct function_type fn;
-    struct control_type con;
+    struct control_type ctl;
 } etoken_t, *etoken;
 
 static int etoken_get_is_0(etoken tok)
@@ -213,8 +213,8 @@ static int etoken_get_arity(etoken tok)
         case TOK_RFN:           arity = rfn_tbl[tok->fn.idx].arity;             break;
         case TOK_VFN:           arity = vfn_tbl[tok->fn.idx].arity;             break;
         case TOK_VECTORIZE:     arity = tok->fn.arity;                          break;
-        case TOK_MOVE:          arity = tok->con.cache_offset + 1;              break;
-        case TOK_LOOP_START:    arity = tok->con.flags & RT_INSTANCE ? 1 : 0;   break;
+        case TOK_MOVE:          arity = tok->ctl.cache_offset + 1;              break;
+        case TOK_LOOP_START:    arity = tok->ctl.flags & RT_INSTANCE ? 1 : 0;   break;
         case TOK_LOOP_END:      arity = 1;                                      break;
         default:                                                                break;
     }
@@ -562,12 +562,12 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
         case TOK_VFN_DOT:   snprintf(s, l, "VFN\t%s()", vfn_tbl[tok->fn.idx].name);     break;
         case TOK_RFN:
             if (RFN_HISTORY == tok->fn.idx)
-                snprintf(s, l, "RFN\thistory(%d:%d)", tok->con.reduce_start, tok->con.reduce_stop);
+                snprintf(s, l, "RFN\thistory(%d:%d)", tok->ctl.reduce_start, tok->ctl.reduce_stop);
             else if (RFN_VECTOR == tok->fn.idx) {
-                if (tok->con.flags & USE_VAR_LEN)
-                    snprintf(s, l, "RFN\tvector(%d:len)", tok->con.reduce_start);
+                if (tok->ctl.flags & USE_VAR_LEN)
+                    snprintf(s, l, "RFN\tvector(%d:len)", tok->ctl.reduce_start);
                 else
-                    snprintf(s, l, "RFN\tvector(%d:%d)", tok->con.reduce_start, tok->con.reduce_stop);
+                    snprintf(s, l, "RFN\tvector(%d:%d)", tok->ctl.reduce_start, tok->ctl.reduce_stop);
             }
             else
                 snprintf(s, l, "RFN\t%s()", rfn_tbl[tok->fn.idx].name);
@@ -575,36 +575,36 @@ static void etoken_print(etoken tok, expr_var_t *vars, int show_locks)
         case TOK_LAMBDA:
             snprintf(s, l, "LAMBDA");                                                   break;
         case TOK_COPY_FROM:
-            snprintf(s, l, "COPY\t%d", tok->con.cache_offset * -1);                     break;
+            snprintf(s, l, "COPY\t%d", tok->ctl.cache_offset * -1);                     break;
         case TOK_MOVE:
-            snprintf(s, l, "MOVE\t-%d", tok->con.cache_offset);                         break;
+            snprintf(s, l, "MOVE\t-%d", tok->ctl.cache_offset);                         break;
         case TOK_LOOP_START:
-            snprintf(s, l, "LOOP_START\t%s", dims[tok->con.flags & REDUCE_TYPE_MASK]);  break;
+            snprintf(s, l, "LOOP_START\t%s", dims[tok->ctl.flags & REDUCE_TYPE_MASK]);  break;
         case TOK_REDUCING:
-            if (tok->con.flags & USE_VAR_LEN)
-                snprintf(s, l, "REDUCE\t%s[%d:len]", dims[tok->con.flags & REDUCE_TYPE_MASK],
-                         tok->con.reduce_start);
+            if (tok->ctl.flags & USE_VAR_LEN)
+                snprintf(s, l, "REDUCE\t%s[%d:len]", dims[tok->ctl.flags & REDUCE_TYPE_MASK],
+                         tok->ctl.reduce_start);
             else
-                snprintf(s, l, "REDUCE\t%s[%d:%d]", dims[tok->con.flags & REDUCE_TYPE_MASK],
-                         tok->con.reduce_start, tok->con.reduce_stop);
+                snprintf(s, l, "REDUCE\t%s[%d:%d]", dims[tok->ctl.flags & REDUCE_TYPE_MASK],
+                         tok->ctl.reduce_start, tok->ctl.reduce_stop);
             break;
         case TOK_LOOP_END:
-            switch (tok->con.flags & REDUCE_TYPE_MASK) {
+            switch (tok->ctl.flags & REDUCE_TYPE_MASK) {
                 case RT_HISTORY:
-                    snprintf(s, l, "LOOP_END\thistory[%d:%d]<%d,%d>", -tok->con.reduce_start,
-                             -tok->con.reduce_stop, tok->con.branch_offset, tok->con.cache_offset);
+                    snprintf(s, l, "LOOP_END\thistory[%d:%d]<%d,%d>", -tok->ctl.reduce_start,
+                             -tok->ctl.reduce_stop, tok->ctl.branch_offset, tok->ctl.cache_offset);
                     break;
                 case RT_VECTOR:
-                    if (tok->con.flags & USE_VAR_LEN)
-                        snprintf(s, l, "LOOP_END\tvector[%d:len]<%d,%d>", tok->con.reduce_start,
-                                 tok->con.branch_offset, tok->con.cache_offset);
+                    if (tok->ctl.flags & USE_VAR_LEN)
+                        snprintf(s, l, "LOOP_END\tvector[%d:len]<%d,%d>", tok->ctl.reduce_start,
+                                 tok->ctl.branch_offset, tok->ctl.cache_offset);
                     else
-                        snprintf(s, l, "LOOP_END\tvector[%d:%d]<%d,%d>", tok->con.reduce_start,
-                                 tok->con.reduce_stop, tok->con.branch_offset, tok->con.cache_offset);
+                        snprintf(s, l, "LOOP_END\tvector[%d:%d]<%d,%d>", tok->ctl.reduce_start,
+                                 tok->ctl.reduce_stop, tok->ctl.branch_offset, tok->ctl.cache_offset);
                     break;
                 default:
-                    snprintf(s, l, "LOOP_END\t%s<%d,%d>", dims[tok->con.flags & REDUCE_TYPE_MASK],
-                             tok->con.branch_offset, tok->con.cache_offset);
+                    snprintf(s, l, "LOOP_END\t%s<%d,%d>", dims[tok->ctl.flags & REDUCE_TYPE_MASK],
+                             tok->ctl.branch_offset, tok->ctl.cache_offset);
             }
             break;
         case TOK_SP_ADD:            snprintf(s, l, "SP_ADD\t%d", tok->lit.val.i);       break;
