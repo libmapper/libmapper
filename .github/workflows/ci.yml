@@ -24,10 +24,10 @@ jobs:
         python3 -m pip install --upgrade pip
     - name: install liblo
       run: |
-        curl -L -O https://github.com/radarsat1/liblo/releases/download/0.35/liblo-0.35.tar.gz
-        tar -xzf liblo-0.35.tar.gz
-        rm liblo-0.35.tar.gz
-        mv liblo-0.35 liblo
+        curl -L -O https://github.com/radarsat1/liblo/releases/download/0.36/liblo-0.36.tar.gz
+        tar -xzf liblo-0.36.tar.gz
+        rm liblo-0.36.tar.gz
+        mv liblo-0.36 liblo
         cd liblo
         (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-shared --disable-tests --disable-tools --disable-examples --disable-doc CFLAGS=-fPIC || (cat config.log; false))
         make install
@@ -179,10 +179,10 @@ jobs:
         python3 --version
     - name: download liblo
       run: |
-        curl -L -O https://github.com/radarsat1/liblo/releases/download/0.35/liblo-0.35.tar.gz
-        tar -xzf liblo-0.35.tar.gz
-        rm liblo-0.35.tar.gz
-        mv liblo-0.35 liblo
+        curl -L -O https://github.com/radarsat1/liblo/releases/download/0.36/liblo-0.36.tar.gz
+        tar -xzf liblo-0.36.tar.gz
+        rm liblo-0.36.tar.gz
+        mv liblo-0.36 liblo
     - name: liblo build arm64
       run: |
         cd ./liblo

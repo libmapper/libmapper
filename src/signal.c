@@ -360,7 +360,7 @@ int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int 
     mpr_local_dev dev;
     mpr_sig_inst si;
     mpr_net net = mpr_graph_get_net(sig->obj.graph);
-    int i, offset = 0, val_len = 0, vals;
+    int i, offset = 0, val_len = 0, vals = 0;
     int id_map_idx, inst_idx, slot_id = -1, map_manages_inst = 0;
     mpr_id GID = 0;
     mpr_id_map id_map, remote_id_map = 0;
