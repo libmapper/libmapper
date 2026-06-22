@@ -1,5 +1,77 @@
 # libmapper NEWS
 
+version 2.6
+-----------
+
+We are pleased to announce the release of version 2.6 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+In addition to bugfixes, usability improvements and optimizations, this release introduces basic support for "self-timed maps"–a new map expression feature that has been on the development roadmap for several years. Development and documentation of this feature will continue, but you can explore examples of the new mapping possibilities by reviewing `test_map_timed.c` in the test folder.
+
+To accommodate self-timed map expressions that do not require a source signal to trigger evaluation, this version now permits "self-maps" in which a signal is mapped to itself.
+
+For this version the dependency on liblo is updated to liblo v0.36.
+
+Optimizations:
+
+- Disabled delay when creating TCP `lo_addresses` - results in 30 percent speedup on `testspeed.c`
+- Added support for TCP subscriptions: the subscription protocol now includes a  property for specifying the network protocol, which is used to automatically upgrade subscriptions to TCP when supported by both peers
+- Reduced the timeout for name collision testing before device registration.
+- Enabled reuse of OSC messages and bundles to reduce runtime memory allocation
+- Merged handling of outgoing and incoming maps
+- Switched to sending only updated properties in `/map/modify` messages rather than the entire map state.
+- Enabled switching map processing location without also sending expression string.
+- Improved transfer of map ownership when process location is changed.
+- Adapted network poll time based on self-timed maps.
+
+Improvements and bug fixes:
+
+- Added support for calling `mpr_graph_subscribe()` with a local device argument from another graph instance.
+- Improved internal tracking of value update period and jitter
+- Remove extraneous '@' prefix from property names rather than failing.
+- Fixed mpr_time subtraction bug.
+- Ensure expression initialization for all map instances.
+- Fixed indexing error when reallocating user-defined map expression variables
+- Fixed mpr_time-double arithmetic bug.
+- Improved handling of anonymous expression variables when updating expressions
+- Improved handling of device update flags;
+- Update internal device timestamp before processing both incoming and outgoing maps.
+- Ensure all map expression instances are restarted appropriately after initialization.
+- Send map version property if sending modify message and staged property table is clean.
+- Revised handling of map instance origin scopes with improved functionality, API,  properties, and protocol.
+
+Expression engine:
+
+- Added support for dot function syntax for remaining functions.
+- Added support for increment and decrement operators.
+- Set uninitialized timestamps to time of first evaluation instead of 0.
+- exempt variable indexing subexpressions (vector, signal, instance, history) from datatype promotion.
+- added handling of current timestamp; optimizations
+- Refactoring
+- Added support for augmented assignment operators
+- Improved determination of whether user-defined variables should be instanced or singleton.
+- Added new special timetag variables `now` and `next` to support self-timed maps
+- Added `periodic()` function for simplifying calculation of next timestamp in periodic sequence.
+- Optimization
+
+Test suite:
+
+- Increased speed of multiconfiguration instance tests `testinstance.c`, `testinstance_no_cb.c`
+- Added `test_subscriptions.c` and `test_map_timed.c` to test suite.
+- Simplified `testrate.c`
+- Added missing test programs to `CMakeLists.txt`
+- Added missing `sleep()` function for Windows to `test_time_sync.c`
+- Added a test for datatype promotion when assigning to a timestamp to `testparser.c`
+- Switched to using public mpr_time API for test timing in `testspeed.c`
+- Removed some unneeded header includes from test programs
+- Added `test_map_no_src.c`
+- Renamed `testparams.c` -> `test_msg_props.c`
+- Renamed `testprops.c` -> `test_obj_props.c`
+
+C++ Bindings:
+
+- Fixed memory leak in `List` class
+- Fixed null `std::string`
+
 version 2.5.2
 -------------
 

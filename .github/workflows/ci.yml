@@ -232,8 +232,8 @@ jobs:
           --prefix=$PWD/inst \
           PKG_CONFIG_PATH=$PWD/liblo/inst/lib/pkgconfig
         make install
-        mv -v ./inst/lib/libmapper.15.dylib ./inst/lib/libmapper.15.dylib.arm64
-        file ./inst/lib/libmapper.15.dylib.arm64
+        mv -v ./inst/lib/libmapper.16.dylib ./inst/lib/libmapper.16.dylib.arm64
+        file ./inst/lib/libmapper.16.dylib.arm64
         mv -v ./inst/lib/libmapper.a ./inst/lib/libmapper.a.arm64
         lipo -info ./inst/lib/libmapper.a.arm64
     - name: libmapper build x86_64
@@ -248,8 +248,8 @@ jobs:
           --prefix=$PWD/inst \
           PKG_CONFIG_PATH=$PWD/liblo/inst/lib/pkgconfig
         make install
-        mv -v ./inst/lib/libmapper.15.dylib ./inst/lib/libmapper.15.dylib.x86_64
-        file ./inst/lib/libmapper.15.dylib.x86_64
+        mv -v ./inst/lib/libmapper.16.dylib ./inst/lib/libmapper.16.dylib.x86_64
+        file ./inst/lib/libmapper.16.dylib.x86_64
         mv -v ./inst/lib/libmapper.a ./inst/lib/libmapper.a.x86_64
         lipo -info ./inst/lib/libmapper.a.x86_64
     - name: libmapper create universal binary
@@ -260,11 +260,11 @@ jobs:
         lipo -create -output ./libmapper.a ./libmapper.a.arm64 ./libmapper.a.x86_64
         lipo -info ./libmapper.a
         rm ./libmapper.a.*
-        file ./libmapper.15.dylib.arm64
-        file ./libmapper.15.dylib.x86_64
-        lipo -create -output ./libmapper.15.dylib ./libmapper.15.dylib.arm64 ./libmapper.15.dylib.x86_64
-        file ./libmapper.15.dylib
-        rm ./libmapper.15.dylib.*
+        file ./libmapper.16.dylib.arm64
+        file ./libmapper.16.dylib.x86_64
+        lipo -create -output ./libmapper.16.dylib ./libmapper.16.dylib.arm64 ./libmapper.16.dylib.x86_64
+        file ./libmapper.16.dylib
+        rm ./libmapper.16.dylib.*
         cd ../..
     - name: python wheels
       run:
@@ -405,7 +405,7 @@ jobs:
       - name: install wheel
         run:
           ls
-          && python3 -m pip install libmapper-2.5.2-py3-none-win_amd64.whl
+          && python3 -m pip install libmapper-2.6-py3-none-win_amd64.whl
       - name: checkout
         uses: actions/checkout@v6
         with:
