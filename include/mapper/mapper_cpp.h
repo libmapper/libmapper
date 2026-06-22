@@ -329,6 +329,52 @@ namespace mapper {
         mpr_time _time;
     };
 
+    template<class T>
+    class ListIter {
+    public:
+        ListIter(mpr_list list) {
+            _list = list;
+        }
+
+        T operator*()
+            { return _list ? T(*_list) : T(NULL); }
+        operator T()
+            { return _list ? T(*_list) : T(NULL); }
+
+        operator mpr_list() const {
+            return _list;
+        }
+
+        ListIter operator++(int) {
+            if (_list != nullptr) {
+                auto next = mpr_list_get_next(_list);
+                if (next == nullptr) {
+                    mpr_list_free(_list);
+                }
+                return ListIter(next);
+            } else {
+                return ListIter((mpr_list)nullptr);
+            }
+        }
+
+        ListIter& operator++() {
+            if (_list != nullptr) {
+                auto next = mpr_list_get_next(_list);
+                if (next == nullptr) {
+                    mpr_list_free(next);
+                }
+                _list = next;
+            }
+            return *this;
+        }
+
+        bool operator==(const ListIter& rhs) const
+            { return (_list == rhs._list); }
+
+    private:
+        mpr_list _list;
+    };
+
     /*! List objects provide a lazily-computed iterable list of results
      *  from running queries against a mapper::Graph. */
     template <class T>
@@ -340,34 +386,18 @@ namespace mapper {
         using difference_type = int;
         using pointer = int*;
         using reference = int&;
+        using iter = ListIter<T>;
 
         /* Copy constructor */
         List(const List& orig)
-            : List(mpr_list_get_cpy(orig._list)) {}
-
-        friend void swap(List& first, List& second)
-        {
-            using std::swap;
-            swap(first._list, second._list);
-        }
-
-        /* Copy assignment operator */
-        List& operator=(List orig) noexcept
-        {
-            swap(*this, orig);
-            return *this;
-        }
+            { _list = mpr_list_get_cpy(orig._list); }
 
         /* Move constructor */
         List(List&& orig) noexcept
             { _list = orig._list; orig._list = NULL; }
 
-        /* Move assignment operator */
-        List& operator=(List&& orig) noexcept
-            { std::swap(_list, orig._list); return *this; }
-
         ~List()
-            { mpr_list_free(_list); }
+            { if(_list == nullptr) {return;} mpr_list_free(_list); }
 
         operator mpr_list() { return _list; }
 
@@ -375,14 +405,11 @@ namespace mapper {
             { return (0 == mpr_list_cmp(_list, rhs._list)); }
         bool operator!=(const List& rhs)
             { return (0 != mpr_list_cmp(_list, rhs._list)); }
-        List& operator++()
-            { if (_list) _list = mpr_list_get_next(_list); RETURN_SELF; }
-        List operator++(int)
-            { List tmp(*this); operator++(); return tmp; }
-        List& begin()
-            { RETURN_SELF; }
-        List end()
-            { return List(0); }
+
+        iter begin()
+            { return ListIter<T>(_list); }
+        iter end()
+            { return ListIter<T>((mpr_list)nullptr); }
 
         /*! Return the number of items in a List
          *  \return             The number of items in this list. */
@@ -1903,7 +1930,7 @@ namespace mapper {
         std::string iface() const
         {
             const char *iface = mpr_graph_get_interface(_obj);
-            return iface ? std::string(iface) : std::string();
+            return std::string(iface);
         }
 
         /*! Specify the multicast group and port to use.
