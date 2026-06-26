@@ -1277,33 +1277,34 @@ int mpr_local_dev_has_subscribers(mpr_local_dev dev)
 void mpr_local_dev_send_to_subscribers(mpr_local_dev dev, lo_bundle bundle,
                                        int msg_type, lo_server *servers)
 {
-    mpr_subscriber sub, *sublist = &dev->subscribers;
+    mpr_subscriber *sub = &dev->subscribers;
     mpr_time t;
-    if (!sublist || !*sublist)
+    if (!*sub)
         return;
 
     mpr_time_set(&t, MPR_NOW);
     mpr_time_add_dbl(&t, dev->clk_offset);
 
-    while ((sub = *sublist)) {
-        if (sub->lease_exp < t.sec || !sub->flags) {
+    while (*sub) {
+        if ((*sub)->lease_exp < t.sec || !(*sub)->flags) {
             /* subscription expired, remove from subscriber list */
 #ifdef DEBUG
-            char *addr = lo_address_get_url(sub->addr);
+            char *addr = lo_address_get_url((*sub)->addr);
             trace_dev(dev, "removing expired subscription from %s\n", addr);
 #ifndef WIN32
             /* For some reason Windows thinks return of lo_address_get_url() should not be freed */
             free(addr);
 #endif /* WIN32 */
 #endif /* DEBUG */
-            sublist = &sub->next;
-            FUNC_IF(lo_address_free, sub->addr);
-            free(sub);
+            mpr_subscriber temp = *sub;
+            *sub = temp->next;
+            FUNC_IF(lo_address_free, temp->addr);
+            free(temp);
             continue;
         }
-        if (sub->flags & msg_type)
-            lo_send_bundle_from(sub->addr, servers[MPR_PROTO_TCP == sub->protocol], bundle);
-        sublist = &sub->next;
+        if ((*sub)->flags & msg_type)
+            lo_send_bundle_from((*sub)->addr, servers[MPR_PROTO_TCP == (*sub)->protocol], bundle);
+        sub = &(*sub)->next;
     }
 }
 
