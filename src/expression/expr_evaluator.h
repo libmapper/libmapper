@@ -190,6 +190,9 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
 
         switch (tok->toktype & TOKEN_MASK) {
         case TOK_COND_EVAL: {
+#if TRACE_EVAL
+            printf("\n");
+#endif
             if (v_in && v_out) {
                 /* calculate bitflags for updated sources */
                 // TODO: skip this calculation for subsequent conditional evaluation tokens
