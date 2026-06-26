@@ -2,10 +2,32 @@
 
 import cv2
 import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 import libmapper as mpr
 import signal
+import time
+import sys
+import os
+
+
+MODEL_PATH = 'hand_landmarker.task'
+if not os.path.exists(MODEL_PATH):
+    print(f"Model file '{MODEL_PATH}' not found.")
+    response = input("Would you like to download it now? (y/n): ").strip().lower()
+    if response == 'y':
+        os.system(f'wget -q --show-progress https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task -O {MODEL_PATH}')
+        if not os.path.exists(MODEL_PATH):
+            print("Download failed. Please download manually and re-run.")
+            sys.exit(1)
+        print("Download complete.")
+    else:
+        print("Cannot continue without model file. Exiting.")
+        sys.exit(1)
+
+# New Tasks API drawing utilities
 mp_drawing = mp.solutions.drawing_utils
-mp_hands = mp.solutions.hands
+mp_hands_connections = mp.solutions.hands  # still used for HAND_CONNECTIONS constant
 
 done = False
 
@@ -26,78 +48,86 @@ is_left = dev.add_signal(mpr.Signal.Direction.OUTGOING, "is_left", 1, mpr.Type.I
 
 print(index_tip_pos.properties)
 
-# Begin webcam input for hand tracking:
-hands = mp_hands.Hands(min_detection_confidence=0.8,
-                       min_tracking_confidence=0.5)
+# --- NEW: Set up HandLandmarker via Tasks API ---
+BaseOptions = mp.tasks.BaseOptions
+HandLandmarker = mp.tasks.vision.HandLandmarker
+HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
+VisionRunningMode = mp.tasks.vision.RunningMode
+
+options = HandLandmarkerOptions(
+    base_options=BaseOptions(model_asset_path='hand_landmarker.task'),
+    running_mode=VisionRunningMode.VIDEO,  # VIDEO mode for frame-by-frame webcam loops
+    num_hands=2,
+    min_hand_detection_confidence=0.8,
+    min_tracking_confidence=0.5
+)
 
 cap = cv2.VideoCapture(0)
-
 width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
 height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-
 max_inst_id = -1
 
-while cap.isOpened() and not done:
-    success, image = cap.read()
-    if not success:
-        break
+with HandLandmarker.create_from_options(options) as landmarker:
+    while cap.isOpened() and not done:
+        success, image = cap.read()
+        if not success:
+            break
 
-    # Poll the MediaPipe devices to ensure that the signals are being updated properly
-    dev.poll()
+        dev.poll()
 
-    # Flip the image horizontally for a later selfie-view display, and convert
-    # the BGR image to RGB.
-    image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
+        # Flip and convert to RGB
+        image = cv2.flip(image, 1)
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # To improve performance, optionally mark the image as not writeable to
-    # pass by reference.
-    image.flags.writeable = False
-    results = hands.process(image)
+        # Wrap in MediaPipe Image and detect
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
+        timestamp_ms = int(time.time() * 1000)
+        results = landmarker.detect_for_video(mp_image, timestamp_ms)
 
-    # Draw the hand annotations on the image.
-    image.flags.writeable = True
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        idx = -1
+        if results.hand_landmarks:
+            for i, hand_landmarks in enumerate(results.hand_landmarks):
+                idx += 1
+                print('updating instance', idx)
+                
+                # # --- DEBUG: print all 21 landmarks ---
+                # hand_label = results.handedness[i][0].category_name
+                # print(f"\n--- Hand {idx} ({hand_label}) ---")
+                # for lm_id, lm in enumerate(hand_landmarks):
+                #     print(f"  Landmark {lm_id:02d}: x={lm.x:.4f}  y={lm.y:.4f}  z={lm.z:.4f}")
+                # # -------------------------------------
 
-    idx = -1
-    if results.multi_hand_landmarks:
-        for hand in results.multi_hand_landmarks:
+                # Handedness: results.handedness[i][0].category_name == "Left" or "Right"
+                if results.handedness[i][0].category_name == "Left":
+                    is_left.Instance(idx).set_value(1)
+                else:
+                    is_left.Instance(idx).set_value(0)
 
-            # ----------------------------------------
-            # ESTIMATED HAND LANDMARKS ACCESSIBLE HERE
-            # ----------------------------------------
+                # Landmark 8 = index fingertip, Landmark 4 = thumb tip
+                index_tip_pos.Instance(idx).set_value([hand_landmarks[8].x, hand_landmarks[8].y])
+                thumb_tip_pos.Instance(idx).set_value([hand_landmarks[4].x, hand_landmarks[4].y])
 
-            idx += 1
-            print('updating instance', idx)
+                # Draw landmarks — convert NormalizedLandmark list to proto for drawing util
+                # Easiest approach: use the drawing utils from the legacy module with a hand_landmarks proto
+                # Or draw manually:
+                for lm in hand_landmarks:
+                    cx, cy = int(lm.x * width), int(lm.y * height)
+                    cv2.circle(image, (cx, cy), 4, (92, 49, 29), -1)
 
-#            if results.multi_handedness[results.multi_hand_landmarks.index(hand)].classification[0].label == "Left":
-#                is_left.Instance(idx).set_value(1)
-#            else:
-#                is_left.Instance(idx).set_value(0)
-            index_tip_pos.Instance(idx).set_value([hand.landmark[8].x, hand.landmark[8].y])
-#            thumb_tip_pos.Instance(idx).set_value([hand.landmark[4].x, hand.landmark[4].y])
+        to_release = idx + 1
+        while to_release <= max_inst_id:
+            is_left.Instance(to_release).release()
+            index_tip_pos.Instance(to_release).release()
+            thumb_tip_pos.Instance(to_release).release()
+            to_release += 1
+        max_inst_id = idx
 
-            mp_drawing.draw_landmarks(
-                image, hand, mp_hands.HAND_CONNECTIONS,
-                mp_drawing.DrawingSpec(color=(92, 49, 29), thickness=2, circle_radius=4),
-                mp_drawing.DrawingSpec(color=(201, 107, 62), thickness=2, circle_radius=2))
+        dev.update_maps()
 
-    to_release = idx + 1
-    while to_release <= max_inst_id:
-#        print('releasing instance', to_release)
-        is_left.Instance(to_release).release()
-        index_tip_pos.Instance(to_release).release()
-        thumb_tip_pos.Instance(to_release).release()
-        to_release += 1
-    max_inst_id = idx
-
-#    print('num instances:', max_inst_id + 1)
-    dev.update_maps()
-
-    cv2.imshow('MediaPipe Hands', image)
-
-    if cv2.waitKey(5) & 0xFF == 27:
-        break
+        cv2.imshow('MediaPipe Hands', image)
+        if cv2.waitKey(5) & 0xFF == 27:
+            break
 
 dev.free()
-hands.close()
 cap.release()
+cv2.destroyAllWindows()
