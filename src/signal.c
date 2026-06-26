@@ -2077,15 +2077,23 @@ int mpr_local_sig_check_outgoing(mpr_local_sig sig, int num_dst_sigs, const char
     int i, j;
     for (i = 0; i < sig->num_maps_out; i++) {
         mpr_local_slot slot = sig->slots_out[i];
+        mpr_slot dst_slot;
         mpr_local_map map;
         if (!slot || MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)slot))
             continue;
         map = (mpr_local_map)mpr_slot_get_map((mpr_slot)slot);
+        dst_slot = mpr_map_get_dst_slot((mpr_map)map);
+
+        if (mpr_slot_get_sig(dst_slot) == (mpr_sig)sig) {
+            /* this is a self-map */
+            continue;
+        }
 
         /* check destination */
         for (j = 0; j < num_dst_sigs; j++) {
-            if (!mpr_slot_match_full_name(mpr_map_get_dst_slot((mpr_map)map), dst_sig_names[j]))
+            if (!mpr_slot_match_full_name(dst_slot, dst_sig_names[j])) {
                 return 1;
+            }
         }
     }
     return 0;
