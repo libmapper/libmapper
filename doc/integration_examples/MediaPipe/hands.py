@@ -11,6 +11,9 @@ import sys
 import os
 
 
+DEBUG = False
+
+
 MODEL_PATH = 'hand_landmarker.task'
 if not os.path.exists(MODEL_PATH):
     print(f"Model file '{MODEL_PATH}' not found.")
@@ -91,10 +94,11 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 print('updating instance', idx)
                 
                 # # --- DEBUG: print all 21 landmarks ---
-                # hand_label = results.handedness[i][0].category_name
-                # print(f"\n--- Hand {idx} ({hand_label}) ---")
-                # for lm_id, lm in enumerate(hand_landmarks):
-                #     print(f"  Landmark {lm_id:02d}: x={lm.x:.4f}  y={lm.y:.4f}  z={lm.z:.4f}")
+                if DEBUG:
+                    hand_label = results.handedness[i][0].category_name
+                    print(f"\n--- Hand {idx} ({hand_label}) ---")
+                    for lm_id, lm in enumerate(hand_landmarks):
+                        print(f"  Landmark {lm_id:02d}: x={lm.x:.4f}  y={lm.y:.4f}  z={lm.z:.4f}")
                 # # -------------------------------------
 
                 # Handedness: results.handedness[i][0].category_name == "Left" or "Right"
@@ -107,9 +111,7 @@ with HandLandmarker.create_from_options(options) as landmarker:
                 index_tip_pos.Instance(idx).set_value([hand_landmarks[8].x, hand_landmarks[8].y])
                 thumb_tip_pos.Instance(idx).set_value([hand_landmarks[4].x, hand_landmarks[4].y])
 
-                # Draw landmarks — convert NormalizedLandmark list to proto for drawing util
-                # Easiest approach: use the drawing utils from the legacy module with a hand_landmarks proto
-                # Or draw manually:
+
                 for lm in hand_landmarks:
                     cx, cy = int(lm.x * width), int(lm.y * height)
                     cv2.circle(image, (cx, cy), 4, (92, 49, 29), -1)

@@ -33,11 +33,9 @@ dev = mpr.Device("head_pose")
 gaze_ratio_sig = dev.add_signal(mpr.Signal.Direction.OUTGOING, "gaze_ratio", 1, mpr.Type.FLOAT)
 mouth_size_sig = dev.add_signal(mpr.Signal.Direction.OUTGOING, "mouth_size", 2, mpr.Type.FLOAT)
 
-# --- Gaze ratio helper ---
 def gaze_ratio(left, right, pupil):
     return (pupil.x - left.x) / (right.x - left.x)
 
-# --- New Tasks API setup ---
 BaseOptions = mp.tasks.BaseOptions
 FaceLandmarker = mp.tasks.vision.FaceLandmarker
 FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
@@ -51,8 +49,7 @@ options = FaceLandmarkerOptions(
     min_tracking_confidence=0.5
 )
 
-# --- Debug flag ---
-DEBUG = True
+DEBUG = False
 
 cap = cv2.VideoCapture(0)
 width  = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -76,18 +73,11 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         if results.face_landmarks:
             for face_idx, face_landmarks in enumerate(results.face_landmarks):
 
-                # ----------------------------------------
-                # ESTIMATED FACE LANDMARKS ACCESSIBLE HERE
-                # ----------------------------------------
-
-                # --- DEBUG: print all 478 landmarks ---
                 if DEBUG:
                     print(f"\n--- Face {face_idx} ({len(face_landmarks)} landmarks) ---")
                     for lm_id, lm in enumerate(face_landmarks):
                         print(f"  Landmark {lm_id:03d}: x={lm.x:.4f}  y={lm.y:.4f}  z={lm.z:.4f}")
-                # ---------------------------------------
 
-                # Draw landmarks manually (Tasks API returns plain lists, not protos)
                 for lm in face_landmarks:
                     cx, cy = int(lm.x * width), int(lm.y * height)
                     cv2.circle(image, (cx, cy), 1, (0, 200, 100), -1)
