@@ -1,6 +1,13 @@
 # libmapper NEWS
 
-version 2.6
+Version 2.6.1
+-------------
+
+We are pleased to announce the release of version 2.6.1 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+The main focus of this release is a bugfix for graph subscription handling. It also includes improvements for dealing with self-maps and updates for the MediaPipe integration example scripts.
+
+Version 2.6
 -----------
 
 We are pleased to announce the release of version 2.6 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
@@ -72,7 +79,7 @@ C++ Bindings:
 - Fixed memory leak in `List` class
 - Fixed null `std::string`
 
-version 2.5.2
+Version 2.5.2
 -------------
 
 We are pleased to announce the release of version 2.5.2 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
@@ -116,14 +123,14 @@ CI:
 - CI/Windows: install Python setuptools
 
 
-version 2.5.1
+Version 2.5.1
 -------------
 
 We are pleased to announce the release of version 2.5.1 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
 This version focuses only on tooling for building Python wheels and continuous integration.
 
-version 2.5
+Version 2.5
 --------------
 
 We are pleased to announce the release of version 2.5 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
@@ -189,7 +196,7 @@ Testing suite:
 - Added shared-graph mode to testsignalhierarchy.
 - Added some automation for running Valgrind tests.
 
-version 2.4.14
+Version 2.4.14
 --------------
 
 We are pleased to announce the release of version 2.4.14 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
